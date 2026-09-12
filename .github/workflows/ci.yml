@@ -1,0 +1,95 @@
+name: Candidate validation
+
+'on':
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7, resolved 2026-09-12
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6, resolved 2026-09-12
+        with:
+          python-version: '3.12.12'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6, resolved 2026-09-12
+        with:
+          node-version: '24.20.0'
+          package-manager-cache: false
+      - name: Install declared dependencies
+        run: python -m pip install -r apps/crm/requirements.lock -r requirements-dev.txt
+      - name: Dependency consistency
+        run: python -m pip check
+      - name: Distribution and private recovery guards
+        run: python -m unittest discover -s tests -v
+      - name: Browser script contracts (no real platform requests)
+        run: node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
+      - name: Complete synthetic SQLite compatibility regression
+        run: python scripts/run_application_tests.py
+
+  postgres-and-compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7, resolved 2026-09-12
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6, resolved 2026-09-12
+        with:
+          python-version: '3.12.12'
+      - name: Install application dependencies
+        run: python -m pip install -r apps/crm/requirements.lock
+      - name: PostgreSQL 18 from the official package repository (ephemeral runner only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          sudo install -m 0644 deploy/ci/pgdg.sources /etc/apt/sources.list.d/newcrown-ci-pgdg.sources
+          sudo apt-get update
+          sudo apt-get install -y postgresql-18
+      - name: Isolated PostgreSQL lifecycle and website-to-CRM HTTP
+        run: python scripts/test_postgres_install.py --pg-bin /usr/lib/postgresql/18/bin --http
+      - name: Generate synthetic installation configuration
+        run: python scripts/configure.py
+      - name: Validate and build all images without publication
+        run: |
+          docker compose config --quiet
+          docker compose build
+          docker compose --profile maintenance build maintenance
+      - name: Start only this ephemeral candidate stack
+        run: docker compose up -d
+      - name: Check real container entrypoints and default-disabled measurement
+        run: python scripts/check_local_stack.py --url http://127.0.0.1:8088/ --wait-seconds 180
+      - name: Check maintenance entrypoints without accessing business records
+        run: |
+          sudo install -d -m 0700 -o 10001 -g 10001 ./backups
+          docker compose run --rm --no-deps maintenance --help
+          docker compose run --rm --no-deps filebackup --help
+          docker compose run --rm --no-deps filerestore --help
+      - name: Export worker handles actual container SIGTERM
+        run: |
+          docker compose stop exports
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$(docker compose ps -a -q exports)")" = "0"
+          docker compose up -d --no-deps exports
+      - name: Show only container state
+        if: always()
+        run: docker compose ps -a
+      - name: Stop only this disposable runner's project (keep volumes until runner disposal)
+        if: always()
+        run: docker compose down
+
+# Deliberately no deployment, registry login, artifact upload, repository write,
+# secrets context, pull_request_target or persistent self-hosted runner.

@@ -1,0 +1,162 @@
+<section class="editor-shell">
+    <form method="post" enctype="multipart/form-data" class="editor-layout">
+        {% csrf_token %}
+
+        <div class="editor-main">
+            {% if import_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in import_form.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>导入设置</h2>
+                        <p>上传 zip 文件。每篇文章一个 md、markdown 或 txt 文件；文件内可选简单 front matter。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ import_form.import_file.label }}</span>
+                        {{ import_form.import_file }}
+                        {% if import_form.import_file.help_text %}<small class="field-help">{{ import_form.import_file.help_text }}</small>{% endif %}
+                        {% for error in import_form.import_file.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <div class="field-grid cols-1">
+                        <label class="field field-block">
+                            <span class="field-label">{{ import_form.default_status.label }}</span>
+                            {{ import_form.default_status }}
+                            {% for error in import_form.default_status.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ import_form.default_category.label }}</span>
+                            {{ import_form.default_category }}
+                            {% for error in import_form.default_category.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>Front matter 规范</h2>
+                        <p>不需要复杂格式。每行一个键值对，正文仍然是 Markdown。</p>
+                    </div>
+                </div>
+                <pre class="code-block">---
+title: Bottled Water Line Planning
+slug: bottled_water_line_planning
+category_code: news
+status: draft
+published_at: 2026-04-25T10:00
+excerpt: Short summary for list and SEO.
+author_name: SiteOS Team
+reading_minutes: 4
+meta_description: Meta description here.
+og_title: Social title here.
+og_description: Social description here.
+robots: index,follow,max-image-preview:large
+---
+# Bottled Water Line Planning
+
+Markdown body starts here.</pre>
+                <ul class="hint-list">
+                    <li>支持键：<code>title</code>、<code>slug</code>、<code>category_code</code>、<code>status</code>、<code>published_at</code>、<code>excerpt</code>、<code>author_name</code>、<code>reading_minutes</code>、<code>meta_description</code>、<code>og_title</code>、<code>og_description</code>、<code>og_image_url</code>、<code>robots</code>。</li>
+                    <li>如果文件里没有 <code>title</code>，系统会优先读取正文里的一级标题。</li>
+                    <li>如果文件里没有 <code>category_code</code>，就使用右侧选择的默认分类。</li>
+                    <li>同一语言下如果 <code>slug</code> 已存在，本次导入会更新原文章，而不是再建一篇。</li>
+                </ul>
+            </section>
+
+            {% if import_result %}
+                <section class="editor-card">
+                    <div class="editor-card-head">
+                        <div>
+                            <h2>导入结果</h2>
+                            <p>共处理 {{ import_result.total }} 个文件。新增 {{ import_result.created }}，更新 {{ import_result.updated }}，失败 {{ import_result.failed }}，跳过 {{ import_result.skipped }}。</p>
+                        </div>
+                    </div>
+                    <div class="table-shell">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>文件</th>
+                                    <th>结果</th>
+                                    <th>标题</th>
+                                    <th>路径</th>
+                                    <th>说明</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in import_result.entries %}
+                                    <tr>
+                                        <td class="mono">{{ entry.filename }}</td>
+                                        <td>{{ entry.status }}</td>
+                                        <td>{{ entry.title|default:'-' }}</td>
+                                        <td class="mono">{{ entry.path|default:'-' }}</td>
+                                        <td>{{ entry.message }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            {% endif %}
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>操作</h2>
+                        <p>导入会直接写入数据库；前台仍然通过发布快照和构建产物读取文章。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">开始导入</button>
+                    <a href="{% url 'console:articles' %}?locale={{ editor_locale.locale_code }}" class="button neutral">返回文章列表</a>
+                    <a href="{% url 'console:article_export' %}?locale={{ editor_locale.locale_code }}" class="button neutral">批量导出当前语言</a>
+                    <a href="{% url 'console:article_create' %}?locale={{ editor_locale.locale_code }}" class="button neutral">新建文章</a>
+                    <a href="{% url 'console:article_categories' %}?locale={{ editor_locale.locale_code }}" class="button neutral">分类管理</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>当前语言</h2>
+                        <p>文章是一语言一篇。导入时只会落到当前语言，不会自动翻译。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item">
+                        <span>语言</span>
+                        <strong>{{ editor_locale.label }} ({{ editor_locale.locale_code }})</strong>
+                    </div>
+                    <div class="meta-item">
+                        <span>文章路径前缀</span>
+                        <strong class="mono">/{{ editor_locale.locale_code }}/articles/</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>边界</h2>
+                        <p>这里只做规范文章导入，不做自由页、HTML 模板或脚本导入。</p>
+                    </div>
+                </div>
+                <ul class="hint-list">
+                    <li>适合批量导入 news、help、case study、insight 这类规范内容。</li>
+                    <li>不支持 RTF、DOCX、HTML，避免富文本解析和脚本注入风险。</li>
+                    <li>如果要做复杂页面或交互，仍然交给前端代码维护。</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

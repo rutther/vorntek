@@ -1,0 +1,310 @@
+<section class="three-d-redesign">
+    <form method="post" class="three-d-profile-editor" id="threeDProfileForm">
+        {% csrf_token %}
+
+        <header class="three-d-pagehead">
+            <div>
+                <nav class="three-d-crumb" aria-label="当前位置">
+                    <a href="{% url 'console:assets_three_d' %}">3D 展示管理</a>
+                    <span>/</span>
+                    <strong>{% if three_d_profile %}{{ three_d_profile.name }}{% else %}新建展示配置{% endif %}</strong>
+                </nav>
+                <h2>{% if three_d_profile %}{{ three_d_profile.name }}{% else %}新建展示配置{% endif %}</h2>
+                <p>展示配置只描述模型在页面中的视角、背景、播放和交互方式，不修改源文件。</p>
+            </div>
+            <div class="three-d-pagehead__actions">
+                {% if three_d_placement %}
+                    <a href="{% url 'console:three_d_placement_edit' three_d_placement.id %}" class="button neutral">查看绑定槽位</a>
+                {% endif %}
+                <button type="submit" class="button primary">保存配置</button>
+            </div>
+        </header>
+
+        <div class="three-d-editor-layout">
+            <div class="three-d-editor-main">
+                {% if three_d_profile_form.non_field_errors %}
+                    <div class="form-errors">
+                        {% for error in three_d_profile_form.non_field_errors %}
+                            <div class="field-error">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <section class="three-d-form-section">
+                    <div class="three-d-form-section__head">
+                        <span>01</span>
+                        <div>
+                            <h3>配置对象</h3>
+                            <p>命名配置、选择 3D 资产，并标记它适合使用在哪类页面位置。</p>
+                        </div>
+                    </div>
+                    <div class="three-d-fields two">
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_profile_form.name.label }}</span>
+                            {{ three_d_profile_form.name }}
+                            {% for error in three_d_profile_form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_profile_form.code.label }}</span>
+                            {{ three_d_profile_form.code }}
+                            {% for error in three_d_profile_form.code.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_profile_form.asset.label }}</span>
+                            {{ three_d_profile_form.asset }}
+                            {% for error in three_d_profile_form.asset.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_profile_form.purpose.label }}</span>
+                            {{ three_d_profile_form.purpose }}
+                            {% for error in three_d_profile_form.purpose.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_profile_form.status.label }}</span>
+                            {{ three_d_profile_form.status }}
+                            {% for error in three_d_profile_form.status.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                </section>
+
+                <section class="three-d-form-section">
+                    <div class="three-d-form-section__head">
+                        <span>02</span>
+                        <div>
+                            <h3>视觉参数</h3>
+                            <p>背景色会直接影响模型可读性。建议用低干扰深色或浅灰背景。</p>
+                        </div>
+                    </div>
+                    <div class="three-d-fields one">
+                        <div class="field field-block">
+                            <span class="field-label">{{ three_d_profile_form.background_color.label }}</span>
+                            {% with bg_value=three_d_profile_form.background_color.value|default:'#000000' %}
+                                <div class="three-d-color-editor">
+                                    <input type="color" id="backgroundColorPicker" value="{{ bg_value }}" aria-label="选择背景色">
+                                    {{ three_d_profile_form.background_color }}
+                                    <button type="button" class="button neutral compact" data-color-preset="#0d1117">深色</button>
+                                    <button type="button" class="button neutral compact" data-color-preset="#f3f5f8">浅灰</button>
+                                </div>
+                            {% endwith %}
+                            {% if three_d_profile_form.background_color.help_text %}<small class="field-help">{{ three_d_profile_form.background_color.help_text }}</small>{% endif %}
+                            {% for error in three_d_profile_form.background_color.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                </section>
+
+                <section class="three-d-form-section">
+                    <div class="three-d-form-section__head">
+                        <span>03</span>
+                        <div>
+                            <h3>初始视角</h3>
+                            <p>先在右侧预览中拖到合适角度，再读取当前视角写回表单。</p>
+                        </div>
+                    </div>
+                    <div class="three-d-camera-grid">
+                        <div class="three-d-vector-label">相机位置</div>
+                        <label class="field field-block"><span class="field-label">X</span>{{ three_d_profile_form.camera_position_x }}{% for error in three_d_profile_form.camera_position_x.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                        <label class="field field-block"><span class="field-label">Y</span>{{ three_d_profile_form.camera_position_y }}{% for error in three_d_profile_form.camera_position_y.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                        <label class="field field-block"><span class="field-label">Z</span>{{ three_d_profile_form.camera_position_z }}{% for error in three_d_profile_form.camera_position_z.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+
+                        <div class="three-d-vector-label">观察目标</div>
+                        <label class="field field-block"><span class="field-label">X</span>{{ three_d_profile_form.camera_target_x }}{% for error in three_d_profile_form.camera_target_x.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                        <label class="field field-block"><span class="field-label">Y</span>{{ three_d_profile_form.camera_target_y }}{% for error in three_d_profile_form.camera_target_y.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                        <label class="field field-block"><span class="field-label">Z</span>{{ three_d_profile_form.camera_target_z }}{% for error in three_d_profile_form.camera_target_z.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+
+                        <div class="three-d-vector-label">镜头</div>
+                        <label class="field field-block"><span class="field-label">{{ three_d_profile_form.fov.label }}</span>{{ three_d_profile_form.fov }}{% for error in three_d_profile_form.fov.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                    </div>
+                </section>
+
+                <section class="three-d-form-section">
+                    <div class="three-d-form-section__head">
+                        <span>04</span>
+                        <div>
+                            <h3>播放与交互</h3>
+                            <p>控制页面打开后是否自动环绕展示，以及访客是否可以拖拽缩放。</p>
+                        </div>
+                    </div>
+                    <div class="three-d-toggle-grid">
+                        <label class="three-d-switch">
+                            {{ three_d_profile_form.auto_rotate }}
+                            <span>自动旋转</span>
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_profile_form.auto_rotate_duration.label }}</span>
+                            {{ three_d_profile_form.auto_rotate_duration }}
+                            <small class="field-help">建议 15-35 秒。数值越大，旋转越慢。</small>
+                            {% for error in three_d_profile_form.auto_rotate_duration.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="three-d-switch">
+                            {{ three_d_profile_form.allow_interaction }}
+                            <span>允许拖拽缩放</span>
+                        </label>
+                        <label class="three-d-switch">
+                            {{ three_d_profile_form.show_ui }}
+                            <span>显示 viewer 控件</span>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="three-d-form-section">
+                    <div class="three-d-form-section__head">
+                        <span>05</span>
+                        <div>
+                            <h3>备注</h3>
+                            <p>记录交付说明、业务用途或后续处理建议。</p>
+                        </div>
+                    </div>
+                    <label class="field field-block three-d-note-field">
+                        <span class="field-label">{{ three_d_profile_form.notes.label }}</span>
+                        {{ three_d_profile_form.notes }}
+                        {% for error in three_d_profile_form.notes.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </section>
+            </div>
+
+            <aside class="three-d-inspector">
+                <section class="three-d-sidebox">
+                    <div class="three-d-sidebox__head">
+                        <div>
+                            <h3>实时预览</h3>
+                            {% if three_d_slot_label %}
+                                <p>当前被 {{ three_d_slot_label }} 使用。</p>
+                            {% else %}
+                                <p>保存后可绑定到页面槽位。</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if three_d_preview_url %}
+                        <div class="three-d-live-preview">
+                            <iframe id="threeDPreviewFrame" src="{{ three_d_preview_url }}" title="3D 预览"></iframe>
+                        </div>
+                        <div class="three-d-preview-tools">
+                            <button type="button" class="button neutral compact" id="refreshThreeDPreview">刷新预览</button>
+                            <button type="button" class="button compact" id="captureThreeDCamera">读取当前视角</button>
+                        </div>
+                        <div class="three-d-meta-list">
+                            <div>
+                                <span>资产路径</span>
+                                <strong class="mono">{{ three_d_profile.asset.public_path }}</strong>
+                            </div>
+                            <div>
+                                <span>预览链接</span>
+                                <strong class="mono" id="threeDPreviewUrl">{{ three_d_preview_url }}</strong>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="three-d-empty-preview">保存配置后生成预览入口。</div>
+                    {% endif %}
+                </section>
+
+                <section class="three-d-sidebox">
+                    <h3>生效流程</h3>
+                    <ol class="three-d-steps">
+                        <li><span>1</span>保存配置到数据库</li>
+                        <li><span>2</span>返回 3D 展示管理生成预览产物</li>
+                        <li><span>3</span>刷新前台页面读取最新快照</li>
+                    </ol>
+                </section>
+            </aside>
+        </div>
+    </form>
+</section>
+
+{% if three_d_preview_url %}
+<script>
+(() => {
+    const frame = document.getElementById('threeDPreviewFrame');
+    const urlText = document.getElementById('threeDPreviewUrl');
+    const refreshButton = document.getElementById('refreshThreeDPreview');
+    const captureButton = document.getElementById('captureThreeDCamera');
+    if (!frame) return;
+
+    const fields = {
+        px: document.getElementById('id_camera_position_x'),
+        py: document.getElementById('id_camera_position_y'),
+        pz: document.getElementById('id_camera_position_z'),
+        tx: document.getElementById('id_camera_target_x'),
+        ty: document.getElementById('id_camera_target_y'),
+        tz: document.getElementById('id_camera_target_z'),
+        fov: document.getElementById('id_fov'),
+        bg: document.getElementById('id_background_color'),
+        autoRotate: document.getElementById('id_auto_rotate'),
+        spin: document.getElementById('id_auto_rotate_duration'),
+        showUi: document.getElementById('id_show_ui'),
+        allowInteraction: document.getElementById('id_allow_interaction'),
+    };
+    const colorPicker = document.getElementById('backgroundColorPicker');
+
+    const isHex = (value) => /^#[0-9a-fA-F]{6}$/.test(value || '');
+
+    function refreshPreview() {
+        const next = new URL(frame.src, window.location.href);
+        [['px', fields.px], ['py', fields.py], ['pz', fields.pz], ['tx', fields.tx], ['ty', fields.ty], ['tz', fields.tz], ['fov', fields.fov]].forEach(([key, field]) => {
+            if (field?.value !== '') next.searchParams.set(key, field.value);
+        });
+        if (fields.bg?.value) next.searchParams.set('bg', fields.bg.value);
+        if (fields.autoRotate?.checked) {
+            next.searchParams.delete('noanim');
+            next.searchParams.set('spin', fields.spin?.value || '20');
+        } else {
+            next.searchParams.set('noanim', '1');
+            next.searchParams.delete('spin');
+        }
+        if (fields.showUi?.checked) next.searchParams.delete('noui');
+        else next.searchParams.set('noui', '1');
+        if (fields.allowInteraction?.checked) next.searchParams.delete('locked');
+        else next.searchParams.set('locked', '1');
+        const url = next.toString();
+        frame.src = url;
+        if (urlText) urlText.textContent = url;
+    }
+
+    colorPicker?.addEventListener('input', () => {
+        if (!fields.bg) return;
+        fields.bg.value = colorPicker.value;
+        refreshPreview();
+    });
+
+    fields.bg?.addEventListener('input', () => {
+        if (colorPicker && isHex(fields.bg.value)) colorPicker.value = fields.bg.value;
+    });
+
+    document.querySelectorAll('[data-color-preset]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const color = button.getAttribute('data-color-preset');
+            if (!color || !fields.bg) return;
+            fields.bg.value = color;
+            if (colorPicker) colorPicker.value = color;
+            refreshPreview();
+        });
+    });
+
+    refreshButton?.addEventListener('click', refreshPreview);
+    captureButton?.addEventListener('click', () => {
+        frame.contentWindow?.postMessage({ type: 'siteos:getCamera' }, '*');
+    });
+
+    window.addEventListener('message', (event) => {
+        const data = event.data || {};
+        if (data.type !== 'siteos:camera') return;
+        const camera = data.camera || {};
+        const position = camera.position || {};
+        const target = camera.target || {};
+        const set = (field, value) => {
+            if (!field || typeof value !== 'number' || !Number.isFinite(value)) return;
+            field.value = value.toFixed(4);
+        };
+        set(fields.px, position.x);
+        set(fields.py, position.y);
+        set(fields.pz, position.z);
+        set(fields.tx, target.x);
+        set(fields.ty, target.y);
+        set(fields.tz, target.z);
+        if (fields.fov && typeof camera.fov === 'number' && Number.isFinite(camera.fov)) {
+            fields.fov.value = camera.fov.toFixed(3);
+        }
+        refreshPreview();
+    });
+})();
+</script>
+{% endif %}

@@ -1,0 +1,66 @@
+<section class="editor-shell">
+    <form method="post" class="editor-layout">
+        {% csrf_token %}
+
+        <div class="editor-main">
+            {% if locale_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in locale_form.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>新增语言</h2>
+                        <p>新增语言会复制现有语言的文章、分类、导航和页面结构。后续再由运营与程序员分别完善内容和代码。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ locale_form.source_locale.label }}</span>
+                        {{ locale_form.source_locale }}
+                        {% for error in locale_form.source_locale.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ locale_form.target_locale.label }}</span>
+                        {{ locale_form.target_locale }}
+                        {% for error in locale_form.target_locale.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>操作</h2>
+                        <p>这里会执行语言初始化，不是只加一个空语言壳。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">创建语言并初始化</button>
+                    <a href="{% url 'console:articles' %}?locale={{ editor_locale.locale_code }}&panel=locale-manager" class="button neutral">返回语言管理</a>
+                    <a href="{% url 'console:articles' %}?locale={{ editor_locale.locale_code }}" class="button neutral">返回文章列表</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>说明</h2>
+                        <p>新增语言时，会从来源语言复制分类树、路由、文章、导航和组件绑定。</p>
+                    </div>
+                </div>
+                <ul class="hint-list">
+                    <li>语言启停和默认语言切换不在文章工具栏里完成，而在语言管理面板完成。</li>
+                    <li>危险的硬删除不开放给运营；语言应优先停用，而不是直接删除整套内容。</li>
+                    <li>阿拉伯语会自动使用 RTL 方向；其余当前支持语言使用 LTR。</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

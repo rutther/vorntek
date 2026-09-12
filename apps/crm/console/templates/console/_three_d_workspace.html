@@ -1,0 +1,245 @@
+{% with workspace=three_d_workspace %}
+<div class="three-d-redesign">
+    <header class="three-d-pagehead">
+        <div>
+            <nav class="three-d-crumb" aria-label="当前位置">
+                <a href="{{ workspace.assetsUrl }}">资产库</a>
+                <span>/</span>
+                <strong>3D 展示管理</strong>
+            </nav>
+            <h2>3D 展示管理</h2>
+            <p>先管理 3D 文件，再创建展示配置，最后把配置绑定到首页 Hero、设备预览等页面槽位。前台只读取生成后的预览产物。</p>
+        </div>
+        <div class="three-d-pagehead__actions">
+            {% if workspace.uploadUrl %}<a class="button neutral" href="{{ workspace.uploadUrl }}">上传资产</a>{% endif %}
+            {% if workspace.importUrl %}<a class="button neutral" href="{{ workspace.importUrl }}">本地导入</a>{% endif %}
+            {% if workspace.createProfileUrl %}<a class="button primary" href="{{ workspace.createProfileUrl }}">新建展示配置</a>{% endif %}
+        </div>
+    </header>
+
+    <div class="three-d-layout">
+        <div class="three-d-main">
+            <section class="three-d-strip" aria-label="3D 管理概览">
+                <div>
+                    <span>3D 资产</span>
+                    <strong>{{ workspace.assetCount }}</strong>
+                </div>
+                <div>
+                    <span>展示配置</span>
+                    <strong>{{ workspace.profileCount }}</strong>
+                </div>
+                <div>
+                    <span>页面槽位</span>
+                    <strong>{{ workspace.placementCount }}</strong>
+                </div>
+                <div>
+                    <span>未绑定槽位</span>
+                    <strong>{{ workspace.unboundSlotCount }}</strong>
+                </div>
+            </section>
+
+            <section class="three-d-block">
+                <div class="three-d-block__head">
+                    <div>
+                        <h3>3D 资产</h3>
+                        <p>资产是源文件。它可以被多套展示配置复用，但不直接等于页面展示效果。</p>
+                    </div>
+                </div>
+                <div class="three-d-table-wrap">
+                    <table class="three-d-grid-table three-d-grid-table--assets">
+                        <thead>
+                            <tr>
+                                <th>资产</th>
+                                <th>公开路径</th>
+                                <th>大小</th>
+                                <th>使用情况</th>
+                                <th>最近更新</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for asset in workspace.assets %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ asset.name }}</strong>
+                                        <span>{{ asset.ext }}</span>
+                                    </td>
+                                    <td><code>{{ asset.publicPath }}</code></td>
+                                    <td class="three-d-compact">{{ asset.size }}</td>
+                                    <td>
+                                        <strong>{{ asset.profileCount }} 套配置</strong>
+                                        <span>{{ asset.slotCount }} 个页面引用</span>
+                                    </td>
+                                    <td class="three-d-date">{{ asset.updatedAt }}</td>
+                                    <td>
+                                        <a class="table-button" href="{{ asset.detailUrl }}">详情</a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                {% if workspace.permissions.canWrite %}
+                                    {% if workspace.permissions.canImportLocal %}
+                                        <tr><td colspan="6" class="empty-cell">还没有 3D 资产。可上传或本地导入 SOG、PLY、GLB 文件。</td></tr>
+                                    {% else %}
+                                        <tr><td colspan="6" class="empty-cell">还没有 3D 资产。可上传 SOG、PLY、GLB 文件。</td></tr>
+                                    {% endif %}
+                                {% else %}
+                                    <tr><td colspan="6" class="empty-cell">当前站点还没有 3D 资产。当前账号仅可查看；需要新增时，请联系具备资产写入权限的成员。</td></tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="three-d-block">
+                <div class="three-d-block__head">
+                    <div>
+                        <h3>展示配置</h3>
+                        <p>一套配置描述一个模型在页面里的背景、视角、FOV、旋转和交互方式。</p>
+                    </div>
+                </div>
+                <div class="three-d-table-wrap">
+                    <table class="three-d-grid-table three-d-grid-table--profiles">
+                        <thead>
+                            <tr>
+                                <th>配置</th>
+                                <th>3D 资产</th>
+                                <th>用途</th>
+                                <th>展示参数</th>
+                                <th>绑定与状态</th>
+                                {% if workspace.permissions.canWrite %}<th class="three-d-grid-actions">操作</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for profile in workspace.profiles %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ profile.name }}</strong>
+                                        <span>{{ profile.code }}</span>
+                                    </td>
+                                    <td><span>{{ profile.assetName }}</span></td>
+                                    <td><span>{{ profile.purposeLabel }}</span></td>
+                                    <td>
+                                        <div class="three-d-color-cell">
+                                            <i style="background: {{ profile.background }}"></i>
+                                            <code>{{ profile.background }}</code>
+                                        </div>
+                                        <span>FOV {{ profile.fov }} · {{ profile.autoRotateLabel }} · {{ profile.interactionLabel }}</span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ profile.slotLabels }}</strong>
+                                        <span>{{ profile.slotCount }} 个槽位 · {{ profile.statusLabel }}</span>
+                                    </td>
+                                    {% if workspace.permissions.canWrite %}
+                                        <td class="three-d-grid-actions"><a class="table-button" href="{{ profile.editUrl }}">编辑</a></td>
+                                    {% endif %}
+                                </tr>
+                            {% empty %}
+                                {% if workspace.permissions.canWrite %}
+                                    <tr><td colspan="6" class="empty-cell">还没有展示配置。请选择 3D 资产并创建一套展示配置。</td></tr>
+                                {% else %}
+                                    <tr><td colspan="5" class="empty-cell">当前站点还没有展示配置。当前账号仅可查看；需要新增时，请联系具备资产写入权限的成员。</td></tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="three-d-block">
+                <div class="three-d-block__head three-d-block__head--split">
+                    <div>
+                        <h3>页面槽位</h3>
+                        <p>槽位是前台代码读取的稳定位置，例如首页 Hero 背景、首页 3D 设备预览。</p>
+                    </div>
+                    {% if workspace.createPlacementUrl %}<a class="button neutral" href="{{ workspace.createPlacementUrl }}">新增页面槽位</a>{% endif %}
+                </div>
+                <div class="three-d-table-wrap">
+                    <table class="three-d-grid-table three-d-grid-table--placements">
+                        <thead>
+                            <tr>
+                                <th>页面位置</th>
+                                <th>槽位代码</th>
+                                <th>当前配置</th>
+                                <th>3D 资产</th>
+                                <th>状态</th>
+                                {% if workspace.permissions.canWrite %}<th class="three-d-grid-actions">操作</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for placement in workspace.placements %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ placement.slotLabel }}</strong>
+                                        <span>{{ placement.name }}</span>
+                                    </td>
+                                    <td><code>{{ placement.slotCode }}</code></td>
+                                    <td>
+                                        <strong>{{ placement.profileName }}</strong>
+                                        <span>{{ placement.profileCode }}</span>
+                                    </td>
+                                    <td><span>{{ placement.assetName }}</span></td>
+                                    <td>
+                                        <span class="status-pill {{ placement.statusTone }}">{{ placement.statusLabel }}</span>
+                                        <span>{{ placement.updatedAt }}</span>
+                                    </td>
+                                    {% if workspace.permissions.canWrite %}
+                                        <td class="three-d-grid-actions">
+                                            <a class="table-button" href="{{ placement.editUrl }}">编辑槽位</a>
+                                            <a class="table-button" href="{{ placement.profileEditUrl }}">配置</a>
+                                        </td>
+                                    {% endif %}
+                                </tr>
+                            {% empty %}
+                                {% if workspace.permissions.canWrite %}
+                                    <tr><td colspan="6" class="empty-cell">还没有页面槽位。请新增槽位并绑定展示配置。</td></tr>
+                                {% else %}
+                                    <tr><td colspan="5" class="empty-cell">当前站点还没有页面槽位。当前账号仅可查看；需要绑定时，请联系具备资产写入权限的成员。</td></tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <aside class="three-d-side">
+            <section class="three-d-sidebox">
+                <h3>发布状态</h3>
+                <p>后台保存的是编辑态数据。前台首页和产品页读取的是预览产物。</p>
+                {% if workspace.buildPreviewUrl %}
+                    <form action="{{ workspace.buildPreviewUrl }}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="button primary wide">生成预览产物</button>
+                    </form>
+                {% else %}
+                    <p>当前账号可查看配置，但没有执行预览构建的权限。</p>
+                {% endif %}
+            </section>
+
+            <section class="three-d-sidebox">
+                <h3>就绪检查</h3>
+                <ul class="three-d-checklist">
+                    {% for check in workspace.checks %}
+                        <li class="{% if check.ok %}is-ok{% else %}is-pending{% endif %}">
+                            <span></span>
+                            <strong>{{ check.label }}</strong>
+                        </li>
+                    {% endfor %}
+                </ul>
+                <p>{{ workspace.previewGuidance }}</p>
+            </section>
+
+            <section class="three-d-sidebox">
+                <h3>推荐流程</h3>
+                <ol class="three-d-steps">
+                    <li><span>1</span>确认 3D 文件已入库</li>
+                    <li><span>2</span>创建展示配置并调好视角</li>
+                    <li><span>3</span>把配置绑定到页面槽位</li>
+                    <li><span>4</span>生成预览产物后刷新前台</li>
+                </ol>
+            </section>
+        </aside>
+    </div>
+</div>
+{% endwith %}

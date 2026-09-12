@@ -1,0 +1,103 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+
+{% block title %}{% if workspace.error %}任务暂时不可用{% else %}{{ workspace.record.title }}{% endif %} · {{ brand_name }} 后台{% endblock %}
+{% block body_class %}nc-task-detail-page{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/v2/tasks.css' %}?v=20260831-1">{% endblock %}
+{% block breadcrumb %}<span>销售</span><i data-lucide="chevron-right" aria-hidden="true"></i><a href="{% url 'console:task_workspace_v2' %}">任务</a>{% if not workspace.error %}<i data-lucide="chevron-right" aria-hidden="true"></i><strong>{{ workspace.record.title }}</strong>{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 nc-task-detail" data-nc-task-page data-nc-reload-url="{{ workspace.canonical_url }}">
+    {% if workspace.error %}
+        <section class="card nc-task-state" aria-labelledby="task-detail-error-title"><div class="card-body"><span class="avatar avatar-lg bg-red-lt text-red"><i data-lucide="database-zap" aria-hidden="true"></i></span><h1 id="task-detail-error-title">任务暂时不可用</h1><p>系统没有返回不完整的任务信息。请稍后重新加载。</p><a class="btn btn-primary" href="{% url 'console:task_workspace_v2' %}">返回任务列表</a></div></section>
+    {% else %}
+        <header class="nc-task-detail-hero">
+            <div class="min-w-0">
+                <a class="btn btn-ghost-secondary btn-sm mb-2" href="{{ workspace.list_url }}"><i data-lucide="arrow-left" aria-hidden="true"></i>返回任务列表</a>
+                <div class="d-flex align-items-center flex-wrap gap-2"><h1 class="page-title">{{ workspace.record.title }}</h1><span class="badge bg-{{ workspace.record.status_tone }}-lt text-{{ workspace.record.status_tone }}">{{ workspace.record.status_label }}</span><span class="badge bg-{{ workspace.record.priority_tone }}-lt text-{{ workspace.record.priority_tone }}">{{ workspace.record.priority_label }}优先级</span></div>
+                <p class="nc-task-detail-due text-{{ workspace.record.due_tone }}"><i data-lucide="clock-3" aria-hidden="true"></i>{{ workspace.record.due_label }}</p>
+            </div>
+            {% if workspace.can_write %}
+                <div class="nc-task-detail-actions" aria-label="任务操作">
+                    {% if workspace.can_start %}<form action="{% url 'console:task_start_v2' workspace.record.id %}" method="post" data-nc-task-form="start">{% csrf_token %}<input type="hidden" name="version" value="{{ workspace.record.version }}"><button class="btn btn-outline-primary" type="submit" data-nc-submit><i data-lucide="play" aria-hidden="true"></i><span>开始任务</span></button><div class="alert mt-2 mb-0" data-nc-form-status hidden></div></form>{% endif %}
+                    {% if workspace.can_edit %}<button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#task-edit-modal" data-nc-modal-trigger="edit"><i data-lucide="pencil" aria-hidden="true"></i>编辑 / 改期</button>{% endif %}
+                    {% if workspace.can_close %}<button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#task-complete-modal" data-nc-modal-trigger="complete"><i data-lucide="circle-check-big" aria-hidden="true"></i>完成</button><button class="btn btn-ghost-danger" type="button" data-bs-toggle="modal" data-bs-target="#task-cancel-modal" data-nc-modal-trigger="cancel">取消任务</button>{% endif %}
+                </div>
+            {% endif %}
+        </header>
+
+        <section class="row row-cards mb-3" aria-label="任务概览">
+            <div class="col-12 col-xl-7">
+                <article class="card h-100" aria-labelledby="task-context-title">
+                    <div class="card-header"><div><h2 class="card-title" id="task-context-title">客户上下文</h2><p class="card-subtitle mt-1">任务的全部关联对象；范围和团队由这些对象共同决定。</p></div></div>
+                    <div class="card-body">
+                        <div class="nc-task-target-links">{% for target in workspace.record.targets %}<a href="{{ target.href }}"><span>{{ target.kind }}</span><strong>{{ target.label }}</strong><i data-lucide="arrow-up-right" aria-hidden="true"></i></a>{% empty %}<p class="text-secondary mb-0">没有可访问的关联对象。</p>{% endfor %}</div>
+                        <div class="nc-task-description"><span>任务说明</span><p>{{ workspace.record.description|default:'未填写说明' }}</p></div>
+                    </div>
+                </article>
+            </div>
+            <div class="col-12 col-xl-5">
+                <article class="card h-100" aria-labelledby="task-properties-title">
+                    <div class="card-header"><h2 class="card-title" id="task-properties-title">执行属性</h2></div>
+                    <div class="card-body"><dl class="nc-task-facts">
+                        <div><dt>类型</dt><dd>{{ workspace.record.task_type_label }}</dd></div><div><dt>负责人</dt><dd>{{ workspace.record.owner }}</dd></div>
+                        <div><dt>团队</dt><dd>{{ workspace.record.team }}</dd></div><div><dt>创建人</dt><dd>{{ workspace.record.created_by }}</dd></div>
+                        <div><dt>创建时间</dt><dd>{{ workspace.record.created_at_label }}</dd></div><div><dt>最近更新</dt><dd>{{ workspace.record.updated_at_label }}</dd></div>
+                        {% if workspace.record.ended_at_label %}<div><dt>结束时间</dt><dd>{{ workspace.record.ended_at_label }}</dd></div>{% endif %}
+                        {% if workspace.record.reminder_label %}<div class="nc-task-fact-wide"><dt>提醒计划</dt><dd>{{ workspace.record.reminder_label }} <span class="text-secondary">（当前未接入通知）</span></dd></div>{% endif %}
+                        {% if workspace.record.outcome %}<div class="nc-task-fact-wide"><dt>{% if workspace.record.status == 'canceled' %}取消原因{% else %}完成结果{% endif %}</dt><dd>{{ workspace.record.outcome }}</dd></div>{% endif %}
+                    </dl></div>
+                </article>
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="task-activity-title">
+            <div class="card-header"><div><h2 class="card-title" id="task-activity-title">任务事件</h2><p class="card-subtitle mt-1">创建、更新、开始与结束均保留为不可改写的活动证据。</p></div><span class="badge bg-secondary-lt text-secondary">{{ workspace.activity_total }}</span></div>
+            <div class="nc-task-timeline">
+                {% for item in workspace.activities %}<a class="nc-task-timeline-item" href="{{ item.detail_url }}"><span class="avatar avatar-sm bg-azure-lt text-azure"><i data-lucide="activity" aria-hidden="true"></i></span><span class="min-w-0"><strong>{{ item.subject }}</strong>{% if item.body %}<span>{{ item.body }}</span>{% endif %}<small>{{ item.actor }} · {{ item.occurred_label }}</small></span><i data-lucide="chevron-right" aria-hidden="true"></i></a>{% empty %}<div class="nc-task-inline-empty"><i data-lucide="history" aria-hidden="true"></i><span>尚无任务事件记录。</span></div>{% endfor %}
+            </div>
+            {% if workspace.activity_pagination.total_pages > 1 %}<div class="card-footer nc-task-pagination"><span class="text-secondary">事件第 {{ workspace.activity_pagination.current }} / {{ workspace.activity_pagination.total_pages }} 页</span><nav aria-label="任务事件分页"><div class="btn-list">{% if workspace.activity_pagination.previous_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ workspace.activity_pagination.previous_url }}">上一页</a>{% endif %}{% if workspace.activity_pagination.next_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ workspace.activity_pagination.next_url }}">下一页</a>{% endif %}</div></nav></div>{% endif %}
+        </section>
+    {% endif %}
+</div>
+
+{% if workspace.can_edit and not workspace.error %}
+<div class="modal fade" id="task-edit-modal" tabindex="-1" aria-labelledby="task-edit-title" aria-describedby="task-edit-description" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><form class="modal-content" action="{% url 'console:task_update_v2' workspace.record.id %}" method="post" data-nc-task-form="edit" novalidate>{% csrf_token %}<input type="hidden" name="version" value="{{ workspace.record.version }}">
+    <div class="modal-header"><div><h2 class="modal-title" id="task-edit-title">编辑任务</h2><p id="task-edit-description">可以调整行动内容、负责人和到期时间；关联对象与团队保持不变。</p></div><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="关闭"></button></div>
+    <div class="modal-body"><div class="alert alert-danger" data-nc-form-error hidden></div><div class="row g-3">
+        <div class="col-12"><label class="form-label" for="task-edit-title-input">任务标题</label><input class="form-control" id="task-edit-title-input" name="title" value="{{ workspace.record.title }}" maxlength="240" required><div class="invalid-feedback" data-error-for="title"></div></div>
+        <div class="col-12"><label class="form-label" for="task-edit-description-input">说明</label><textarea class="form-control" id="task-edit-description-input" name="description" rows="3" maxlength="4000">{{ workspace.record.description }}</textarea><div class="invalid-feedback" data-error-for="description"></div></div>
+        <div class="col-6 col-md-3"><label class="form-label" for="task-edit-type">类型</label><select class="form-select" id="task-edit-type" name="task_type">{% for item in workspace.type_options %}<option value="{{ item.value }}" {% if item.value == workspace.record.task_type %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+        <div class="col-6 col-md-3"><label class="form-label" for="task-edit-priority">优先级</label><select class="form-select" id="task-edit-priority" name="priority">{% for item in workspace.priority_options %}<option value="{{ item.value }}" {% if item.value == workspace.record.priority %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+        <div class="col-12 col-md-3"><label class="form-label" for="task-edit-due">到期时间</label><input class="form-control" id="task-edit-due" type="datetime-local" name="due_at" value="{{ workspace.record.due_input }}" required><div class="invalid-feedback" data-error-for="due_at"></div></div>
+        <div class="col-12 col-md-3"><label class="form-label" for="task-edit-owner">负责人</label><select class="form-select" id="task-edit-owner" name="owner_user" {% if not workspace.can_assign %}disabled{% endif %}>{% for item in workspace.owner_candidates %}<option value="{{ item.value }}" {% if item.selected %}selected{% endif %} {% if item.disabled %}disabled{% endif %}>{{ item.label }}</option>{% endfor %}</select>{% if not workspace.can_assign %}<input type="hidden" name="owner_user" value="{{ workspace.record.owner_id }}">{% endif %}<div class="invalid-feedback" data-error-for="owner_user"></div></div>
+    </div><div class="alert mt-3 mb-0" data-nc-form-status role="status" aria-live="polite" hidden></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost-secondary" type="button" data-bs-dismiss="modal">取消</button><button class="btn btn-primary" type="submit" data-nc-submit><span>保存更改</span></button></div>
+</form></div></div>
+{% endif %}
+
+{% if workspace.can_close and not workspace.error %}
+<div class="modal fade" id="task-complete-modal" tabindex="-1" aria-labelledby="task-complete-title" aria-describedby="task-complete-description" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><form class="modal-content" action="{% url 'console:task_complete' workspace.record.id %}" method="post" data-nc-task-form="complete" novalidate>{% csrf_token %}<input type="hidden" name="version" value="{{ workspace.record.version }}">
+    <div class="modal-header"><div><h2 class="modal-title" id="task-complete-title">完成任务</h2><p id="task-complete-description">{{ workspace.record.title }} · {{ workspace.record.due_label }}。请记录真实结果，系统不会代填。</p></div><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="关闭"></button></div>
+    <div class="modal-body"><div class="alert alert-danger" data-nc-form-error hidden></div><div><label class="form-label" for="task-complete-outcome">完成结果</label><textarea class="form-control" id="task-complete-outcome" name="outcome" rows="4" maxlength="2000" required placeholder="客户反馈、已完成的动作和下一步判断"></textarea><div class="invalid-feedback" data-error-for="outcome"></div></div>
+        <label class="form-check form-switch mt-4"><input class="form-check-input" type="checkbox" name="create_next_task" value="1" data-nc-next-task-toggle><span class="form-check-label"><strong>同时创建下一任务</strong><span class="d-block text-secondary small">沿用当前客户对象和团队，在一次事务中完成。</span></span></label>
+        <fieldset class="nc-next-task-panel mt-3" data-nc-next-task-panel disabled hidden><legend class="visually-hidden">下一任务</legend><div class="row g-3">
+            <div class="col-12"><label class="form-label" for="task-next-title">下一任务标题</label><input class="form-control" id="task-next-title" name="next_title" maxlength="240"><div class="invalid-feedback" data-error-for="next_title"></div></div>
+            <div class="col-6 col-md-3"><label class="form-label" for="task-next-type">类型</label><select class="form-select" id="task-next-type" name="next_task_type">{% for item in workspace.type_options %}<option value="{{ item.value }}">{{ item.label }}</option>{% endfor %}</select></div>
+            <div class="col-6 col-md-3"><label class="form-label" for="task-next-priority">优先级</label><select class="form-select" id="task-next-priority" name="next_priority">{% for item in workspace.priority_options %}<option value="{{ item.value }}" {% if item.value == 'normal' %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+            <div class="col-12 col-md-3"><label class="form-label" for="task-next-due">到期时间</label><input class="form-control" id="task-next-due" type="datetime-local" name="next_due_at"><div class="invalid-feedback" data-error-for="next_due_at"></div></div>
+            <div class="col-12 col-md-3"><label class="form-label" for="task-next-owner">负责人</label><select class="form-select" id="task-next-owner" name="next_owner_user">{% for item in workspace.owner_candidates %}{% if not item.disabled %}<option value="{{ item.value }}" {% if item.selected %}selected{% endif %}>{{ item.label }}</option>{% endif %}{% endfor %}</select><div class="invalid-feedback" data-error-for="next_owner_user"></div></div>
+            <div class="col-12"><label class="form-label" for="task-next-description">说明</label><textarea class="form-control" id="task-next-description" name="next_description" rows="2" maxlength="4000"></textarea></div>
+        </div></fieldset><div class="alert mt-3 mb-0" data-nc-form-status role="status" aria-live="polite" hidden></div>
+    </div><div class="modal-footer"><button class="btn btn-ghost-secondary" type="button" data-bs-dismiss="modal">返回</button><button class="btn btn-primary" type="submit" data-nc-submit><span>确认完成</span></button></div>
+</form></div></div>
+
+<div class="modal fade" id="task-cancel-modal" tabindex="-1" aria-labelledby="task-cancel-title" aria-describedby="task-cancel-description" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form class="modal-content" action="{% url 'console:task_cancel_v2' workspace.record.id %}" method="post" data-nc-task-form="cancel" novalidate>{% csrf_token %}<input type="hidden" name="version" value="{{ workspace.record.version }}">
+    <div class="modal-header"><div><h2 class="modal-title" id="task-cancel-title">取消任务</h2><p id="task-cancel-description">取消是终态，本阶段不支持重开。若仍需行动，请退出并完成后创建下一任务。</p></div><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="关闭"></button></div>
+    <div class="modal-body"><div class="alert alert-danger" data-nc-form-error hidden></div><label class="form-label" for="task-cancel-reason">取消原因</label><textarea class="form-control" id="task-cancel-reason" name="reason" rows="4" maxlength="2000" required></textarea><div class="invalid-feedback" data-error-for="reason"></div><div class="alert mt-3 mb-0" data-nc-form-status role="status" aria-live="polite" hidden></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost-secondary" type="button" data-bs-dismiss="modal">返回</button><button class="btn btn-danger" type="submit" data-nc-submit><span>确认取消</span></button></div>
+</form></div></div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'console/v2/tasks.js' %}?v=20260831-2"></script>{% endblock %}

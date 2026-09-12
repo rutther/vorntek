@@ -1,0 +1,101 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+
+{% block title %}任务 · {{ brand_name }} 后台{% endblock %}
+{% block body_class %}nc-tasks-page{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/v2/tasks.css' %}?v=20260831-1">{% endblock %}
+{% block breadcrumb %}<span>销售</span><i data-lucide="chevron-right" aria-hidden="true"></i><strong>任务</strong>{% endblock %}
+
+{% block content %}
+<div class="nc-task-workspace" data-nc-task-page data-nc-reload-url="{{ workspace.canonical_url }}" data-target-search-url="{% url 'console:task_target_search_v2' %}">
+    <header class="nc-task-hero">
+        <div class="min-w-0">
+            <p class="nc-task-eyebrow">销售 · 下一行动</p>
+            <h1 class="page-title">任务</h1>
+            <p class="text-secondary mb-0 mt-2">{{ workspace.description }}</p>
+        </div>
+        {% if workspace.can_create and not workspace.error %}<button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#task-create-modal" data-nc-modal-trigger="create"><i data-lucide="calendar-plus" aria-hidden="true"></i>新建任务</button>{% endif %}
+    </header>
+
+    {% if workspace.error %}
+        <section class="card nc-task-state" aria-labelledby="task-error-title"><div class="card-body"><span class="avatar avatar-lg bg-red-lt text-red"><i data-lucide="database-zap" aria-hidden="true"></i></span><h2 id="task-error-title">任务暂时不可用</h2><p>系统没有返回部分列表，也没有把读取失败当成空数据。</p><a class="btn btn-primary" href="{% url 'console:task_workspace_v2' %}">重新加载</a></div></section>
+    {% else %}
+        <section class="nc-task-metrics" aria-label="任务摘要">
+            {% for item in workspace.metrics %}<a class="card nc-task-metric" href="{{ item.href }}"><span class="avatar bg-{{ item.tone }}-lt text-{{ item.tone }}"><i data-lucide="{{ item.icon }}" aria-hidden="true"></i></span><span><small>{{ item.label }}</small><strong>{{ item.value }}</strong></span></a>{% endfor %}
+        </section>
+
+        <section class="card nc-task-filter-card" aria-labelledby="task-filter-title">
+            <div class="card-body">
+                <h2 class="visually-hidden" id="task-filter-title">筛选任务</h2>
+                <form method="get" action="" data-nc-task-filters>
+                    <input type="hidden" name="page" value="1">
+                    <div class="nc-task-filter-grid">
+                        <div class="nc-task-filter-search"><label class="form-label" for="task-q">搜索</label><div class="input-icon"><span class="input-icon-addon"><i data-lucide="search" aria-hidden="true"></i></span><input class="form-control" id="task-q" name="q" value="{{ workspace.filters.query }}" placeholder="任务、客户或销售机会" autocomplete="off"></div></div>
+                        <div><label class="form-label" for="task-status">状态</label><select class="form-select" id="task-status" name="status">{% for item in workspace.status_options %}<option value="{{ item.value }}" {% if workspace.filters.status == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+                        <div><label class="form-label" for="task-owner">负责人</label><select class="form-select" id="task-owner" name="owner"><option value="all">全部负责人</option>{% for item in workspace.owners %}<option value="{{ item.value }}" {% if workspace.filters.owner == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+                        {% if workspace.allow_team_filter %}<div><label class="form-label" for="task-team">团队</label><select class="form-select" id="task-team" name="team"><option value="all">全部团队</option>{% for item in workspace.teams %}<option value="{{ item.value }}" {% if workspace.filters.team == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>{% endif %}
+                        <div><label class="form-label" for="task-due">到期</label><select class="form-select" id="task-due" name="due">{% for item in workspace.due_options %}<option value="{{ item.value }}" {% if workspace.filters.due == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+                        <div><label class="form-label" for="task-priority">优先级</label><select class="form-select" id="task-priority" name="priority"><option value="all">全部优先级</option>{% for item in workspace.priority_options %}<option value="{{ item.value }}" {% if workspace.filters.priority == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+                        <div><label class="form-label" for="task-type">类型</label><select class="form-select" id="task-type" name="type"><option value="all">全部类型</option>{% for item in workspace.type_options %}<option value="{{ item.value }}" {% if workspace.filters.task_type == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+                        <div><label class="form-label" for="task-sort">排序</label><select class="form-select" id="task-sort" name="sort">{% for item in workspace.sort_options %}<option value="{{ item.value }}" {% if workspace.filters.sort == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+                        <div><label class="form-label" for="task-page-size">每页</label><select class="form-select" id="task-page-size" name="page_size"><option value="25" {% if workspace.filters.page_size == 25 %}selected{% endif %}>25</option><option value="50" {% if workspace.filters.page_size == 50 %}selected{% endif %}>50</option><option value="100" {% if workspace.filters.page_size == 100 %}selected{% endif %}>100</option></select></div>
+                        <div class="nc-task-filter-actions"><button class="btn btn-primary" type="submit"><i data-lucide="list-filter" aria-hidden="true"></i>应用</button><a class="btn btn-ghost-secondary" href="{{ workspace.clear_url }}">清除</a></div>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="card nc-task-table-card" aria-labelledby="task-results-title">
+            <div class="card-header"><div><h2 class="card-title" id="task-results-title">任务队列</h2><p class="card-subtitle mt-1">{{ workspace.pagination.total_items }} 条结果；默认先显示逾期和即将到期任务。</p></div></div>
+            {% if workspace.can_bulk_assign and workspace.rows %}<form class="nc-task-bulk-bar" action="{% url 'console:task_bulk_assign_v2' %}" method="post" data-nc-task-bulk-form hidden>{% csrf_token %}<input type="hidden" name="items_json" value="[]"><strong><span data-nc-task-selected-count>0</span> 条已选择</strong><label class="visually-hidden" for="task-bulk-owner">批量分配负责人</label><select class="form-select form-select-sm" id="task-bulk-owner" name="owner_user" required><option value="">选择负责人</option>{% for item in workspace.assign_candidates %}<option value="{{ item.value }}">{{ item.label }}</option>{% endfor %}</select><button class="btn btn-primary btn-sm" type="submit" data-nc-submit><span>批量分配</span></button><button class="btn btn-ghost-secondary btn-sm" type="button" data-nc-task-clear-selection>取消选择</button><div class="alert mb-0" data-nc-form-status hidden></div></form>{% endif %}
+            {% if workspace.rows %}
+                <div class="nc-task-table-wrap"><table class="table table-vcenter card-table nc-task-table"><caption class="visually-hidden">任务、相关对象、到期、优先级、状态和负责人</caption><thead><tr>{% if workspace.can_bulk_assign %}<th class="nc-task-select-cell" scope="col"><input class="form-check-input" type="checkbox" aria-label="选择当前页全部任务" data-nc-task-select-all></th>{% endif %}<th scope="col">任务</th><th scope="col">相关对象</th><th scope="col">到期</th><th scope="col">优先级 / 状态</th><th scope="col">负责人</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead><tbody>
+                    {% for item in workspace.rows %}<tr>
+                        {% if workspace.can_bulk_assign %}<td class="nc-task-select-cell"><input class="form-check-input" type="checkbox" aria-label="选择任务：{{ item.title }}" data-nc-task-select data-task-id="{{ item.id }}" data-task-version="{{ item.version }}"></td>{% endif %}
+                        <td><a class="nc-task-row-title" href="{{ item.detail_url }}">{{ item.title }}</a><span class="nc-task-row-meta">{{ item.task_type_label }}</span>{% if item.description %}<span class="nc-task-row-description">{{ item.description }}</span>{% endif %}</td>
+                        <td><div class="nc-task-row-targets">{% for target in item.targets %}<a href="{{ target.href }}"><span>{{ target.kind }}</span><strong>{{ target.label }}</strong></a>{% endfor %}</div></td>
+                        <td><time class="nc-task-due text-{{ item.due_tone }} {% if item.due_tone == 'danger' %}fw-semibold{% endif %}" datetime="{{ item.due_at|date:'c' }}">{{ item.due_label }}</time></td>
+                        <td><div class="nc-task-badges"><span class="badge bg-{{ item.priority_tone }}-lt text-{{ item.priority_tone }}">{{ item.priority_label }}</span><span class="badge bg-{{ item.status_tone }}-lt text-{{ item.status_tone }}">{{ item.status_label }}</span></div></td>
+                        <td><div class="nc-task-owner"><strong class="d-block">{{ item.owner }}</strong><small>{{ item.team }}</small></div></td>
+                        <td class="text-end"><a class="btn btn-outline-secondary btn-sm" href="{{ item.detail_url }}">查看并处理<i data-lucide="arrow-right" aria-hidden="true"></i></a></td>
+                    </tr>{% endfor %}
+                </tbody></table></div>
+                <div class="card-footer nc-task-pagination"><span class="text-secondary">第 {{ workspace.pagination.start }}–{{ workspace.pagination.end }} 条，共 {{ workspace.pagination.total_items }} 条</span><nav aria-label="任务分页"><div class="btn-list">{% if workspace.pagination.previous_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ workspace.pagination.previous_url }}"><i data-lucide="chevron-left" aria-hidden="true"></i>上一页</a>{% endif %}<span class="btn btn-ghost-secondary btn-sm disabled" aria-current="page">{{ workspace.pagination.current }} / {{ workspace.pagination.total_pages }}</span>{% if workspace.pagination.next_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ workspace.pagination.next_url }}">下一页<i data-lucide="chevron-right" aria-hidden="true"></i></a>{% endif %}</div></nav></div>
+            {% elif workspace.has_filters %}
+                <div class="nc-task-empty"><span class="avatar avatar-lg bg-blue-lt text-blue"><i data-lucide="search-x" aria-hidden="true"></i></span><h3>没有匹配的任务</h3><p>当前筛选没有结果；任务没有被删除。</p><a class="btn btn-outline-primary" href="{{ workspace.clear_url }}">清除筛选</a></div>
+            {% else %}
+                <div class="nc-task-empty"><span class="avatar avatar-lg bg-green-lt text-green"><i data-lucide="badge-check" aria-hidden="true"></i></span><h3>当前没有可执行任务</h3><p>新的客户承诺建立后会进入这里；历史终态可通过状态筛选查看。</p>{% if workspace.can_create %}<button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#task-create-modal">新建任务</button>{% endif %}</div>
+            {% endif %}
+        </section>
+    {% endif %}
+</div>
+
+{% if workspace.can_create and not workspace.error %}
+<div class="modal fade" id="task-create-modal" tabindex="-1" aria-labelledby="task-create-title" aria-describedby="task-create-description" aria-hidden="true" {% if workspace.auto_open_create %}data-nc-auto-open-create{% endif %}>
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form class="modal-content" action="{% url 'console:task_create' %}" method="post" data-nc-task-form="create" novalidate>
+            {% csrf_token %}<input type="hidden" name="idempotency_token" value=""><input type="hidden" name="target_id" value="">
+            <div class="modal-header"><div><h2 class="modal-title" id="task-create-title">新建任务</h2><p id="task-create-description">先选择一个已授权客户对象，再明确负责人、时间和下一行动。</p></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button></div>
+            <div class="modal-body">
+                <div class="alert alert-danger" role="alert" data-nc-form-error hidden></div>
+                <div class="row g-3">
+                    <div class="col-12 col-md-4"><label class="form-label" for="task-create-target-type">关联对象类型</label><select class="form-select" id="task-create-target-type" name="target_type"><option value="opportunity">销售机会</option><option value="company">企业</option><option value="contact">联系人</option><option value="lead">线索</option></select></div>
+                    <div class="col-12 col-md-8"><label class="form-label" for="task-create-target-search">搜索关联对象</label><div class="input-icon"><span class="input-icon-addon"><i data-lucide="search" aria-hidden="true"></i></span><input class="form-control" id="task-create-target-search" autocomplete="off" placeholder="至少输入 2 个字符" data-nc-target-search></div><div class="form-hint">搜索只在你当前有权访问的销售范围内执行，最多返回 20 条。</div></div>
+                    <div class="col-12"><div class="nc-task-target-results" data-nc-target-results role="listbox" aria-label="关联对象搜索结果"><p class="text-secondary mb-0">输入关键词后选择一个关联对象。</p></div><div class="invalid-feedback d-block" data-error-for="target_id"></div></div>
+                    <div class="col-12"><label class="form-label" for="task-create-title-input">任务标题</label><input class="form-control" id="task-create-title-input" name="title" maxlength="240" required><div class="invalid-feedback" data-error-for="title"></div></div>
+                    <div class="col-12"><label class="form-label" for="task-create-description-input">说明</label><textarea class="form-control" id="task-create-description-input" name="description" rows="3" maxlength="4000"></textarea><div class="invalid-feedback" data-error-for="description"></div></div>
+                    <div class="col-6 col-md-3"><label class="form-label" for="task-create-type">类型</label><select class="form-select" id="task-create-type" name="task_type">{% for item in workspace.type_options %}<option value="{{ item.value }}">{{ item.label }}</option>{% endfor %}</select></div>
+                    <div class="col-6 col-md-3"><label class="form-label" for="task-create-priority">优先级</label><select class="form-select" id="task-create-priority" name="priority">{% for item in workspace.priority_options %}<option value="{{ item.value }}" {% if item.value == 'normal' %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select></div>
+                    <div class="col-12 col-md-3"><label class="form-label" for="task-create-due">到期时间</label><input class="form-control" id="task-create-due" type="datetime-local" name="due_at" required><div class="invalid-feedback" data-error-for="due_at"></div></div>
+                    <div class="col-12 col-md-3"><label class="form-label" for="task-create-owner">负责人</label><select class="form-select" id="task-create-owner" name="owner_user" disabled><option value="">先选择关联对象</option></select><div class="invalid-feedback" data-error-for="owner_user"></div></div>
+                </div>
+                <div class="alert mt-3 mb-0" role="status" aria-live="polite" aria-atomic="true" data-nc-form-status hidden></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-ghost-secondary" type="button" data-bs-dismiss="modal">取消</button><button class="btn btn-primary" type="submit" data-nc-submit><span>创建任务</span></button></div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'console/v2/tasks.js' %}?v=20260831-2"></script>{% endblock %}

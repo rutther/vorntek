@@ -1,0 +1,157 @@
+<section class="editor-shell system-email-shell">
+    <form method="post" class="editor-layout">
+        {% csrf_token %}
+
+        <div class="editor-main">
+            <section class="system-email-readiness{% if smtp_delivery.ready %} is-ready{% else %} is-warning{% endif %}" role="status">
+                <div>
+                    <span>运行状态</span>
+                    <strong>{% if smtp_delivery.ready %}邮件投递已就绪{% else %}邮件投递尚未就绪{% endif %}</strong>
+                    <p>{% if smtp_delivery.ready %}后台可以发送新线索通知与超时提醒。{% else %}当前配置不会成功发送通知；请补齐发信账号与授权密码后保存并测试。{% endif %}</p>
+                </div>
+                <span class="system-email-state">{{ smtp_source_label }}</span>
+            </section>
+
+            {% if smtp_settings_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in smtp_settings_form.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>发信服务</h2>
+                        <p>用于新线索即时通知和超时提醒。服务器、端口和加密方式必须与企业邮箱服务商一致。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-3">
+                    <label class="field field-block" style="grid-column: span 2">
+                        <span class="field-label">{{ smtp_settings_form.host.label }}</span>
+                        {{ smtp_settings_form.host }}
+                        {% for error in smtp_settings_form.host.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ smtp_settings_form.port.label }}</span>
+                        {{ smtp_settings_form.port }}
+                        {% for error in smtp_settings_form.port.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ smtp_settings_form.security.label }}</span>
+                        {{ smtp_settings_form.security }}
+                        {% for error in smtp_settings_form.security.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block checkbox-field">
+                        <span class="field-label">{{ smtp_settings_form.enabled.label }}</span>
+                        <span class="checkbox-inline">{{ smtp_settings_form.enabled }} 开启新线索通知与定时提醒</span>
+                        {% for error in smtp_settings_form.enabled.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>发信账号</h2>
+                        <p>授权密码只会写入服务器加密密钥库。保存成功后，后台只显示末四位，不会回显完整密码。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ smtp_settings_form.username.label }}</span>
+                        {{ smtp_settings_form.username }}
+                        {% for error in smtp_settings_form.username.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ smtp_settings_form.from_email.label }}</span>
+                        {{ smtp_settings_form.from_email }}
+                        {% for error in smtp_settings_form.from_email.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ smtp_settings_form.password.label }}</span>
+                    {{ smtp_settings_form.password }}
+                    {% if smtp_settings_form.password.help_text %}<small class="field-help">{{ smtp_settings_form.password.help_text }}</small>{% endif %}
+                    {% for error in smtp_settings_form.password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <label class="field field-block checkbox-field system-email-danger">
+                    <span class="field-label">{{ smtp_settings_form.clear_stored_config.label }}</span>
+                    <span class="checkbox-inline">{{ smtp_settings_form.clear_stored_config }} 删除后台保存的服务器、账号和授权密码</span>
+                    <small class="field-help">删除后立即回退到服务器环境变量；如果环境变量也未配置，全部邮件通知将停止。</small>
+                    {% for error in smtp_settings_form.clear_stored_config.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>投递测试</h2>
+                        <p>保存并测试会向下面的地址发送一封真实邮件，用来验证服务器连接、身份认证和发件人配置。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ smtp_settings_form.test_recipient.label }}</span>
+                    {{ smtp_settings_form.test_recipient }}
+                    {% for error in smtp_settings_form.test_recipient.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>操作</h2>
+                        <p>保存只更新加密配置；保存并测试还会向测试收件人发送一封真实邮件。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" name="action" value="save" class="button primary">保存配置</button>
+                    <button type="submit" name="action" value="save_test" class="button neutral">保存并发送测试邮件</button>
+                    <a href="{% url 'console:system_users' %}" class="button neutral">返回系统设置</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>运行时配置</h2>
+                        <p>这里显示应用真正使用的来源与参数，不显示完整授权密码。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item"><span>配置来源</span><strong>{{ smtp_source_label }}</strong></div>
+                    <div class="meta-item"><span>通知状态</span><strong>{% if smtp_delivery.ready %}可发送{% else %}尚未就绪{% endif %}</strong></div>
+                    <div class="meta-item"><span>服务器</span><strong class="mono">{{ smtp_delivery.host|default:'未设置' }}</strong></div>
+                    <div class="meta-item"><span>端口</span><strong>{{ smtp_delivery.port|default:'未设置' }}</strong></div>
+                    <div class="meta-item"><span>账号</span><strong>{{ smtp_delivery.username|default:'未设置' }}</strong></div>
+                    <div class="meta-item"><span>发件人</span><strong>{{ smtp_delivery.from_email|default:'未设置' }}</strong></div>
+                    <div class="meta-item"><span>密码</span><strong class="mono">{% if smtp_password_last4 %}****{{ smtp_password_last4 }}{% else %}未保存{% endif %}</strong></div>
+                    {% if smtp_delivery.error %}
+                        <div class="meta-item"><span>配置错误</span><strong>{{ smtp_delivery.error }}</strong></div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>通知收件人</h2>
+                        <p>实际新线索邮件会发送到表单定义中配置的地址。</p>
+                    </div>
+                </div>
+                <ul class="hint-list">
+                    {% for recipient in smtp_notification_recipients %}
+                        <li>{{ recipient }}</li>
+                    {% empty %}
+                        <li>project-inquiry 表单尚未配置通知邮箱。</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

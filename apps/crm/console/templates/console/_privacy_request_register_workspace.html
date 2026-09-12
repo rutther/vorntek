@@ -1,0 +1,89 @@
+<section class="editor-shell">
+    <form method="post" class="editor-layout">
+        {% csrf_token %}
+        <div class="editor-main">
+            {% if privacy_registration_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in privacy_registration_form.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>请求内容</h2>
+                        <p>按数据主体实际提出的要求登记。后台不会把不同类型的请求合并成同一件事。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ privacy_registration_form.request_type.label }}</span>
+                        {{ privacy_registration_form.request_type }}
+                        {% for error in privacy_registration_form.request_type.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ privacy_registration_form.submission_id.label }}</span>
+                        {{ privacy_registration_form.submission_id }}
+                        <small class="field-help">{{ privacy_registration_form.submission_id.help_text }}</small>
+                        {% for error in privacy_registration_form.submission_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>数据主体</h2>
+                        <p>邮箱或电话至少填写一项，用于识别同一主体并查找相关 CRM 记录。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ privacy_registration_form.requester_name.label }}</span>
+                    {{ privacy_registration_form.requester_name }}
+                    {% for error in privacy_registration_form.requester_name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ privacy_registration_form.requester_email.label }}</span>
+                        {{ privacy_registration_form.requester_email }}
+                        {% for error in privacy_registration_form.requester_email.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ privacy_registration_form.requester_phone.label }}</span>
+                        {{ privacy_registration_form.requester_phone }}
+                        {% for error in privacy_registration_form.requester_phone.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>登记</h2>
+                        <p>保存后进入身份核验。系统会复用同一主体尚未结束的同类请求。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">登记并开始处理</button>
+                    <a href="{{ privacy_back_url }}" class="button neutral">返回隐私请求列表</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>处理边界</h2>
+                        <p>登记不等于身份已经核验，也不会自动执行删除或导出。</p>
+                    </div>
+                </div>
+                <ul class="hint-list">
+                    <li>营销运营可登记、核验和推进处理。</li>
+                    <li>完整数据导出仅限系统管理员。</li>
+                    <li>撤回、限制和删除由系统管理员执行并写入审计记录。</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

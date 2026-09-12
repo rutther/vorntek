@@ -1,0 +1,108 @@
+{% extends 'console/v2/base.html' %}
+
+{% block title %}{{ workbench.title|default:'工作台' }} · {{ brand_name }}{% endblock %}
+
+{% block breadcrumb %}
+    <strong>工作台</strong>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <header class="page-header mb-3">
+        <div class="row align-items-center g-3">
+            <div class="col">
+                <div class="page-pretitle">{{ console_role_label }}</div>
+                <h1 class="page-title">{{ workbench.title|default:'工作台' }}</h1>
+                {% if workbench.description %}<p class="text-secondary mt-1 mb-0">{{ workbench.description }}</p>{% endif %}
+            </div>
+            {% if workbench.primary_action %}
+                <div class="col-auto ms-auto">
+                    <a class="btn btn-primary" href="{{ workbench.primary_action.href }}">
+                        {% if workbench.primary_action.icon %}<i data-lucide="{{ workbench.primary_action.icon }}" aria-hidden="true"></i>{% endif %}
+                        {{ workbench.primary_action.label }}
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </header>
+
+    {% if workbench.metrics %}
+        <section class="row row-cards mb-3" aria-label="工作概览">
+            {% for metric in workbench.metrics %}
+                <div class="col-6 col-lg-3">
+                    {% if metric.href %}<a class="card card-link card-link-pop h-100 text-reset text-decoration-none" href="{{ metric.href }}">{% else %}<div class="card h-100">{% endif %}
+                        <div class="card-body">
+                            <div class="d-flex align-items-start gap-3">
+                                {% if metric.icon %}<span class="avatar avatar-sm bg-{{ metric.tone|default:'secondary' }}-lt text-{{ metric.tone|default:'secondary' }}"><i data-lucide="{{ metric.icon }}" aria-hidden="true"></i></span>{% endif %}
+                                <div class="min-w-0">
+                                    <div class="text-secondary text-uppercase small fw-semibold">{{ metric.label }}</div>
+                                    <div class="h2 mb-0">{{ metric.value }}</div>
+                                    {% if metric.description %}<div class="text-secondary small mt-1">{{ metric.description }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% if metric.href %}</a>{% else %}</div>{% endif %}
+                </div>
+            {% endfor %}
+        </section>
+    {% endif %}
+
+    {% if workbench.sections %}
+        <div class="row row-cards">
+            {% for section in workbench.sections %}
+                <section class="col-12" aria-labelledby="workbench-section-{{ section.key|default:forloop.counter }}">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h2 class="card-title" id="workbench-section-{{ section.key|default:forloop.counter }}">{{ section.title }}</h2>
+                                {% if section.description %}<p class="card-subtitle mt-1">{{ section.description }}</p>{% endif %}
+                            </div>
+                            {% if section.action %}
+                                <div class="card-actions"><a class="btn btn-outline-secondary btn-sm" href="{{ section.action.href }}">{{ section.action.label }}</a></div>
+                            {% endif %}
+                        </div>
+                        {% if section.items %}
+                            <div class="list-group list-group-flush">
+                                {% for item in section.items %}
+                                    {% if item.href %}<a class="list-group-item list-group-item-action" href="{{ item.href }}">{% else %}<div class="list-group-item">{% endif %}
+                                        <div class="row align-items-center g-3">
+                                            {% if item.icon %}
+                                                <div class="col-auto"><span class="avatar avatar-sm bg-{{ item.status_tone|default:'secondary' }}-lt text-{{ item.status_tone|default:'secondary' }}"><i data-lucide="{{ item.icon }}" aria-hidden="true"></i></span></div>
+                                            {% endif %}
+                                            <div class="col min-w-0">
+                                                <div class="fw-semibold text-truncate">{{ item.title }}</div>
+                                                {% if item.meta %}<div class="text-secondary small text-truncate">{{ item.meta }}</div>{% endif %}
+                                                {% if item.detail %}<div class="text-secondary small mt-1">{{ item.detail }}</div>{% endif %}
+                                            </div>
+                                            {% if item.due_label %}<div class="col-auto text-secondary small">{{ item.due_label }}</div>{% endif %}
+                                            {% if item.status_label %}<div class="col-auto"><span class="badge bg-{{ item.status_tone|default:'secondary' }}-lt text-{{ item.status_tone|default:'secondary' }}">{{ item.status_label }}</span></div>{% endif %}
+                                            {% if item.href %}<div class="col-auto"><i data-lucide="chevron-right" class="text-secondary" aria-hidden="true"></i></div>{% endif %}
+                                        </div>
+                                    {% if item.href %}</a>{% else %}</div>{% endif %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="nc-workbench-empty" role="status">
+                                <span class="nc-workbench-empty__icon bg-success-lt text-success"><i data-lucide="circle-check" aria-hidden="true"></i></span>
+                                <div class="min-w-0">
+                                    <p class="nc-workbench-empty__title">{{ section.empty_title|default:'当前没有待处理事项' }}</p>
+                                    {% if section.empty_description %}<p class="nc-workbench-empty__description">{{ section.empty_description }}</p>{% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </section>
+            {% endfor %}
+        </div>
+    {% elif workbench.empty_state %}
+        <section class="card" aria-labelledby="workbench-empty-title">
+            <div class="empty py-6">
+                <div class="empty-icon"><span class="avatar avatar-lg bg-success-lt text-success"><i data-lucide="circle-check" aria-hidden="true"></i></span></div>
+                <h2 class="empty-title" id="workbench-empty-title">{{ workbench.empty_state.title }}</h2>
+                {% if workbench.empty_state.description %}<p class="empty-subtitle text-secondary">{{ workbench.empty_state.description }}</p>{% endif %}
+                {% if workbench.empty_state.action %}<div class="empty-action"><a class="btn btn-primary" href="{{ workbench.empty_state.action.href }}">{{ workbench.empty_state.action.label }}</a></div>{% endif %}
+            </div>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

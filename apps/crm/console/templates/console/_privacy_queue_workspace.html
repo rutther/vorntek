@@ -1,0 +1,84 @@
+<section class="privacy-queue-shell" data-privacy-queue>
+    <header class="privacy-queue-head">
+        <div>
+            <span class="privacy-kicker">DATA SUBJECT REQUESTS</span>
+            <h2>隐私履约队列</h2>
+            <p>先处理身份核验，再把导出、撤回、限制和匿名化交给有权限的系统管理员。</p>
+        </div>
+        <a class="button primary" href="{% url 'console:privacy_request_register' %}">登记隐私请求</a>
+    </header>
+
+    <dl class="privacy-queue-metrics" aria-label="隐私请求概况">
+        <div><dt>全部请求</dt><dd>{{ privacy_queue.stats.total }}</dd></div>
+        <div class="{% if privacy_queue.stats.pending %}is-warning{% endif %}"><dt>待核验</dt><dd>{{ privacy_queue.stats.pending }}</dd></div>
+        <div><dt>已核验</dt><dd>{{ privacy_queue.stats.verified }}</dd></div>
+        <div class="{% if privacy_queue.stats.processing %}is-attention{% endif %}"><dt>处理中</dt><dd>{{ privacy_queue.stats.processing }}</dd></div>
+        <div class="{% if privacy_queue.stats.system_action %}is-attention{% endif %}"><dt>需系统处理</dt><dd>{{ privacy_queue.stats.system_action }}</dd></div>
+    </dl>
+
+    <form method="get" class="privacy-queue-filters" aria-label="筛选隐私请求">
+        <label class="privacy-filter privacy-filter-search">
+            <span>搜索主体</span>
+            <input type="search" name="q" value="{{ privacy_queue.filters.q }}" placeholder="姓名、邮箱、电话或处理结论">
+        </label>
+        <label class="privacy-filter">
+            <span>请求类型</span>
+            <select name="type">
+                <option value="">全部类型</option>
+                {% for value, label in privacy_queue.type_options %}<option value="{{ value }}"{% if privacy_queue.filters.type == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="privacy-filter">
+            <span>状态</span>
+            <select name="status">
+                <option value="">全部状态</option>
+                {% for value, label in privacy_queue.status_options %}<option value="{{ value }}"{% if privacy_queue.filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <div class="privacy-filter-actions">
+            <button type="submit" class="button primary">筛选</button>
+            <a class="button neutral" href="{% url 'console:marketing_privacy' %}">重置</a>
+        </div>
+    </form>
+
+    <section class="privacy-queue-panel" aria-labelledby="privacy-queue-title">
+        <div class="privacy-section-head">
+            <div><h3 id="privacy-queue-title">请求记录</h3><span>{{ privacy_queue.result_count }} 条结果</span></div>
+            {% if is_system_admin %}<a href="{% url 'console:system_data_governance' %}" class="button neutral compact">查看系统治理</a>{% endif %}
+        </div>
+        <div class="privacy-table-wrap">
+            <table class="privacy-table">
+                <thead><tr><th>数据主体</th><th>请求类型</th><th>状态</th><th>关联线索</th><th>处理人</th><th>申请时间</th><th>最后更新</th><th><span class="sr-only">操作</span></th></tr></thead>
+                <tbody>
+                    {% for item in privacy_queue.rows %}
+                        <tr>
+                            <td><strong>{{ item.requester_name }}</strong><span>{{ item.requester_email|default:item.requester_phone|default:'身份字段已清理' }}</span></td>
+                            <td>{{ item.request_type_label }}</td>
+                            <td><span class="privacy-status is-{{ item.status }}">{{ item.status_label }}</span></td>
+                            <td>{% if item.submission_id %}<a href="{% url 'console:lead_submission_edit' item.submission_id %}">#{{ item.submission_id }}</a>{% else %}身份字段匹配{% endif %}</td>
+                            <td>{{ item.handled_by }}</td>
+                            <td>{{ item.requested_at }}</td>
+                            <td>{{ item.updated_at }}</td>
+                            <td class="privacy-row-action"><a class="button neutral compact" href="{{ item.manage_url }}">{{ item.next_action }}</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="8" class="privacy-empty">没有符合筛选条件的隐私请求。</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="privacy-cards">
+            {% for item in privacy_queue.rows %}
+                <article class="privacy-card">
+                    <div><strong>{{ item.requester_name }}</strong><span class="privacy-status is-{{ item.status }}">{{ item.status_label }}</span></div>
+                    <p>{{ item.request_type_label }} · {% if item.submission_id %}线索 #{{ item.submission_id }}{% else %}身份字段匹配{% endif %}</p>
+                    <small>{{ item.handled_by }} · {{ item.updated_at }}</small>
+                    <a class="button neutral" href="{{ item.manage_url }}">{{ item.next_action }}</a>
+                </article>
+            {% empty %}<div class="privacy-empty">没有符合筛选条件的隐私请求。</div>{% endfor %}
+        </div>
+        {% if privacy_queue.page.total > 1 %}
+            <footer class="privacy-pagination"><span>第 {{ privacy_queue.page.number }} / {{ privacy_queue.page.total }} 页</span><div>{% if privacy_queue.page.has_previous %}<a class="button neutral compact" href="{{ privacy_queue.page.previous_url }}">上一页</a>{% endif %}{% if privacy_queue.page.has_next %}<a class="button neutral compact" href="{{ privacy_queue.page.next_url }}">下一页</a>{% endif %}</div></footer>
+        {% endif %}
+    </section>
+</section>

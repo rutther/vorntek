@@ -1,0 +1,36 @@
+.env
+.env.*
+!.env.example
+.secrets/
+.runtime/
+backups/
+private/
+apps/crm/console/static/console/v2/qa/
+# Retired old-host release tooling; private originals must not re-enter releases.
+apps/crm/scripts/build-production-release.ps1
+apps/crm/scripts/install-production-release.sh
+apps/crm/scripts/install-customer-export-worker.sh
+apps/crm/deploy/siteos-customer-export-worker
+apps/crm/deploy/siteos-customer-export-worker.service
+apps/crm/leads/test_production_release_scripts.py
+# Historical content rewrites are not public initialization data.
+apps/crm/scripts/enrich_product_page_sources.py
+apps/crm/scripts/refresh_benchmark_free_pages.py
+apps/crm/scripts/refresh_products_from_newamstar.py
+apps/crm/scripts/seed_newamstar_articles.py
+apps/crm/scripts/upgrade_demo_content_v2.py
+**/.venv*/
+**/.python-packages/
+**/__pycache__/
+**/*.py[cod]
+**/*.sqlite3*
+**/staticfiles/
+**/node_modules/
+**/.runtime/
+*.dump
+*.pem
+*.key
+.coverage
+.pytest_cache/
+.DS_Store
+Thumbs.db

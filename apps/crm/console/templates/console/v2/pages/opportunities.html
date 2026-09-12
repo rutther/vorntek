@@ -1,0 +1,272 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+
+{% block title %}销售机会 · {{ brand_name }}{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'console/v2/opportunities.css' %}?v=20260830-1">
+{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{% url 'console:lead_workspace_v2' %}">销售</a>
+    <i data-lucide="chevron-right" aria-hidden="true"></i>
+    <strong>销售机会</strong>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 nc-opportunity-page" data-nc-opportunity-page>
+    <header class="page-header mb-3">
+        <div class="row align-items-center g-3">
+            <div class="col min-w-0">
+                <div class="page-pretitle">销售</div>
+                <h1 class="page-title">销售机会</h1>
+                <p class="text-secondary mt-1 mb-0">推进阶段、下一步、金额与成交依据。</p>
+            </div>
+            <div class="col-auto ms-auto">
+                <div class="btn-group nc-opportunity-view-switch" role="group" aria-label="销售机会视图">
+                    <a class="btn btn-sm {% if workspace.filters.view == 'list' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ workspace.list_view_url }}" {% if workspace.filters.view == 'list' %}aria-current="page"{% endif %}>
+                        <i data-lucide="list" aria-hidden="true"></i>列表
+                    </a>
+                    <a class="btn btn-sm {% if workspace.filters.view == 'board' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ workspace.board_view_url }}" {% if workspace.filters.view == 'board' %}aria-current="page"{% endif %}>
+                        <i data-lucide="columns-3" aria-hidden="true"></i>管道
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="row row-cards row-cols-1 row-cols-sm-2 {% if workspace.metrics|length == 3 %}row-cols-xl-3{% else %}row-cols-xl-4{% endif %} mb-3" aria-label="待处理摘要">
+        {% for metric in workspace.metrics %}
+            <div class="col">
+                {% if metric.href %}<a class="card card-link card-link-pop h-100 text-reset text-decoration-none" href="{{ metric.href }}">{% else %}<div class="card h-100" aria-disabled="true">{% endif %}
+                    <div class="card-body py-3">
+                        <div class="d-flex align-items-start gap-3">
+                            <span class="avatar avatar-sm bg-{{ metric.tone }}-lt text-{{ metric.tone }}"><i data-lucide="{{ metric.icon }}" aria-hidden="true"></i></span>
+                            <div class="min-w-0">
+                                <div class="text-secondary small fw-semibold">{{ metric.label }}</div>
+                                <div class="h2 mb-0">{{ metric.value }}</div>
+                                <div class="text-secondary small text-truncate" title="{{ metric.description }}">{{ metric.description }}</div>
+                            </div>
+                        </div>
+                    </div>
+                {% if metric.href %}</a>{% else %}</div>{% endif %}
+            </div>
+        {% endfor %}
+    </section>
+
+    <section class="card mb-3" aria-labelledby="opportunity-filters-title">
+        <div class="card-body py-3">
+            <h2 class="visually-hidden" id="opportunity-filters-title">筛选销售机会</h2>
+            <form action="{% url 'console:opportunity_workspace_v2' %}" method="get" class="row g-2 align-items-end" role="search">
+                <input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
+                <input type="hidden" name="view" value="{{ workspace.filters.view }}">
+                <div class="col-12 col-xl-4">
+                    <label class="form-label" for="opportunity-search">搜索</label>
+                    <div class="input-icon">
+                        <span class="input-icon-addon"><i data-lucide="search" aria-hidden="true"></i></span>
+                        <input class="form-control" id="opportunity-search" name="q" value="{{ workspace.filters.query }}" placeholder="项目、企业、联系人、产品或产能">
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label class="form-label" for="opportunity-stage-filter">阶段</label>
+                    <select class="form-select" id="opportunity-stage-filter" name="stage">
+                        {% for option in workspace.options.stages %}<option value="{{ option.value }}" {% if workspace.filters.stage == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label class="form-label" for="opportunity-owner-filter">负责人</label>
+                    <select class="form-select" id="opportunity-owner-filter" name="owner">
+                        {% for option in workspace.options.owners %}<option value="{{ option.value }}" {% if workspace.filters.owner == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-4 col-xl-2">
+                    <label class="form-label" for="opportunity-due-filter">下一步时间</label>
+                    <select class="form-select" id="opportunity-due-filter" name="due">
+                        {% for option in workspace.options.due %}<option value="{{ option.value }}" {% if workspace.filters.due == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-xl-2">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-fill" type="submit">应用</button>
+                        <a class="btn btn-outline-secondary" href="{{ workspace.clear_url }}">清除</a>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <details class="nc-opportunity-advanced" {% if workspace.filters.source != 'all' or workspace.filters.include_closed or workspace.filters.sort != 'attention' %}open{% endif %}>
+                        <summary>高级筛选</summary>
+                        <div class="row g-2 align-items-end mt-1">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="opportunity-source-filter">来源</label>
+                                <select class="form-select" id="opportunity-source-filter" name="source">
+                                    {% for option in workspace.options.sources %}<option value="{{ option.value }}" {% if workspace.filters.source == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="opportunity-sort-filter">排序</label>
+                                <select class="form-select" id="opportunity-sort-filter" name="sort">
+                                    {% for option in workspace.options.sort %}<option value="{{ option.value }}" {% if workspace.filters.sort == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4 pb-2">
+                                <label class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" name="include_closed" value="1" {% if workspace.filters.include_closed %}checked{% endif %}>
+                                    <span class="form-check-label">包含已成交与已丢单</span>
+                                </label>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </form>
+        </div>
+        {% if workspace.active_filter_chips %}
+            <div class="card-footer py-2">
+                <div class="nc-filter-chips mb-0" aria-label="当前筛选">
+                    {% for chip in workspace.active_filter_chips %}<a href="{{ chip.remove_url }}"><span>{{ chip.label }}</span><i data-lucide="x" aria-hidden="true"></i></a>{% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </section>
+
+    {% if workspace.filters.view == 'board' %}
+        <section class="card" aria-labelledby="opportunity-board-title">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title" id="opportunity-board-title">管道视图</h2>
+                    <p class="card-subtitle mt-1">仅显示有对象的阶段；金额按币种分别汇总。</p>
+                </div>
+                <div class="card-actions"><span class="badge bg-secondary-lt text-secondary">{{ workspace.stats.filtered }} 条</span></div>
+            </div>
+            {% if workspace.board.columns %}
+                <div class="nc-opportunity-board-scroller" tabindex="0" aria-label="销售机会管道，可横向滚动">
+                    <div class="nc-opportunity-board">
+                        {% for column in workspace.board.columns %}
+                            <section class="nc-opportunity-column" aria-labelledby="opportunity-stage-{{ column.value }}">
+                                <header>
+                                    <div><span class="status-dot bg-{{ column.tone }}"></span><strong id="opportunity-stage-{{ column.value }}">{{ column.label }}</strong><em>{{ column.count }}</em></div>
+                                    {% for amount in column.amounts %}<small>{{ amount.currency }} {{ amount.amount|floatformat:2 }}</small>{% empty %}<small>暂无金额</small>{% endfor %}
+                                </header>
+                                <div class="nc-opportunity-cards">
+                                    {% for row in column.rows %}
+                                        <a class="card card-link text-reset text-decoration-none" href="{{ row.detail_url }}">
+                                            <div class="card-body p-3">
+                                                <strong class="d-block text-truncate" title="{{ row.name }}">{{ row.name }}</strong>
+                                                <span class="text-secondary small d-block text-truncate">{{ row.company }}</span>
+                                                <div class="d-flex justify-content-between gap-2 mt-3"><span class="fw-semibold">{{ row.amount_label }}</span><span class="text-secondary small">{{ row.owner }}</span></div>
+                                                <p class="small mt-2 mb-1 text-truncate" title="{{ row.next_step }}">{{ row.next_step }}</p>
+                                                <time class="small {% if row.follow_up_overdue %}text-danger{% else %}text-secondary{% endif %}" {% if row.follow_up_at %}datetime="{{ row.follow_up_at|date:'c' }}"{% endif %}>{{ row.follow_up_label }}</time>
+                                            </div>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </section>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% if workspace.board.hidden_stages %}
+                    <div class="card-footer py-2">
+                        <details><summary>显示无对象阶段</summary><p class="text-secondary small mb-0 mt-2">{% for stage in workspace.board.hidden_stages %}{{ stage.label }}{% if not forloop.last %}、{% endif %}{% endfor %}</p></details>
+                    </div>
+                {% endif %}
+                {% if workspace.board.truncated %}<div class="alert alert-warning m-3" role="status">管道先显示前 200 条；请缩小筛选范围，或切回完整列表。</div>{% endif %}
+            {% else %}
+                <div class="empty py-5">
+                    <div class="empty-icon"><span class="avatar avatar-lg bg-secondary-lt text-secondary"><i data-lucide="search-x" aria-hidden="true"></i></span></div>
+                    <h2 class="empty-title">没有匹配的销售机会</h2>
+                    <p class="empty-subtitle text-secondary">清除当前筛选后再查看管道。</p>
+                    <div class="empty-action"><a class="btn btn-outline-secondary" href="{{ workspace.clear_url }}">清除筛选</a></div>
+                </div>
+            {% endif %}
+        </section>
+    {% else %}
+        <section class="card" aria-labelledby="opportunity-list-title">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title" id="opportunity-list-title">机会列表</h2>
+                    <p class="card-subtitle mt-1">{{ workspace.stats.filtered }} 条结果；默认按现在最需要处理的顺序排列。</p>
+                </div>
+                <form action="{% url 'console:opportunity_workspace_v2' %}" method="get" class="card-actions d-flex align-items-center gap-2">
+                    <input type="hidden" name="q" value="{{ workspace.filters.query }}">
+                    <input type="hidden" name="stage" value="{{ workspace.filters.stage }}">
+                    <input type="hidden" name="owner" value="{{ workspace.filters.owner }}">
+                    <input type="hidden" name="source" value="{{ workspace.filters.source }}">
+                    <input type="hidden" name="due" value="{{ workspace.filters.due }}">
+                    {% if workspace.filters.include_closed %}<input type="hidden" name="include_closed" value="1">{% endif %}
+                    <input type="hidden" name="sort" value="{{ workspace.filters.sort }}">
+                    <input type="hidden" name="view" value="list">
+                    <label class="small text-secondary" for="opportunity-page-size">每页</label>
+                    <select class="form-select form-select-sm" id="opportunity-page-size" name="page_size" data-nc-submit-on-change>
+                        {% for value in workspace.options.page_sizes %}<option value="{{ value }}" {% if workspace.filters.page_size == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+                    </select>
+                </form>
+            </div>
+            <div class="nc-opportunity-table-wrap">
+                <table class="table table-vcenter card-table nc-opportunity-table">
+                    <caption class="visually-hidden">销售机会、阶段、金额、下一步、负责人和预计成交日期</caption>
+                    <colgroup><col class="is-opportunity"><col class="is-stage"><col class="is-amount"><col class="is-next"><col class="is-owner"><col class="is-close"></colgroup>
+                    <thead>
+                        <tr>
+                            <th scope="col">销售机会</th>
+                            <th scope="col">阶段</th>
+                            <th scope="col" {% if workspace.filters.sort == 'amount_desc' %}aria-sort="descending"{% else %}aria-sort="none"{% endif %}><a href="{{ workspace.sort_urls.amount }}">预计金额</a></th>
+                            <th scope="col" {% if workspace.filters.sort == 'follow_up' %}aria-sort="ascending"{% else %}aria-sort="none"{% endif %}><a href="{{ workspace.sort_urls.follow_up }}">下一步</a></th>
+                            <th scope="col">负责人</th>
+                            <th scope="col" {% if workspace.filters.sort == 'close_date' %}aria-sort="ascending"{% else %}aria-sort="none"{% endif %}><a href="{{ workspace.sort_urls.close_date }}">预计成交</a></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in workspace.rows %}
+                            <tr>
+                                <td>
+                                    <a class="fw-semibold d-block text-truncate" href="{{ row.detail_url }}" title="{{ row.name }}">{{ row.name }}</a>
+                                    <span class="text-secondary small d-block text-truncate" title="{{ row.company }} · {{ row.contact }}">{{ row.company }} · {{ row.contact }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ row.stage.tone }}-lt text-{{ row.stage.tone }}">{{ row.stage.label }}</span>
+                                    {% if row.stage.terminal and not row.stage.reason_complete %}<span class="text-danger small d-block mt-1">缺少关闭原因</span>{% endif %}
+                                </td>
+                                <td><strong class="d-block text-truncate" title="{{ row.amount_label }}">{{ row.amount_label }}</strong><span class="text-secondary small">概率 {{ row.probability }}%</span></td>
+                                <td><span class="d-block text-truncate" title="{{ row.next_step }}">{{ row.next_step }}</span><time class="small {% if row.follow_up_overdue %}text-danger fw-semibold{% else %}text-secondary{% endif %}" {% if row.follow_up_at %}datetime="{{ row.follow_up_at|date:'c' }}"{% endif %}>{{ row.follow_up_label }}{% if row.follow_up_overdue %} · 已逾期{% endif %}</time></td>
+                                <td><span class="d-block text-truncate" title="{{ row.owner }}">{{ row.owner }}</span><span class="text-secondary small d-block text-truncate" title="{{ row.team }}">{{ row.team }}</span></td>
+                                <td><time {% if row.close_date %}datetime="{{ row.close_date|date:'Y-m-d' }}"{% endif %} class="{% if row.close_overdue %}text-danger fw-semibold{% endif %}">{{ row.close_label }}</time>{% if row.close_overdue %}<span class="text-danger small d-block">已超过预计日期</span>{% endif %}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6">
+                                    <div class="empty py-5">
+                                        <div class="empty-icon"><span class="avatar avatar-lg bg-secondary-lt text-secondary"><i data-lucide="{% if workspace.stats.scope_total %}search-x{% else %}badge-dollar-sign{% endif %}" aria-hidden="true"></i></span></div>
+                                        {% if workspace.stats.scope_total %}
+                                            <h2 class="empty-title">没有匹配的销售机会</h2>
+                                            <p class="empty-subtitle text-secondary">当前条件没有结果；清除筛选不会更改任何数据。</p>
+                                            <div class="empty-action"><a class="btn btn-outline-secondary" href="{{ workspace.clear_url }}">清除筛选</a></div>
+                                        {% else %}
+                                            <h2 class="empty-title">还没有销售机会</h2>
+                                            <p class="empty-subtitle text-secondary">合格线索转换后，会在这里生成企业、联系人和销售机会关系。</p>
+                                            {% if workspace.can_convert %}<div class="empty-action"><a class="btn btn-primary" href="{{ workspace.lead_workspace_url }}">打开线索队列</a></div>{% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if workspace.pagination.total_pages > 1 %}
+                <div class="card-footer d-flex align-items-center justify-content-between gap-3">
+                    <span class="text-secondary small">第 {{ workspace.pagination.current }} / {{ workspace.pagination.total_pages }} 页</span>
+                    <nav aria-label="销售机会分页">
+                        <ul class="pagination pagination-sm m-0">
+                            <li class="page-item {% if not workspace.pagination.previous_url %}disabled{% endif %}">{% if workspace.pagination.previous_url %}<a class="page-link" href="{{ workspace.pagination.previous_url }}" aria-label="上一页"><i data-lucide="chevron-left" aria-hidden="true"></i></a>{% else %}<span class="page-link" aria-disabled="true"><i data-lucide="chevron-left" aria-hidden="true"></i></span>{% endif %}</li>
+                            <li class="page-item active"><span class="page-link" aria-current="page">{{ workspace.pagination.current }}</span></li>
+                            <li class="page-item {% if not workspace.pagination.next_url %}disabled{% endif %}">{% if workspace.pagination.next_url %}<a class="page-link" href="{{ workspace.pagination.next_url }}" aria-label="下一页"><i data-lucide="chevron-right" aria-hidden="true"></i></a>{% else %}<span class="page-link" aria-disabled="true"><i data-lucide="chevron-right" aria-hidden="true"></i></span>{% endif %}</li>
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script src="{% static 'console/v2/opportunities.js' %}?v=20260830-2"></script>
+{% endblock %}

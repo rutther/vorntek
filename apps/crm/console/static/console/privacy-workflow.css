@@ -1,0 +1,13 @@
+.privacy-workspace .editor-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; }
+.privacy-impact-card .editor-card-head { border-bottom: 1px solid var(--line-soft); }
+.privacy-impact-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+.privacy-impact-grid > div { padding: 12px 14px; border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+.privacy-impact-grid > div:nth-child(4n) { border-right: 0; }
+.privacy-impact-grid > div:nth-last-child(-n + 3) { border-bottom: 0; }
+.privacy-impact-grid dt { color: var(--muted); font-size: 9.5px; font-weight: 760; }
+.privacy-impact-grid dd { margin: 4px 0 0; color: var(--ink); font-size: 17px; font-weight: 820; }
+.privacy-impact-grid .is-retained { background: #f1faf5; }
+.privacy-danger-card .field { margin-top: 0; }
+@media (max-width: 1100px) { .privacy-workspace .editor-layout { grid-template-columns: minmax(0, 1fr) 280px; }.privacy-impact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.privacy-impact-grid > div, .privacy-impact-grid > div:nth-child(4n), .privacy-impact-grid > div:nth-last-child(-n + 3) { border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }.privacy-impact-grid > div:nth-child(2n) { border-right: 0; }.privacy-impact-grid > div:last-child { border-bottom: 0; } }
+@media (max-width: 920px) { .privacy-workspace .editor-layout { grid-template-columns: minmax(0, 1fr); }.privacy-workspace .editor-side { grid-row: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); }.privacy-workspace .editor-side > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .privacy-impact-grid, .privacy-workspace .editor-side { grid-template-columns: minmax(0, 1fr); }.privacy-workspace .editor-side > :first-child { grid-column: auto; }.privacy-impact-grid > div, .privacy-impact-grid > div:nth-child(2n) { border-right: 0; border-bottom: 1px solid var(--line-soft); } }

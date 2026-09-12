@@ -1,0 +1,79 @@
+# Third-party notices / 第三方组件声明
+
+2026-09-13 — partial provenance/license review, **not** final approval to publish.
+The project code now has an MIT license. Final source/history/image review remains.
+Third-party components keep their own notices and terms; they do not grant rights
+over website photographs, trademarks, customer material or unrelated content.
+
+## Vendored browser components
+
+| Component | Observed version | License evidence retained |
+| --- | --- | --- |
+| Lucide | 1.8.0 | [Full upstream ISC notice plus Feather-derived-icon MIT notice](apps/crm/console/static/console/lucide.LICENSE.txt) |
+| Tabler core | 1.4.0 | Package declares MIT; [existing notice](apps/crm/console/static/console/vendor/tabler/1.4.0/LICENSE) retained |
+| Bootstrap, bundled by Tabler | 5.3.7 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/BOOTSTRAP_LICENSE) |
+| Popper core, bundled by Tabler | 2.11.8 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/POPPER_LICENSE) |
+
+Downloaded package archives were checked against their registry SHA-512 integrity
+metadata **without executing package scripts**. Lucide JS and its full license,
+Tabler JS/CSS, and the added Bootstrap/Popper notices matched exact package bytes.
+Tabler's upstream JS source map identifies Popper2.11.8; its JS banner identifies
+Bootstrap5.3.7. Not every library mentioned in Tabler's development dependency list
+is shipped in this project; that list alone is not a bundled-component inventory.
+
+Evidence is in [vendor package records](docs/review/vendor-packages.json).
+Lucide's [official versioned license](https://github.com/lucide-icons/lucide/blob/1.8.0/LICENSE)
+also matched the package license. Tabler's attempted version-tag LICENSE URLs
+were unavailable and its npm archive omitted its own root LICENSE; therefore the
+existing notice is described as retained, not falsely certified as a fetched
+tag-file match. Package metadata and vendored headers both declare MIT.
+
+Upstream projects: [Lucide](https://github.com/lucide-icons/lucide),
+[Tabler](https://github.com/tabler/tabler), [Bootstrap](https://github.com/twbs/bootstrap),
+[Popper](https://github.com/popperjs/popper-core).
+
+## Python runtime dependencies
+
+Follow-up: [actual Linux image inventory](docs/review/python-dependencies-linux.json)
+records all 24 matching locked distributions and installed license-file hashes
+inside the f7 CRM image, identified by its immutable image ID. The original Windows
+inventory remains for comparison. This closes the missing Linux Python observation,
+not the separate OS/bundled-native-library redistribution review. No Python package
+is relicensed to MIT by this project; image publication remains gated on those terms.
+
+All 24 installed package versions matched `apps/crm/requirements.lock`. Their
+declared license metadata and actual installed license-file hashes are recorded
+in [python-dependencies.json](docs/review/python-dependencies.json), reproducible
+with `python scripts/inventory_dependencies.py` in that interpreter.
+
+The inventory includes BSD/MIT/Apache/PSF declarations and dependencies declaring
+MPL or LGPL; **do not label every dependency MIT**. Some packages also carry
+additional notices or bundled-library obligations. Preserve distribution license
+files in built images and verify the actual Linux wheels, OS packages and image
+layers before publication. This Windows-interpreter inventory is not proof of
+those future image contents or a license-compatibility opinion.
+
+## Fonts, photographs, brand and historical evidence
+
+- No standalone `.woff`, `.woff2`, `.ttf` or `.otf` files were found in the staged
+  tree. Narrow CSS/HTML searches did not identify Google Fonts/rsms imports. This
+  is a source observation, not a complete runtime network/resource inventory.
+- The old website image tree and CRM brand mark were moved into a private,
+  ignored local archive before Vorntek replacement. They must not enter the final
+  staged tree or container context. This operation did not alter the original site.
+- Current Vorntek website images comprise eight original AI-generated PNGs;
+  the CRM uses a copy of that logo. Prompts, hashes and the fictional-company
+  disclosure are in [the demo pack](docs/vorntekDemo/README.md). The project
+  offers its generated demo assets for reuse to the extent it can grant rights;
+  this is not trademark clearance, third-party likeness clearance or a guarantee
+  of copyright protection or exclusive ownership in generated images.
+- The two QA images and their comparison HTML remain locally but are excluded
+  from Git and the image build context. No assertion was made that labels inside
+  those screenshots represented synthetic rather than real people/customers.
+- Historical production and third-party-content seeding helpers remain under
+  review. They are not part of Compose installation or permission to copy content.
+
+项目代码已按用户委托选择 MIT。仍需检查最终公开树与历史，确认旧素材全部排除、
+AI 素材哈希一致，并核对实际发布镜像的依赖声明；不要上传客户数据或旧截图。
+
+See [public-release gate](docs/PUBLIC_RELEASE_REVIEW.md) before publication.

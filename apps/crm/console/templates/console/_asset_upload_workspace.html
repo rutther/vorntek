@@ -1,0 +1,107 @@
+<section class="editor-shell">
+    <form method="post" enctype="multipart/form-data" class="editor-layout">
+        {% csrf_token %}
+
+        <div class="editor-main">
+            {% if asset_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in asset_form.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>上传文件</h2>
+                        <p>资产先进入受控资源库，再由文章或前端代码引用公开路径。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ asset_form.file.label }}</span>
+                    {{ asset_form.file }}
+                    {% if asset_form.file.help_text %}<small class="field-help">{{ asset_form.file.help_text }}</small>{% endif %}
+                    {% for error in asset_form.file.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <div class="field-grid cols-1">
+                    <label class="field field-block">
+                        <span class="field-label">{{ asset_form.title.label }}</span>
+                        {{ asset_form.title }}
+                        {% for error in asset_form.title.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ asset_form.alt_text.label }}</span>
+                        {{ asset_form.alt_text }}
+                        {% for error in asset_form.alt_text.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ asset_form.caption.label }}</span>
+                        {{ asset_form.caption }}
+                        {% for error in asset_form.caption.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            {% if uploaded_asset %}
+                <section class="editor-card">
+                    <div class="editor-card-head">
+                        <div>
+                            <h2>本次上传结果</h2>
+                            <p>下面这条公开路径可以给程序员用于文章封面、页面图片、视频或 3D 模型引用。</p>
+                        </div>
+                    </div>
+                    <div class="meta-list">
+                        <div class="meta-item">
+                            <span>资产标题</span>
+                            <strong>{{ uploaded_asset.title|default:uploaded_asset.original_name }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>公开路径</span>
+                            <strong class="mono">{{ uploaded_asset.public_path }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>类型</span>
+                            <strong>{{ uploaded_asset.asset_type }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>文件大小</span>
+                            <strong>{{ uploaded_asset.file_size_bytes }} bytes</strong>
+                        </div>
+                    </div>
+                </section>
+            {% endif %}
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>操作</h2>
+                        <p>上传完成后，可以回到资产列表筛选、下载和查询路径。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">上传资产</button>
+                    <a href="{% url 'console:assets' %}" class="button neutral">返回资产列表</a>
+                    <a href="{% url 'console:articles' %}" class="button neutral">去文章模块</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>支持范围</h2>
+                        <p>资产模块先解决稳定存储、公开路径和引用关系，不在这里做在线编辑器。</p>
+                    </div>
+                </div>
+                <ul class="hint-list">
+                    <li>图片：jpg、jpeg、png、webp</li>
+                    <li>视频：mp4</li>
+                    <li>三维模型：glb</li>
+                    <li>文档：pdf</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

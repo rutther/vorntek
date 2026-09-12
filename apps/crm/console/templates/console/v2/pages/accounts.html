@@ -1,0 +1,161 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+
+{% block title %}{{ workspace.title }} · {{ brand_name }} 后台{% endblock %}
+{% block body_class %}nc-accounts-page{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/v2/accounts.css' %}?v=20260830-1">{% endblock %}
+{% block breadcrumb %}<span>销售</span><i data-lucide="chevron-right" aria-hidden="true"></i><strong>{{ workspace.title }}</strong>{% endblock %}
+
+{% block content %}
+<div class="nc-account-workspace" data-nc-account-workspace>
+    <header class="nc-account-hero">
+        <div class="min-w-0">
+            <p class="nc-account-eyebrow">{{ workspace.eyebrow|default:'销售 · 客户关系' }}</p>
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <h1 class="page-title">{{ workspace.title }}</h1>
+                {% if not workspace.error %}<span class="badge bg-blue-lt text-blue">{{ workspace.total_visible }} 条可见记录</span>{% endif %}
+            </div>
+            <p class="text-secondary mb-0 mt-2">{{ workspace.description }}</p>
+        </div>
+    </header>
+
+    {% if workspace.error %}
+        <section class="card nc-account-state-card" aria-labelledby="account-error-title">
+            <div class="card-body">
+                <span class="avatar avatar-lg bg-red-lt text-red"><i data-lucide="database-zap" aria-hidden="true"></i></span>
+                <h2 id="account-error-title">客户关系数据暂时不可用</h2>
+                <p>系统没有返回部分结果，也没有隐藏失败。请稍后重试；当前筛选不会被当成成功结果。</p>
+                <a class="btn btn-primary" href="{{ workspace.clear_url }}"><i data-lucide="refresh-cw" aria-hidden="true"></i>重新加载</a>
+            </div>
+        </section>
+    {% else %}
+        <section class="card nc-account-filter-card" aria-labelledby="account-filter-title">
+            <div class="card-body">
+                <h2 class="visually-hidden" id="account-filter-title">筛选{{ workspace.title }}</h2>
+                <form method="get" action="" data-nc-account-filters>
+                    <input type="hidden" name="page" value="1">
+                    {% if workspace.selected_company %}<input type="hidden" name="company" value="{{ workspace.selected_company.value }}">{% endif %}
+                    <div class="nc-account-filter-grid">
+                        <div class="nc-account-filter-search">
+                            <label class="form-label" for="account-q">搜索</label>
+                            <div class="input-icon">
+                                <span class="input-icon-addon"><i data-lucide="search" aria-hidden="true"></i></span>
+                                <input class="form-control" id="account-q" name="q" value="{{ workspace.filters.query }}" placeholder="{% if workspace.kind == 'companies' %}企业、行业、国家或城市{% else %}姓名、企业、职位或联系方式{% endif %}" autocomplete="off">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="form-label" for="account-status">状态</label>
+                            <select class="form-select" id="account-status" name="status">
+                                <option value="all">全部状态</option>
+                                {% for item in workspace.status_options %}<option value="{{ item.value }}" {% if workspace.filters.status == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label" for="account-owner">负责人</label>
+                            <select class="form-select" id="account-owner" name="owner">
+                                <option value="all">全部负责人</option>
+                                <option value="mine" {% if workspace.filters.owner == 'mine' %}selected{% endif %}>我负责的</option>
+                                {% if workspace.show_unassigned %}<option value="unassigned" {% if workspace.filters.owner == 'unassigned' %}selected{% endif %}>未分配</option>{% endif %}
+                                {% for item in workspace.owner_choices %}<option value="{{ item.value }}" {% if workspace.filters.owner == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        {% if workspace.team_choices %}
+                        <div>
+                            <label class="form-label" for="account-team">团队</label>
+                            <select class="form-select" id="account-team" name="team">
+                                <option value="all">全部团队</option>
+                                {% for item in workspace.team_choices %}<option value="{{ item.value }}" {% if workspace.filters.team == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <label class="form-label" for="account-sort">排序</label>
+                            <select class="form-select" id="account-sort" name="sort">
+                                {% for item in workspace.sort_options %}<option value="{{ item.value }}" {% if workspace.filters.sort == item.value %}selected{% endif %}>{{ item.label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label" for="account-page-size">每页</label>
+                            <select class="form-select" id="account-page-size" name="page_size">
+                                <option value="25" {% if workspace.filters.page_size == 25 %}selected{% endif %}>25</option>
+                                <option value="50" {% if workspace.filters.page_size == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if workspace.filters.page_size == 100 %}selected{% endif %}>100</option>
+                            </select>
+                        </div>
+                        <div class="nc-account-filter-actions">
+                            <button class="btn btn-primary" type="submit" data-nc-filter-submit><i data-lucide="list-filter" aria-hidden="true"></i><span>应用</span></button>
+                            <a class="btn btn-ghost-secondary" href="{{ workspace.clear_url }}">清除</a>
+                        </div>
+                    </div>
+                </form>
+                {% if workspace.active_filters %}
+                    <div class="nc-account-filter-chips" aria-label="已启用筛选">
+                        {% for chip in workspace.active_filters %}<a class="badge bg-blue-lt text-blue" href="{{ chip.remove_url }}">{{ chip.label }}<i data-lucide="x" aria-hidden="true"></i><span class="visually-hidden">移除此筛选</span></a>{% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="card nc-account-table-card" aria-labelledby="account-results-title" data-nc-account-results>
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title" id="account-results-title">{{ workspace.title }}列表</h2>
+                    <p class="card-subtitle mt-1">当前条件下 {{ workspace.filtered_total }} 条；点击名称进入完整关系页。</p>
+                </div>
+            </div>
+            {% if workspace.rows %}
+                <div class="nc-account-table-wrap">
+                    <table class="table table-vcenter card-table nc-account-table">
+                        <caption class="visually-hidden">{{ workspace.title }}列表，共 {{ workspace.filtered_total }} 条</caption>
+                        {% if workspace.kind == 'companies' %}
+                            <thead><tr><th scope="col">企业</th><th scope="col">国家 / 城市</th><th scope="col">行业</th><th scope="col">关系</th><th scope="col">最近活动</th><th scope="col">负责人</th><th scope="col">状态</th></tr></thead>
+                            <tbody>
+                            {% for item in workspace.rows %}
+                                <tr>
+                                    <td><a class="nc-account-primary-link" href="{{ item.detail_url }}">{{ item.name }}</a></td>
+                                    <td><span class="text-secondary">{{ item.location }}</span></td>
+                                    <td><span class="text-secondary">{{ item.industry }}</span></td>
+                                    <td><div class="nc-account-relation-links"><a href="{{ item.contacts_url }}">联系人 {{ item.contact_count }}</a><a href="{{ item.opportunities_url }}">开放机会 {{ item.open_opportunity_count }}</a></div></td>
+                                    <td><time class="text-secondary" {% if item.latest_activity_at %}datetime="{{ item.latest_activity_at|date:'c' }}"{% endif %}>{{ item.latest_activity_label }}</time></td>
+                                    <td><strong class="d-block">{{ item.owner }}</strong><span class="text-secondary small">{{ item.team }}</span></td>
+                                    <td><span class="badge bg-{{ item.status_tone }}-lt text-{{ item.status_tone }}">{{ item.status_label }}</span></td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        {% else %}
+                            <thead><tr><th scope="col">联系人</th><th scope="col">企业 / 职位</th><th scope="col">联系方式</th><th scope="col">国家 / 语言</th><th scope="col">开放机会</th><th scope="col">最近活动</th><th scope="col">负责人 / 状态</th></tr></thead>
+                            <tbody>
+                            {% for item in workspace.rows %}
+                                <tr>
+                                    <td><a class="nc-account-primary-link" href="{{ item.detail_url }}">{{ item.full_name }}</a></td>
+                                    <td>{% if item.company_url %}<a href="{{ item.company_url }}">{{ item.company }}</a>{% else %}<span class="text-secondary">{{ item.company }}</span>{% endif %}<span class="d-block text-secondary small">{{ item.job_title }}</span></td>
+                                    <td>{% if item.channels %}<div class="nc-account-channel-stack">{% for channel in item.channels %}<span title="{{ channel.kind }}"><i data-lucide="{{ channel.icon }}" aria-hidden="true"></i>{{ channel.value }}</span>{% endfor %}</div>{% else %}<span class="text-secondary">未填写联系方式</span>{% endif %}</td>
+                                    <td><span class="text-secondary">{{ item.country_language }}</span></td>
+                                    <td><a href="{{ item.opportunities_url }}">{{ item.open_opportunity_count }} 条</a></td>
+                                    <td><time class="text-secondary" {% if item.latest_activity_at %}datetime="{{ item.latest_activity_at|date:'c' }}"{% endif %}>{{ item.latest_activity_label }}</time></td>
+                                    <td><strong class="d-block">{{ item.owner }}</strong><span class="badge bg-{{ item.status_tone }}-lt text-{{ item.status_tone }} mt-1">{{ item.status_label }}</span></td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        {% endif %}
+                    </table>
+                </div>
+                <div class="card-footer nc-account-pagination">
+                    <span class="text-secondary">第 {{ workspace.pagination.start }}–{{ workspace.pagination.end }} 条，共 {{ workspace.pagination.total_items }} 条</span>
+                    <nav aria-label="{{ workspace.title }}分页"><div class="btn-list">
+                        {% if workspace.pagination.previous_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ workspace.pagination.previous_url }}"><i data-lucide="chevron-left" aria-hidden="true"></i>上一页</a>{% endif %}
+                        <span class="btn btn-ghost-secondary btn-sm disabled" aria-current="page">{{ workspace.pagination.current }} / {{ workspace.pagination.total_pages }}</span>
+                        {% if workspace.pagination.next_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ workspace.pagination.next_url }}">下一页<i data-lucide="chevron-right" aria-hidden="true"></i></a>{% endif %}
+                    </div></nav>
+                </div>
+            {% elif workspace.has_filters %}
+                <div class="nc-account-empty"><span class="avatar avatar-lg bg-blue-lt text-blue"><i data-lucide="search-x" aria-hidden="true"></i></span><h3>没有匹配的{{ workspace.title }}</h3><p>当前筛选没有结果；数据没有被删除。</p><a class="btn btn-outline-primary" href="{{ workspace.clear_url }}">清除筛选</a></div>
+            {% else %}
+                <div class="nc-account-empty"><span class="avatar avatar-lg bg-blue-lt text-blue"><i data-lucide="{% if workspace.kind == 'companies' %}building-2{% else %}contact{% endif %}" aria-hidden="true"></i></span><h3>还没有{{ workspace.title }}</h3><p>{% if workspace.kind == 'companies' %}合格线索完成转换后，企业会在这里形成客户账户。{% else %}合格线索转换或客户资料补充后，联系人会出现在这里。{% endif %}</p></div>
+            {% endif %}
+        </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'console/v2/accounts.js' %}?v=20260830-1"></script>{% endblock %}

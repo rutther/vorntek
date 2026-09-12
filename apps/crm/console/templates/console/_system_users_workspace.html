@@ -1,0 +1,143 @@
+<section class="system-shell">
+    <header class="system-pagehead">
+        <div>
+            <span class="system-kicker">SYSTEM ACCESS</span>
+            <h2>账号与主角色</h2>
+            <p>先识别需要治理的账号，再进入详情修改角色、团队或登录状态。</p>
+        </div>
+        <div class="system-page-actions">
+            <a class="button primary" href="{% url 'console:system_user_create' %}">新增账号</a>
+        </div>
+    </header>
+
+    <dl class="system-metrics" aria-label="账号概况">
+        <div><dt>全部账号</dt><dd>{{ system_user_stats.total }}</dd></div>
+        <div><dt>启用账号</dt><dd>{{ system_user_stats.active }}</dd></div>
+        <div><dt>未分配角色</dt><dd>{{ system_user_stats.unassigned }}</dd></div>
+        <div><dt>多角色冲突</dt><dd>{{ system_user_stats.conflicted }}</dd></div>
+        <div><dt>销售缺少团队</dt><dd>{{ system_user_stats.needs_team }}</dd></div>
+        <div><dt>停用账号</dt><dd>{{ system_user_stats.inactive }}</dd></div>
+    </dl>
+
+    <form method="get" class="system-filterbar" aria-label="筛选账号">
+        <label class="system-filter system-filter-search">
+            <span>搜索</span>
+            <input type="search" name="q" value="{{ selected_search }}" placeholder="姓名、登录名或邮箱">
+        </label>
+        <label class="system-filter">
+            <span>角色</span>
+            <select name="role">
+                <option value="">全部角色</option>
+                {% for value, label in role_choices %}
+                    <option value="{{ value }}"{% if selected_role == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+                <option value="unassigned"{% if selected_role == 'unassigned' %} selected{% endif %}>未分配角色</option>
+                <option value="conflicted"{% if selected_role == 'conflicted' %} selected{% endif %}>多角色冲突</option>
+            </select>
+        </label>
+        <label class="system-filter">
+            <span>团队</span>
+            <select name="team">
+                <option value="">全部团队</option>
+                {% for team in system_teams %}
+                    <option value="{{ team.id }}"{% if selected_team == team.id|stringformat:'s' %} selected{% endif %}>{{ team.site.name }} / {{ team.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="system-filter">
+            <span>状态</span>
+            <select name="status">
+                <option value="">全部状态</option>
+                <option value="active"{% if selected_status == 'active' %} selected{% endif %}>已启用</option>
+                <option value="inactive"{% if selected_status == 'inactive' %} selected{% endif %}>已停用</option>
+            </select>
+        </label>
+        <div class="system-filter-actions">
+            <button type="submit" class="button primary">筛选</button>
+            <a href="{% url 'console:system_users' %}" class="button neutral">重置</a>
+        </div>
+    </form>
+
+    <div class="system-layout is-single">
+        <section class="system-users-panel" aria-labelledby="system-users-title">
+            <div class="system-section-head">
+                <div>
+                    <h3 id="system-users-title">后台账号</h3>
+                    <span>{{ system_user_rows|length }} 条结果</span>
+                </div>
+            </div>
+
+            <div class="system-user-table-wrap">
+                <table class="system-user-table">
+                    <thead>
+                        <tr>
+                            <th>账号</th>
+                            <th>主角色</th>
+                            <th>销售团队</th>
+                            <th>最近登录</th>
+                            <th>状态</th>
+                            <th><span class="sr-only">操作</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in system_user_rows %}
+                            <tr>
+                                <td>
+                                    <strong>{{ item.display_name }}</strong>
+                                    <span class="system-subline">{{ item.username }}{% if item.email %} · {{ item.email }}{% endif %}</span>
+                                </td>
+                                <td><span class="system-role{% if not item.role_key or item.role_conflict %} is-warning{% endif %}">{{ item.role_label }}{% if item.role_conflict %} · 多角色{% endif %}</span></td>
+                                <td>
+                                    {% for team in item.teams %}
+                                        <span class="system-team-line">{{ team }}</span>
+                                    {% empty %}
+                                        <span class="system-empty">不适用</span>
+                                    {% endfor %}
+                                </td>
+                                <td><span class="system-date">{{ item.last_login }}</span></td>
+                                <td>
+                                    <span class="system-status{% if item.is_active %} is-active{% else %} is-inactive{% endif %}">
+                                        {% if item.is_active %}已启用{% else %}已停用{% endif %}
+                                    </span>
+                                </td>
+                                <td class="system-row-action">
+                                    <a class="button neutral compact" href="{% url 'console:system_user_edit' item.id %}">{% if item.is_self %}我的账号{% else %}查看并编辑{% endif %}</a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="6" class="system-table-empty">没有符合筛选条件的账号。</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="system-user-cards">
+                {% for item in system_user_rows %}
+                    <article class="system-user-card">
+                        <div class="system-user-card-head">
+                            <div>
+                                <strong>{{ item.display_name }}</strong>
+                                <span>{{ item.username }}</span>
+                            </div>
+                            <span class="system-status{% if item.is_active %} is-active{% else %} is-inactive{% endif %}">
+                                {% if item.is_active %}已启用{% else %}已停用{% endif %}
+                            </span>
+                        </div>
+                        {% if item.email %}<div class="system-user-email">{{ item.email }}</div>{% endif %}
+                        <dl class="system-user-facts">
+                            <div><dt>主角色</dt><dd>{{ item.role_label }}{% if item.role_conflict %} · 多角色冲突{% endif %}</dd></div>
+                            <div><dt>最近登录</dt><dd>{{ item.last_login }}</dd></div>
+                            <div class="wide">
+                                <dt>销售团队</dt>
+                                <dd>{% if item.teams %}{{ item.teams|join:'；' }}{% else %}不适用{% endif %}</dd>
+                            </div>
+                        </dl>
+                        <a class="button neutral" href="{% url 'console:system_user_edit' item.id %}">{% if item.is_self %}管理我的账号{% else %}编辑账号{% endif %}</a>
+                    </article>
+                {% empty %}
+                    <div class="system-mobile-empty">没有符合筛选条件的账号。</div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</section>

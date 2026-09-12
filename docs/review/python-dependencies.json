@@ -1,0 +1,396 @@
+{
+  "scope": "installed locked Python distributions; not license approval or image verification",
+  "packages": [
+    {
+      "name": "asgiref",
+      "version": "3.12.1",
+      "license_metadata": "BSD-3-Clause",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "b846415d1b514e9c1dff14a22deb906d794bc546ca6129f950a18cd091e2a669"
+        }
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "license_metadata": "MPL-2.0",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+        }
+      ]
+    },
+    {
+      "name": "cffi",
+      "version": "2.1.1",
+      "license_metadata": "MIT-0",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
+        }
+      ]
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.1",
+      "license_metadata": "MIT",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "18577485d3704f1a479ded8e573c0976cfed315fd2fd17983fa988da4c2f70d1"
+        }
+      ]
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.1",
+      "license_metadata": "Apache-2.0 OR BSD-3-Clause",
+      "declared_license_files": [
+        "LICENSE",
+        "LICENSE.APACHE",
+        "LICENSE.BSD"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "3e0c7c091a948b82533ba98fd7cbb40432d6f1a9acbf85f5922d2f99a93ae6bb"
+        },
+        {
+          "path_in_dist_info": "licenses/LICENSE.APACHE",
+          "sha256": "aac73b3148f6d1d7111dbca32099f68d26c644c6813ae1e4f05f6579aa2663fe"
+        },
+        {
+          "path_in_dist_info": "licenses/LICENSE.BSD",
+          "sha256": "602c4c7482de6479dd2e9793cda275e5e63d773dacd1eca689232ab7008fb4fb"
+        }
+      ]
+    },
+    {
+      "name": "Django",
+      "version": "5.2.13",
+      "license_metadata": "BSD-3-Clause",
+      "declared_license_files": [
+        "LICENSE",
+        "LICENSE.python",
+        "AUTHORS"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/AUTHORS",
+          "sha256": "cd00119a418a78ef201aae1fbda4747658568a264bb145ebc1deb41521212629"
+        },
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "b846415d1b514e9c1dff14a22deb906d794bc546ca6129f950a18cd091e2a669"
+        },
+        {
+          "path_in_dist_info": "licenses/LICENSE.python",
+          "sha256": "765e2b1e339fef8d3e9f12892e7e072a8be309996a0be43ffc5796398ec4e7d4"
+        }
+      ]
+    },
+    {
+      "name": "et_xmlfile",
+      "version": "2.0.0",
+      "license_metadata": "MIT",
+      "declared_license_files": [
+        "LICENCE.python",
+        "LICENCE.rst",
+        "AUTHORS.txt"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "AUTHORS.txt",
+          "sha256": "7f038029ea5463605dd2278d300099a381bce9e90dda83ccab2042346b6c8107"
+        },
+        {
+          "path_in_dist_info": "LICENCE.python",
+          "sha256": "4ccdaaebc0f44b83720ec0399bb7ab329adce067dd62f73c5535a2dc05628ab2"
+        },
+        {
+          "path_in_dist_info": "LICENCE.rst",
+          "sha256": "0c84bb42f5d367e5ebf9fc2dde35b16141df5ee0fdc189250858bc6c5560f69e"
+        }
+      ]
+    },
+    {
+      "name": "google-auth",
+      "version": "2.57.0",
+      "license_metadata": "Apache 2.0",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "name": "gunicorn",
+      "version": "23.0.0",
+      "license_metadata": "MIT",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "LICENSE",
+          "sha256": "6646cdbba2e99e3421dd18c22173579a1fde347e831dae6adee80eefe331e951"
+        }
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.19",
+      "license_metadata": "BSD-3-Clause",
+      "declared_license_files": [
+        "LICENSE.md"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE.md",
+          "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+        }
+      ]
+    },
+    {
+      "name": "openpyxl",
+      "version": "3.1.5",
+      "license_metadata": "MIT",
+      "declared_license_files": [
+        "LICENCE.rst"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "LICENCE.rst",
+          "sha256": "0c84bb42f5d367e5ebf9fc2dde35b16141df5ee0fdc189250858bc6c5560f69e"
+        }
+      ]
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "license_metadata": "Apache-2.0 OR BSD-2-Clause",
+      "declared_license_files": [
+        "LICENSE",
+        "LICENSE.APACHE",
+        "LICENSE.BSD"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+        },
+        {
+          "path_in_dist_info": "licenses/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        },
+        {
+          "path_in_dist_info": "licenses/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+        }
+      ]
+    },
+    {
+      "name": "psycopg",
+      "version": "3.3.3",
+      "license_metadata": "LGPL-3.0-only",
+      "declared_license_files": [
+        "LICENSE.txt"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE.txt",
+          "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+        }
+      ]
+    },
+    {
+      "name": "psycopg-binary",
+      "version": "3.3.3",
+      "license_metadata": "LGPL-3.0-only",
+      "declared_license_files": [
+        "LICENSE.txt"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE.txt",
+          "sha256": "7d3a95e5e06978064ed3f8e2b7c8f845e7fd8a405294727cc708f94cb83b8059"
+        }
+      ]
+    },
+    {
+      "name": "pyasn1",
+      "version": "0.6.4",
+      "license_metadata": "BSD-2-Clause",
+      "declared_license_files": [
+        "LICENSE.rst"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE.rst",
+          "sha256": "2aad5fc00f705c4a1addb83eed10a6a75d286a3779f0cf8519d87e62bc4735fd"
+        }
+      ]
+    },
+    {
+      "name": "pyasn1_modules",
+      "version": "0.4.2",
+      "license_metadata": "BSD",
+      "declared_license_files": [
+        "LICENSE.txt"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE.txt",
+          "sha256": "2aad5fc00f705c4a1addb83eed10a6a75d286a3779f0cf8519d87e62bc4735fd"
+        }
+      ]
+    },
+    {
+      "name": "pycountry",
+      "version": "26.2.16",
+      "license_metadata": "LGPL-2.1-only",
+      "declared_license_files": [
+        "LICENSE.txt"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE.txt",
+          "sha256": "3fa39c6e18a3a4411082b64c164deae1d8f47b03a4d45304c1f0ae478626e382"
+        }
+      ]
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "license_metadata": "BSD-3-Clause",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1"
+        }
+      ]
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.2",
+      "license_metadata": "BSD-3-Clause",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+        }
+      ]
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "license_metadata": "Apache-2.0",
+      "declared_license_files": [
+        "LICENSE",
+        "NOTICE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+        },
+        {
+          "path_in_dist_info": "licenses/NOTICE",
+          "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc"
+        }
+      ]
+    },
+    {
+      "name": "sqlparse",
+      "version": "0.6.0",
+      "license_metadata": "OSI Approved :: BSD License",
+      "declared_license_files": [
+        "AUTHORS",
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/AUTHORS",
+          "sha256": "fee330a5b516ad49a8453b0ea6813c89cb8ec4e0f34007946f6efabd0271e399"
+        },
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "c1938235b80d39e93138eae89edc3af67e18ecbc40d266529fa57b2dce426310"
+        }
+      ]
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "license_metadata": "PSF-2.0",
+      "declared_license_files": [
+        "LICENSE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+        }
+      ]
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.3",
+      "license_metadata": "Apache-2.0",
+      "declared_license_files": [
+        "LICENSE",
+        "licenses/LICENSE_APACHE"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "df58f69ea88683035d720b5375bcef0cf5aeaa98a1d098d572e0992c378deb46"
+        },
+        {
+          "path_in_dist_info": "licenses/licenses/LICENSE_APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "name": "urllib3",
+      "version": "2.7.0",
+      "license_metadata": "MIT",
+      "declared_license_files": [
+        "LICENSE.txt"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE.txt",
+          "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686"
+        }
+      ]
+    }
+  ]
+}

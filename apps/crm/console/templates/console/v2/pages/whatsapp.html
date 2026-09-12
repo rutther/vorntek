@@ -1,0 +1,267 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+
+{% block title %}WhatsApp 会话 · {{ brand_name }}{% endblock %}
+{% block body_class %}nc-wa-page{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'console/v2/whatsapp.css' %}?v=20260901-2">
+{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{% url 'console:whatsapp_workspace_v2' %}">销售</a>
+    <i data-lucide="chevron-right" aria-hidden="true"></i>
+    <strong>WhatsApp 会话</strong>
+    {% if workspace.selected %}
+        <i data-lucide="chevron-right" aria-hidden="true"></i>
+        <span>{{ workspace.selected.record.display_name|default:workspace.selected.record.external_contact_id }}</span>
+    {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+    <script src="{% static 'console/v2/whatsapp.js' %}?v=20260901-2"></script>
+{% endblock %}
+
+{% block content %}
+<div class="nc-wa-workspace" data-nc-wa-workspace {% if workspace.selected %}data-conversation-id="{{ workspace.selected.record.id }}" data-read-url="{{ workspace.selected.urls.read }}" data-can-write="{{ workspace.selected.can_write|yesno:'true,false' }}"{% endif %}>
+    <aside class="nc-wa-inbox" aria-label="WhatsApp 会话列表">
+        <header class="nc-wa-inbox-header">
+            <div>
+                <span class="nc-wa-eyebrow">团队收件箱</span>
+                <h1>WhatsApp 会话</h1>
+            </div>
+            <span class="nc-wa-total" aria-label="可见会话总数">{{ workspace.stats.total }}</span>
+        </header>
+
+        <form class="nc-wa-search" action="{% url 'console:whatsapp_workspace_v2' %}" method="get" role="search">
+            <i data-lucide="search" aria-hidden="true"></i>
+            <label class="visually-hidden" for="wa-search">搜索会话</label>
+            <input id="wa-search" name="q" value="{{ workspace.filters.query }}" placeholder="搜索客户、企业或消息">
+            <input type="hidden" name="status" value="{{ workspace.filters.status }}">
+            <input type="hidden" name="owner" value="{{ workspace.filters.owner }}">
+            <input type="hidden" name="sort" value="{{ workspace.filters.sort }}">
+            {% if workspace.filters.unread %}<input type="hidden" name="unread" value="1">{% endif %}
+            <button type="submit" aria-label="搜索"><i data-lucide="arrow-right" aria-hidden="true"></i></button>
+        </form>
+
+        <nav class="nc-wa-quick-filters" aria-label="快捷会话筛选">
+            <a class="{% if not workspace.filters.unread and workspace.filters.owner != 'unassigned' %}is-active{% endif %}" href="{% url 'console:whatsapp_workspace_v2' %}?status=active&amp;sort=priority">全部 <strong>{{ workspace.stats.total }}</strong></a>
+            <a class="{% if workspace.filters.unread %}is-active{% endif %}" href="{% url 'console:whatsapp_workspace_v2' %}?status=active&amp;unread=1&amp;sort=priority">未读 <strong>{{ workspace.stats.unread }}</strong></a>
+            <a class="{% if workspace.filters.owner == 'unassigned' %}is-active{% endif %}" href="{% url 'console:whatsapp_workspace_v2' %}?status=active&amp;owner=unassigned&amp;sort=priority">未认领 <strong>{{ workspace.stats.unassigned }}</strong></a>
+        </nav>
+
+        <details class="nc-wa-filter-panel" {% if workspace.filters.status != 'active' or workspace.filters.owner == 'mine' or workspace.filters.sort != 'priority' %}open{% endif %}>
+            <summary><i data-lucide="sliders-horizontal" aria-hidden="true"></i>更多筛选 <span>{{ workspace.stats.filtered }} 条</span></summary>
+            <form action="{% url 'console:whatsapp_workspace_v2' %}" method="get">
+                <input type="hidden" name="q" value="{{ workspace.filters.query }}">
+                <label><span>状态</span><select name="status">{% for value, label in workspace.options.status %}<option value="{{ value }}" {% if workspace.filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                <label><span>负责人</span><select name="owner">{% for value, label in workspace.options.owner %}<option value="{{ value }}" {% if workspace.filters.owner == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                <label><span>排序</span><select name="sort">{% for value, label in workspace.options.sort %}<option value="{{ value }}" {% if workspace.filters.sort == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                <div><a href="{{ workspace.clear_url }}">重置</a><button type="submit">应用</button></div>
+            </form>
+        </details>
+
+        <ol class="nc-wa-conversation-list" aria-label="会话结果">
+            {% for row in workspace.rows %}
+                <li>
+                    <a href="{{ row.detail_url }}" class="nc-wa-conversation {% if workspace.selected and workspace.selected.record.id == row.id %}is-selected{% endif %}" {% if workspace.selected and workspace.selected.record.id == row.id %}aria-current="page"{% endif %}>
+                        <span class="nc-wa-list-avatar" aria-hidden="true">{{ row.initials }}</span>
+                        <span class="nc-wa-list-copy">
+                            <span class="nc-wa-list-title"><strong>{{ row.title }}</strong><time>{{ row.time_label }}</time></span>
+                            <span class="nc-wa-list-company">{{ row.company }}</span>
+                            <span class="nc-wa-list-preview">{{ row.preview }}</span>
+                            <span class="nc-wa-list-meta"><em class="is-{{ row.sla.tone }}">{{ row.sla.label }}</em><span>{{ row.owner }}</span>{% if row.unread_count %}<b aria-label="{{ row.unread_count }} 条未读">{{ row.unread_count }}</b>{% endif %}</span>
+                        </span>
+                    </a>
+                </li>
+            {% empty %}
+                <li class="nc-wa-list-empty"><i data-lucide="messages-square" aria-hidden="true"></i><strong>没有符合条件的会话</strong><span>清除筛选，或等待已启用号码收到客户消息。</span><a href="{{ workspace.clear_url }}">查看全部会话</a></li>
+            {% endfor %}
+        </ol>
+    </aside>
+
+    <section class="nc-wa-thread" aria-label="当前会话">
+        {% if workspace.selected %}
+            <header class="nc-wa-thread-header">
+                <div class="nc-wa-contact-heading">
+                    <span class="nc-wa-thread-avatar" aria-hidden="true">{{ workspace.selected.record.display_name|default:workspace.selected.record.external_contact_id|slice:":1"|upper }}</span>
+                    <span><strong>{{ workspace.selected.record.display_name|default:workspace.selected.record.external_contact_id }}</strong><small><i data-lucide="message-circle" aria-hidden="true"></i> +{{ workspace.selected.record.external_contact_id }}</small></span>
+                </div>
+                <div class="nc-wa-thread-actions">
+                    {% if workspace.selected.record.unread_count and workspace.selected.can_write %}<button type="button" aria-label="标为已读" title="标为已读" data-wa-action="read" data-url="{{ workspace.selected.urls.read }}"><i data-lucide="check-check" aria-hidden="true"></i><span>标为已读</span></button>{% endif %}
+                    {% if workspace.selected.can_claim and not workspace.selected.record.owner_user_id %}<button class="is-primary" type="button" aria-label="认领会话" title="认领会话" data-wa-action="assign" data-url="{{ workspace.selected.urls.assign }}" data-owner-id="{{ request.user.id }}"><i data-lucide="hand" aria-hidden="true"></i><span>认领</span></button>{% endif %}
+                    {% if workspace.selected.can_write %}<button type="button" aria-label="{% if workspace.selected.record.status == 'closed' %}重新打开会话{% else %}关闭会话{% endif %}" title="{% if workspace.selected.record.status == 'closed' %}重新打开会话{% else %}关闭会话{% endif %}" data-wa-action="state" data-url="{{ workspace.selected.urls.state }}" data-state-action="{% if workspace.selected.record.status == 'closed' %}reopen{% else %}close{% endif %}"><i data-lucide="{% if workspace.selected.record.status == 'closed' %}rotate-ccw{% else %}archive{% endif %}" aria-hidden="true"></i><span>{% if workspace.selected.record.status == 'closed' %}重新打开{% else %}关闭会话{% endif %}</span></button>{% endif %}
+                </div>
+            </header>
+
+            <div class="nc-wa-thread-status">
+                <span class="nc-wa-channel-state {% if workspace.selected.record.integration.enabled %}is-ready{% else %}is-disabled{% endif %}"><i data-lucide="{% if workspace.selected.record.integration.enabled %}cloud-check{% else %}cloud-off{% endif %}" aria-hidden="true"></i>{% if workspace.selected.record.integration.enabled and workspace.selected.delivery_mode == 'mock' %}模拟接入{% elif workspace.selected.record.integration.enabled %}接入已启用{% else %}接入未启用{% endif %}</span>
+                <span class="{% if workspace.selected.window_open %}is-window-open{% else %}is-window-closed{% endif %}"><i data-lucide="clock-3" aria-hidden="true"></i>{{ workspace.selected.window_label }}</span>
+                <span><i data-lucide="user-round" aria-hidden="true"></i>{% if workspace.selected.record.owner_user_id %}{{ workspace.selected.record.owner_user.get_full_name|default:workspace.selected.record.owner_user.get_username }}{% else %}未认领{% endif %}</span>
+                <span class="nc-wa-mode is-{{ workspace.selected.delivery_mode }}">{% if workspace.selected.delivery_mode == 'live' %}真实发送{% else %}模拟发送{% endif %}</span>
+            </div>
+
+            <div class="nc-wa-timeline" data-wa-timeline tabindex="0" aria-label="消息时间线">
+                {% for group in workspace.selected.message_groups %}
+                    <section class="nc-wa-day" aria-labelledby="wa-day-{{ group.date }}">
+                        <h2 id="wa-day-{{ group.date }}"><span>{{ group.label }}</span></h2>
+                        {% for message in group.messages %}
+                            <article class="nc-wa-message is-{{ message.direction }} {% if message.status == 'failed' %}has-error{% endif %}" data-message-id="{{ message.id }}">
+                                <div class="nc-wa-bubble">
+                                    {% if message.direction == 'internal' %}<span class="nc-wa-note-label"><i data-lucide="lock-keyhole" aria-hidden="true"></i>内部备注{% if message.actor %} · {{ message.actor }}{% endif %}</span>{% endif %}
+                                    <p>{{ message.body|linebreaksbr }}</p>
+                                    {% for media in message.media %}
+                                        <div class="nc-wa-media is-{{ media.status }}"><i data-lucide="{% if media.type == 'image' %}image{% elif media.type == 'video' %}video{% elif media.type == 'audio' %}audio-lines{% else %}file-text{% endif %}" aria-hidden="true"></i><span><strong>{{ media.name }}</strong><small>{% if media.status == 'ready' %}附件已就绪{% elif media.status == 'failed' or media.status == 'quarantined' %}附件处理失败{% else %}附件处理中{% endif %}</small></span>{% if media.download_url %}<a href="{{ media.download_url }}">下载</a>{% elif media.error %}<em title="{{ media.error }}">需要处理</em>{% endif %}</div>
+                                    {% endfor %}
+                                    <footer><time>{{ message.time }}</time>{% if message.direction == 'outbound' %}<span class="is-{{ message.status_tone }}"><i data-lucide="{% if message.status == 'read' %}check-check{% elif message.status == 'delivered' %}check-check{% elif message.status == 'failed' %}circle-alert{% else %}check{% endif %}" aria-hidden="true"></i>{{ message.status_label }}</span>{% endif %}</footer>
+                                </div>
+                                {% if message.direction == 'inbound' and workspace.selected.can_write %}<button class="nc-wa-reply" type="button" data-wa-reply="{{ message.id }}" data-wa-reply-label="{{ message.body|truncatechars:80 }}" aria-label="回复这条消息"><i data-lucide="reply" aria-hidden="true"></i></button>{% endif %}
+                                {% if message.error %}<div class="nc-wa-message-error"><span><i data-lucide="triangle-alert" aria-hidden="true"></i>{{ message.error }}</span>{% if message.retryable and workspace.selected.can_write %}<button type="button" data-wa-action="retry" data-url="{% url 'console:whatsapp_retry_v2' workspace.selected.record.id message.id %}">安全重试</button>{% else %}<em>需要人工核对</em>{% endif %}</div>{% endif %}
+                            </article>
+                        {% empty %}
+                            <div class="nc-wa-timeline-empty"><i data-lucide="message-circle-more" aria-hidden="true"></i><strong>会话已建立，尚无规范化消息</strong><span>若刚收到 Webhook，请检查入站处理队列。</span></div>
+                        {% endfor %}
+                    </section>
+                {% empty %}
+                    <div class="nc-wa-timeline-empty"><i data-lucide="message-circle-more" aria-hidden="true"></i><strong>会话已建立，尚无消息</strong><span>第一条通过签名校验的消息会显示在这里。</span></div>
+                {% endfor %}
+            </div>
+
+            <footer class="nc-wa-composer" data-wa-composer>
+                <div class="nc-wa-replying" data-wa-replying hidden><span><i data-lucide="reply" aria-hidden="true"></i><strong>正在回复</strong><em data-wa-replying-label></em></span><button type="button" data-wa-reply-clear aria-label="取消回复"><i data-lucide="x" aria-hidden="true"></i></button></div>
+                <div class="nc-wa-composer-tabs" role="tablist" aria-label="编辑类型">
+                    <button class="is-active" type="button" role="tab" aria-selected="true" data-wa-compose-tab="message"><i data-lucide="send" aria-hidden="true"></i>客户可见消息</button>
+                    <button type="button" role="tab" aria-selected="false" data-wa-compose-tab="note"><i data-lucide="notebook-pen" aria-hidden="true"></i>内部备注</button>
+                </div>
+
+                <form action="{{ workspace.selected.urls.send }}" method="post" enctype="multipart/form-data" data-wa-send-form data-wa-blocked="{{ workspace.selected.send_block_reason|yesno:'true,false' }}" {% if workspace.selected.send_block_reason %}aria-describedby="wa-send-block"{% endif %}>
+                    {% csrf_token %}
+                    <input type="hidden" name="idempotency_token" data-wa-idempotency>
+                    <input type="hidden" name="reply_to_id" data-wa-reply-id>
+                    {% if workspace.selected.send_block_reason %}<div class="nc-wa-send-block" id="wa-send-block"><i data-lucide="shield-alert" aria-hidden="true"></i><span>{{ workspace.selected.send_block_reason }}</span></div>{% endif %}
+                    <div class="nc-wa-compose-mode">
+                        <label><span>发送方式</span><select name="mode" data-wa-mode {% if workspace.selected.send_block_reason %}disabled{% endif %}><option value="text" {% if not workspace.selected.window_open %}disabled{% endif %}>普通客服消息{% if not workspace.selected.window_open %}（窗口已关闭）{% endif %}</option><option value="template" {% if not workspace.selected.approved_templates %}disabled{% endif %}>已批准模板</option></select></label>
+                        <label data-wa-template-wrap hidden><span>模板</span><select name="template_id" data-wa-template {% if workspace.selected.send_block_reason %}disabled{% endif %}><option value="">选择模板</option>{% for template in workspace.selected.approved_templates %}<option value="{{ template.id }}">{{ template.name }} · {{ template.language }} · {{ template.get_category_display|default:template.category }}</option>{% endfor %}</select></label>
+                    </div>
+                    <label class="nc-wa-compose-field"><span class="visually-hidden">消息正文</span><textarea name="body" rows="3" maxlength="4096" placeholder="输入给客户的消息…" data-wa-body {% if workspace.selected.send_block_reason %}disabled{% endif %}></textarea></label>
+                    <div class="nc-wa-compose-footer">
+                        <label class="nc-wa-attach {% if workspace.selected.send_block_reason %}is-disabled{% endif %}" title="添加图片、视频、音频或文档"><i data-lucide="paperclip" aria-hidden="true"></i><span data-wa-file-label>添加附件</span><input type="file" name="attachment" data-wa-file {% if workspace.selected.send_block_reason %}disabled{% endif %} accept="image/jpeg,image/png,image/webp,video/mp4,video/3gpp,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>
+                        <span class="nc-wa-compose-feedback" data-wa-feedback role="status" aria-live="polite"></span>
+                        <button class="nc-wa-send-button" type="submit" data-wa-send {% if workspace.selected.send_block_reason %}disabled{% endif %}><span>发送</span><i data-lucide="send-horizontal" aria-hidden="true"></i></button>
+                    </div>
+                </form>
+
+                <form action="{{ workspace.selected.urls.note }}" method="post" data-wa-note-form hidden>
+                    {% csrf_token %}
+                    <label class="nc-wa-compose-field"><span class="visually-hidden">内部备注</span><textarea name="body" rows="3" maxlength="4000" placeholder="记录仅团队可见的判断、风险或下一步…" {% if not workspace.selected.can_write %}disabled{% endif %}></textarea></label>
+                    <div class="nc-wa-compose-footer"><span class="nc-wa-note-hint"><i data-lucide="lock-keyhole" aria-hidden="true"></i>客户不可见</span><span class="nc-wa-compose-feedback" data-wa-note-feedback role="status" aria-live="polite"></span><button class="nc-wa-note-button" type="submit" {% if not workspace.selected.can_write %}disabled{% endif %}>保存备注</button></div>
+                </form>
+            </footer>
+        {% else %}
+            <div class="nc-wa-thread-empty"><i data-lucide="message-square-dashed" aria-hidden="true"></i><h1>选择一个会话开始处理</h1><p>左侧会显示当前账号有权访问的已认领或团队未认领会话。</p></div>
+        {% endif %}
+    </section>
+
+    <aside class="nc-wa-context" aria-label="客户与销售上下文">
+        {% if workspace.selected %}
+            <section class="nc-wa-context-hero">
+                <span class="nc-wa-eyebrow">当前客户</span>
+                <h2>{{ workspace.selected.record.display_name|default:workspace.selected.record.external_contact_id }}</h2>
+                <p>{{ workspace.selected.record.external_contact_id }}</p>
+                {% if workspace.selected.can_assign and workspace.selected.assignment_options %}
+                    <form action="{{ workspace.selected.urls.assign }}" method="post" data-wa-assign-form>
+                        {% csrf_token %}
+                        <label for="wa-owner">负责人</label>
+                        <div><select id="wa-owner" name="owner_user_id">{% for owner in workspace.selected.assignment_options %}<option value="{{ owner.id }}" {% if workspace.selected.record.owner_user_id == owner.id %}selected{% endif %}>{{ owner.label }}</option>{% endfor %}</select><button type="submit">转交</button></div>
+                    </form>
+                {% else %}<span class="nc-wa-owner"><i data-lucide="user-round" aria-hidden="true"></i>{% if workspace.selected.record.owner_user_id %}{{ workspace.selected.record.owner_user.get_full_name|default:workspace.selected.record.owner_user.get_username }}{% else %}等待认领{% endif %}</span>{% endif %}
+            </section>
+
+            <section class="nc-wa-context-card">
+                <header><span><i data-lucide="inbox" aria-hidden="true"></i>线索</span>{% if workspace.selected.related.submission %}<a href="{% url 'console:lead_workspace_detail_v2' workspace.selected.related.submission.id %}">打开</a>{% endif %}</header>
+                {% if workspace.selected.related.submission %}<dl><div><dt>阶段</dt><dd>{{ workspace.selected.related.submission.stage }}</dd></div><div><dt>来源</dt><dd>{{ workspace.selected.related.submission.source_detail|default:workspace.selected.related.submission.source_channel }}</dd></div><div><dt>需求</dt><dd>{{ workspace.selected.related.submission.message|default:'尚未整理需求'|truncatechars:150 }}</dd></div></dl>{% else %}<p class="nc-wa-context-empty">尚未关联线索。</p>{% endif %}
+            </section>
+
+            {% if workspace.selected.related.submission and workspace.selected.can_write %}
+                {% with lead=workspace.selected.related.submission requirements=workspace.selected.related.submission.payload_json %}
+                <section class="nc-wa-context-card nc-wa-disposition-card">
+                    <header><span><i data-lucide="circle-check-big" aria-hidden="true"></i>本次处理结果</span><small>保存后自动更新 CRM</small></header>
+                    <form action="{{ workspace.selected.urls.disposition }}" method="post" data-wa-disposition-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="expected_updated_at" value="{{ lead.updated_at|date:'c' }}">
+                        <input type="hidden" name="idempotency_token" data-wa-disposition-idempotency>
+                        <label class="nc-wa-disposition-primary">
+                            <span>客户现在处于哪一步？</span>
+                            <select name="quick_action" data-wa-disposition-action required>
+                                <option value="">选择处理结果</option>
+                                <option value="contacted">已联系，继续跟进</option>
+                                <option value="qualified">确认是合格商机</option>
+                                <option value="quotation">进入报价</option>
+                                <option value="won">确认成交</option>
+                                <option value="lost">无效或失败</option>
+                            </select>
+                        </label>
+
+                        <div class="nc-wa-disposition-fields" data-wa-requirement-fields hidden>
+                            <p>合格商机必填，已有信息会自动预填</p>
+                            <div class="nc-wa-disposition-grid">
+                                <label><span>公司 *</span><input name="company" maxlength="500" value="{{ lead.company }}" data-wa-required-field></label>
+                                <label><span>产品 *</span><input name="product_category" maxlength="500" value="{{ requirements.product_category }}" placeholder="如：饮料灌装线" data-wa-required-field></label>
+                                <label><span>目标产能 *</span><input name="capacity" maxlength="500" value="{{ requirements.capacity }}" placeholder="如：18,000 瓶/时" data-wa-required-field></label>
+                                <label><span>采购时间 *</span><input name="purchase_timeline" maxlength="500" value="{{ requirements.purchase_timeline }}" placeholder="如：3 个月内" data-wa-required-field></label>
+                                <label><span>国家/地区 *</span><input name="country" maxlength="500" value="{{ lead.country }}" data-wa-required-field></label>
+                                <label><span>包装规格 *</span><input name="packaging_format" maxlength="500" value="{{ requirements.packaging_format }}" placeholder="瓶型/容量" data-wa-required-field></label>
+                                <label><span>项目类型 *</span><input name="project_type" maxlength="500" value="{{ requirements.project_type }}" placeholder="新线/改造" data-wa-required-field></label>
+                                <label><span>联系人角色 *</span><input name="contact_role" maxlength="500" value="{{ requirements.contact_role }}" placeholder="决策人/技术负责人" data-wa-required-field></label>
+                            </div>
+                        </div>
+
+                        <div class="nc-wa-disposition-fields" data-wa-next-step-fields hidden>
+                            <p>下一步</p>
+                            <label><span>执行时间</span><input type="datetime-local" name="task_due_at" data-wa-task-due></label>
+                            <label><span>任务标题（可选）</span><input name="task_title" maxlength="240" placeholder="系统会按处理结果生成"></label>
+                            <label><span>优先级</span><select name="task_priority"><option value="normal">普通</option><option value="high">高</option><option value="urgent">紧急</option><option value="low">低</option></select></label>
+                        </div>
+
+                        <div class="nc-wa-disposition-fields" data-wa-value-fields hidden>
+                            <p>真实成交信息</p>
+                            <div class="nc-wa-disposition-value">
+                                <label><span>成交金额</span><input type="number" name="buyer_value" min="0.01" step="0.01" data-wa-buyer-value></label>
+                                <label><span>币种</span><select name="buyer_currency"><option value="USD">USD</option><option value="CNY">CNY</option><option value="EUR">EUR</option><option value="AED">AED</option><option value="SAR">SAR</option></select></label>
+                            </div>
+                        </div>
+
+                        <label class="nc-wa-disposition-notes"><span>判断依据 / 结果</span><textarea name="decision_notes" rows="3" maxlength="4000" required placeholder="写一句销售本人能看懂的结论"></textarea></label>
+                        <div class="nc-wa-disposition-footer">
+                            <span data-wa-disposition-feedback role="status" aria-live="polite"></span>
+                            <button type="submit" data-wa-disposition-submit>保存处理结果</button>
+                        </div>
+                    </form>
+                </section>
+                {% endwith %}
+            {% endif %}
+
+            <section class="nc-wa-context-card">
+                <header><span><i data-lucide="building-2" aria-hidden="true"></i>客户关系</span></header>
+                {% if workspace.selected.related.company %}<a class="nc-wa-related" href="{% url 'console:company_workspace_detail_v2' workspace.selected.related.company.id %}"><span><strong>{{ workspace.selected.related.company.name }}</strong><small>企业 · {{ workspace.selected.related.company.country|default:'地区未填写' }}</small></span><i data-lucide="chevron-right" aria-hidden="true"></i></a>{% endif %}
+                {% if workspace.selected.related.contact %}<a class="nc-wa-related" href="{% url 'console:contact_workspace_detail_v2' workspace.selected.related.contact.id %}"><span><strong>{{ workspace.selected.related.contact.full_name }}</strong><small>联系人 · {{ workspace.selected.related.contact.job_title|default:'职位未填写' }}</small></span><i data-lucide="chevron-right" aria-hidden="true"></i></a>{% endif %}
+                {% if not workspace.selected.related.company and not workspace.selected.related.contact %}<p class="nc-wa-context-empty">会话尚未转换为企业或联系人。</p>{% endif %}
+            </section>
+
+            <section class="nc-wa-context-card">
+                <header><span><i data-lucide="badge-dollar-sign" aria-hidden="true"></i>销售机会</span>{% if workspace.selected.related.opportunity %}<a href="{% url 'console:opportunity_workspace_detail_v2' workspace.selected.related.opportunity.id %}">打开</a>{% endif %}</header>
+                {% if workspace.selected.related.opportunity %}<dl><div><dt>项目</dt><dd>{{ workspace.selected.related.opportunity.name }}</dd></div><div><dt>阶段</dt><dd>{{ workspace.selected.related.opportunity.stage }}</dd></div><div><dt>下一步</dt><dd>{{ workspace.selected.related.opportunity.next_step|default:'尚未设置' }}</dd></div></dl>{% else %}<p class="nc-wa-context-empty">尚未建立销售机会。</p>{% endif %}
+            </section>
+
+            <section class="nc-wa-context-card">
+                <header><span><i data-lucide="list-checks" aria-hidden="true"></i>待办任务</span>{% if workspace.selected.related.submission %}<a href="{% url 'console:task_new_v2' %}?submission={{ workspace.selected.related.submission.id }}">新建</a>{% endif %}</header>
+                {% for task in workspace.selected.related.tasks %}<a class="nc-wa-task" href="{% url 'console:task_workspace_detail_v2' task.id %}"><span class="is-{{ task.priority }}"></span><span><strong>{{ task.title }}</strong><small>{{ task.due_at|date:'m-d H:i' }} · {{ task.owner_user.get_full_name|default:task.owner_user.get_username }}</small></span></a>{% empty %}<p class="nc-wa-context-empty">当前没有待办任务。</p>{% endfor %}
+            </section>
+        {% else %}
+            <div class="nc-wa-context-empty-state"><i data-lucide="contact-round" aria-hidden="true"></i><strong>客户上下文</strong><span>选择会话后，这里会显示线索、企业、联系人、商机和任务。</span></div>
+        {% endif %}
+    </aside>
+
+    <div class="nc-wa-global-feedback" data-wa-global-feedback role="alert" aria-live="assertive" hidden></div>
+</div>
+{% endblock %}

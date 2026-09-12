@@ -1,0 +1,7 @@
+# Ephemeral Ubuntu 24.04 amd64 CI runners only. Not a production install script.
+Types: deb
+URIs: https://apt.postgresql.org/pub/repos/apt
+Suites: noble-pgdg
+Architectures: amd64
+Components: main
+Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc

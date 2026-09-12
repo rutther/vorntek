@@ -1,0 +1,117 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+
+{% block title %}{% if workspace.kind == 'company' %}{{ workspace.record.name }}{% else %}{{ workspace.record.full_name }}{% endif %} · {{ brand_name }} 后台{% endblock %}
+{% block body_class %}nc-account-detail-page{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/v2/accounts.css' %}?v=20260830-1"><link rel="stylesheet" href="{% static 'console/v2/tasks.css' %}?v=20260831-1">{% endblock %}
+{% block breadcrumb %}<span>销售</span><i data-lucide="chevron-right" aria-hidden="true"></i><span>{% if workspace.kind == 'company' %}企业{% else %}联系人{% endif %}</span><i data-lucide="chevron-right" aria-hidden="true"></i><strong>{% if workspace.error %}暂时不可用{% elif workspace.kind == 'company' %}{{ workspace.record.name }}{% else %}{{ workspace.record.full_name }}{% endif %}</strong>{% endblock %}
+
+{% block content %}
+{% if workspace.error %}
+<section class="card nc-account-state-card" aria-labelledby="account-detail-error-title">
+    <div class="card-body"><span class="avatar avatar-lg bg-red-lt text-red"><i data-lucide="database-zap" aria-hidden="true"></i></span><h1 id="account-detail-error-title">客户关系数据暂时不可用</h1><p>详情没有以空白资料替代失败。请稍后重试。</p><a class="btn btn-primary" href="{{ workspace.back_url }}">返回列表</a></div>
+</section>
+{% else %}
+<div class="nc-account-detail" data-nc-account-detail>
+    <header class="nc-account-detail-header">
+        <div class="row align-items-start g-3">
+            <div class="col min-w-0">
+                <a class="btn btn-ghost-secondary btn-sm mb-2" href="{{ workspace.back_url }}"><i data-lucide="arrow-left" aria-hidden="true"></i>返回{% if workspace.kind == 'company' %}企业{% else %}联系人{% endif %}列表</a>
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <h1 class="page-title text-truncate">{% if workspace.kind == 'company' %}{{ workspace.record.name }}{% else %}{{ workspace.record.full_name }}{% endif %}</h1>
+                    <span class="badge bg-{{ workspace.record.status_tone }}-lt text-{{ workspace.record.status_tone }}">{{ workspace.record.status_label }}</span>
+                </div>
+                <p class="text-secondary mt-2 mb-0">{% if workspace.kind == 'company' %}{{ workspace.record.industry|default:'未填写行业' }} · {{ workspace.record.location }}{% else %}{{ workspace.record.job_title|default:'未填写职位' }} · {{ workspace.record.company }}{% endif %} · {{ workspace.record.owner }}</p>
+            </div>
+            {% if workspace.can_write %}<div class="col-auto ms-auto d-flex flex-wrap gap-2"><button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#account-activity-modal" aria-haspopup="dialog"><i data-lucide="message-square-plus" aria-hidden="true"></i>记录活动</button><button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#account-task-modal" aria-haspopup="dialog"><i data-lucide="calendar-plus" aria-hidden="true"></i>新建任务</button>{% if workspace.kind == 'company' %}<button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#account-opportunity-modal" aria-haspopup="dialog"><i data-lucide="badge-dollar-sign" aria-hidden="true"></i>新建销售机会</button>{% endif %}<button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#account-edit-modal" data-nc-account-modal-trigger aria-haspopup="dialog"><i data-lucide="pencil" aria-hidden="true"></i>编辑资料</button></div>{% endif %}
+        </div>
+    </header>
+
+    <section class="row row-cards mb-3" aria-label="对象概览">
+        <div class="col-12 col-xl-4">
+            <article class="card h-100" aria-labelledby="account-identity-title">
+                <div class="card-header"><h2 class="card-title" id="account-identity-title">对象身份</h2></div>
+                <div class="card-body"><dl class="nc-account-facts">
+                    {% if workspace.kind == 'company' %}
+                        <div><dt>企业名称</dt><dd>{{ workspace.record.name }}</dd></div><div><dt>网站</dt><dd>{{ workspace.record.website|default:'未填写' }}</dd></div><div><dt>行业</dt><dd>{{ workspace.record.industry|default:'未填写' }}</dd></div><div><dt>国家 / 城市</dt><dd>{{ workspace.record.location }}</dd></div><div><dt>来源</dt><dd>{{ workspace.record.source_channel }}</dd></div>
+                    {% else %}
+                        <div><dt>姓名</dt><dd>{{ workspace.record.full_name }}</dd></div><div><dt>职位</dt><dd>{{ workspace.record.job_title|default:'未填写' }}</dd></div><div><dt>企业</dt><dd>{% if workspace.company_url %}<a href="{{ workspace.company_url }}">{{ workspace.record.company }}</a>{% else %}{{ workspace.record.company }}{% endif %}</dd></div><div><dt>国家</dt><dd>{{ workspace.record.country|default:'未填写' }}</dd></div><div><dt>首选语言</dt><dd>{{ workspace.record.preferred_language|default:'未填写' }}</dd></div>
+                    {% endif %}
+                    <div><dt>负责人</dt><dd>{{ workspace.record.owner }}</dd></div><div><dt>团队</dt><dd>{{ workspace.record.team }}</dd></div><div><dt>最近更新</dt><dd><time datetime="{{ workspace.record.updated_at|date:'c' }}">{{ workspace.record.updated_at|date:'Y-m-d H:i' }}</time></dd></div>
+                </dl></div>
+            </article>
+        </div>
+
+        {% if workspace.kind == 'company' %}
+        <div class="col-12 col-xl-4">
+            <article class="card h-100" aria-labelledby="account-summary-title"><div class="card-header"><h2 class="card-title" id="account-summary-title">业务摘要</h2></div><div class="card-body"><dl class="nc-account-facts"><div><dt>开放机会</dt><dd>{{ workspace.summary.open_opportunities }} 条</dd></div><div><dt>开放机会金额</dt><dd>{% for item in workspace.summary.amounts %}<span class="d-block">{{ item.label }}</span>{% empty %}暂无金额{% endfor %}</dd></div><div><dt>下一项开放任务</dt><dd>{{ workspace.summary.next_task_label }}</dd></div><div><dt>最近活动</dt><dd>{{ workspace.summary.latest_activity_label }}</dd></div></dl></div></article>
+        </div>
+        <div class="col-12 col-xl-4">
+            <article class="card h-100" aria-labelledby="account-notes-title"><div class="card-header"><h2 class="card-title" id="account-notes-title">账户备注</h2></div><div class="card-body"><p class="nc-account-notes">{{ workspace.record.notes|default:'还没有企业备注。'|linebreaksbr }}</p></div></article>
+        </div>
+        {% else %}
+        <div class="col-12 col-xl-4">
+            <article class="card h-100" aria-labelledby="contact-channels-title"><div class="card-header"><div><h2 class="card-title" id="contact-channels-title">联系方式</h2><p class="card-subtitle mt-1">只复制，不自动发起外部消息。</p></div></div><div class="list-group list-group-flush">
+                {% for channel in workspace.record.channels %}<div class="list-group-item"><div class="d-flex align-items-center gap-3"><span class="avatar avatar-sm bg-blue-lt text-blue"><i data-lucide="{{ channel.icon }}" aria-hidden="true"></i></span><div class="min-w-0 flex-fill"><span class="text-secondary small d-block">{{ channel.kind }}</span><strong class="d-block text-break">{{ channel.value }}</strong></div><button class="btn btn-icon btn-ghost-secondary" type="button" data-nc-copy="{{ channel.value }}" aria-label="复制{{ channel.kind }}"><i data-lucide="copy" aria-hidden="true"></i></button></div></div>{% empty %}<div class="nc-account-inline-empty">还没有可用联系方式。</div>{% endfor %}
+                <div class="visually-hidden" role="status" aria-live="polite" data-nc-copy-status></div>
+            </div></article>
+        </div>
+        <div class="col-12 col-xl-4">
+            <article class="card h-100" aria-labelledby="contact-notes-title"><div class="card-header"><h2 class="card-title" id="contact-notes-title">联系人备注</h2></div><div class="card-body"><p class="nc-account-notes">{{ workspace.record.notes|default:'还没有联系人备注。'|linebreaksbr }}</p></div></article>
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="row row-cards mb-3" aria-label="关联对象">
+        {% if workspace.kind == 'company' %}
+        <div class="col-12 col-xl-6"><article class="card h-100" aria-labelledby="company-contacts-title"><div class="card-header"><div><h2 class="card-title" id="company-contacts-title">联系人</h2><p class="card-subtitle mt-1">当前权限范围内与企业直接关联的人员。</p></div><span class="badge bg-secondary-lt text-secondary">{{ workspace.contacts|length }}</span></div><div class="list-group list-group-flush nc-account-relation-list">{% for item in workspace.contacts %}<a class="list-group-item list-group-item-action" href="{{ item.url }}"><strong>{{ item.name }}</strong><span class="d-block text-secondary small">{{ item.job_title }} · {{ item.owner }}</span></a>{% empty %}<div class="nc-account-inline-empty">还没有可见联系人。</div>{% endfor %}</div></article></div>
+        {% endif %}
+        <div class="col-12 {% if workspace.kind == 'company' %}col-xl-6{% else %}col-xl-7{% endif %}"><article class="card h-100" aria-labelledby="account-opportunities-title"><div class="card-header"><div><h2 class="card-title" id="account-opportunities-title">销售机会</h2><p class="card-subtitle mt-1">只显示当前 scope 可见的直接关系。</p></div><span class="badge bg-secondary-lt text-secondary">{{ workspace.opportunities|length }}</span></div><div class="list-group list-group-flush nc-account-relation-list">{% for item in workspace.opportunities %}<a class="list-group-item list-group-item-action" href="{{ item.url }}"><div class="d-flex justify-content-between gap-3"><div class="min-w-0"><strong class="d-block text-truncate">{{ item.name }}</strong><span class="text-secondary small">{{ item.stage }} · {{ item.owner }}</span></div><span class="text-nowrap">{{ item.amount }}</span></div></a>{% empty %}<div class="nc-account-inline-empty">还没有可见销售机会。</div>{% endfor %}</div></article></div>
+        <div class="col-12 {% if workspace.kind == 'company' %}col-xl-12{% else %}col-xl-5{% endif %}"><article class="card h-100" aria-labelledby="account-conversions-title"><div class="card-header"><div><h2 class="card-title" id="account-conversions-title">原始线索转换</h2><p class="card-subtitle mt-1">保留客户记录从何而来的证据。</p></div><span class="badge bg-secondary-lt text-secondary">{{ workspace.conversions|length }}</span></div><div class="list-group list-group-flush nc-account-relation-list">{% for item in workspace.conversions %}<a class="list-group-item list-group-item-action" href="{{ item.lead_url }}"><strong>线索 #{{ item.lead_id }}</strong><span class="d-block text-secondary small">转换于 {{ item.converted_at|date:'Y-m-d H:i' }}</span></a>{% empty %}<div class="nc-account-inline-empty">没有当前 scope 可见的转换记录。</div>{% endfor %}</div></article></div>
+    </section>
+
+    <section class="card" aria-labelledby="account-timeline-title">
+        <div class="card-header"><div><h2 class="card-title" id="account-timeline-title">执行时间线</h2><p class="card-subtitle mt-1">活动、任务和附件按时间统一排列；历史活动不在这里改写。</p></div><span class="badge bg-secondary-lt text-secondary">{{ workspace.timeline|length }}</span></div>
+        <div class="list-group list-group-flush nc-account-timeline">{% for item in workspace.timeline %}<div class="list-group-item"><div class="d-flex align-items-start gap-3"><span class="avatar avatar-sm bg-{{ item.tone }}-lt text-{{ item.tone }}"><i data-lucide="{{ item.icon }}" aria-hidden="true"></i></span><div class="min-w-0 flex-fill"><strong class="d-block">{% if item.download_url %}<a href="{{ item.download_url }}">{{ item.title }}</a>{% elif item.detail_url %}<a href="{{ item.detail_url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</strong>{% if item.body %}<p class="text-secondary small mb-1">{{ item.body }}</p>{% endif %}<span class="text-secondary small">{{ item.meta }}</span></div><time class="text-secondary small text-nowrap" datetime="{{ item.timestamp|date:'c' }}">{{ item.time_label }}</time></div></div>{% empty %}<div class="nc-account-inline-empty">还没有当前 scope 可见的活动、任务或附件。</div>{% endfor %}</div>
+    </section>
+</div>
+
+{% if workspace.can_write %}
+{% if workspace.kind == 'company' %}{% include 'console/v2/partials/activity_modal.html' with modal_id='account-activity-modal' target_type='company' target_id=workspace.record.id target_label=workspace.record.name %}{% else %}{% include 'console/v2/partials/activity_modal.html' with modal_id='account-activity-modal' target_type='contact' target_id=workspace.record.id target_label=workspace.record.full_name %}{% endif %}
+{% if workspace.kind == 'company' %}{% include 'console/v2/partials/task_modal.html' with modal_id='account-task-modal' target_type='company' target_id=workspace.record.id target_label=workspace.record.name owner_choices=workspace.owner_choices %}{% else %}{% include 'console/v2/partials/task_modal.html' with modal_id='account-task-modal' target_type='contact' target_id=workspace.record.id target_label=workspace.record.full_name owner_choices=workspace.owner_choices %}{% endif %}
+{% if workspace.kind == 'company' %}{% include 'console/v2/partials/opportunity_create_modal.html' with modal_id='account-opportunity-modal' action_url=workspace.opportunity_create_url company_id=workspace.record.id company_label=workspace.record.name owner_choices=workspace.owner_choices %}{% endif %}
+<div class="modal fade" id="account-edit-modal" tabindex="-1" aria-labelledby="account-edit-title" aria-describedby="account-edit-description" aria-hidden="true" data-nc-account-modal>
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form class="modal-content" action="{{ workspace.edit_url }}" method="post" data-nc-account-form novalidate>
+            {% csrf_token %}<input type="hidden" name="version" value="{{ workspace.record.version }}" data-nc-account-version>
+            <div class="modal-header"><div><h2 class="modal-title" id="account-edit-title">编辑{% if workspace.kind == 'company' %}企业{% else %}联系人{% endif %}资料</h2><p id="account-edit-description">保存会同时记录系统活动和审计证据；过期资料不会覆盖较新的版本。</p></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button></div>
+            <div class="modal-body"><div class="row g-3">
+                {% if workspace.kind == 'company' %}
+                    <div class="col-12"><label class="form-label" for="account-name">企业名称</label><input class="form-control" id="account-name" name="name" value="{{ workspace.record.name }}" maxlength="240" required><div class="invalid-feedback" data-error-for="name"></div></div>
+                    <div class="col-12"><label class="form-label" for="account-website">网站</label><input class="form-control" id="account-website" name="website" value="{{ workspace.record.website }}" maxlength="500"><div class="invalid-feedback" data-error-for="website"></div></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="account-industry">行业</label><input class="form-control" id="account-industry" name="industry" value="{{ workspace.record.industry }}" maxlength="240"><div class="invalid-feedback" data-error-for="industry"></div></div>
+                    <div class="col-6 col-md-3"><label class="form-label" for="account-country">国家 / 地区</label><input class="form-control" id="account-country" name="country" value="{{ workspace.record.country }}" maxlength="160"><div class="invalid-feedback" data-error-for="country"></div></div>
+                    <div class="col-6 col-md-3"><label class="form-label" for="account-city">城市</label><input class="form-control" id="account-city" name="city" value="{{ workspace.record.city }}" maxlength="160"><div class="invalid-feedback" data-error-for="city"></div></div>
+                {% else %}
+                    <div class="col-12 col-md-6"><label class="form-label" for="contact-name">联系人姓名</label><input class="form-control" id="contact-name" name="full_name" value="{{ workspace.record.full_name }}" maxlength="240" required><div class="invalid-feedback" data-error-for="full_name"></div></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="contact-title">职位</label><input class="form-control" id="contact-title" name="job_title" value="{{ workspace.record.job_title }}" maxlength="240"><div class="invalid-feedback" data-error-for="job_title"></div></div>
+                    <div class="col-12" data-nc-company-lookup data-search-url="{{ workspace.company_search_url }}"><label class="form-label" for="contact-company-search">企业</label><input type="hidden" name="company" value="{{ workspace.record.company_id|default_if_none:'' }}" data-nc-company-value><div class="input-group"><input class="form-control" id="contact-company-search" value="{% if workspace.record.company_id %}{{ workspace.record.company }}{% endif %}" placeholder="输入至少 2 个字符搜索同团队企业" autocomplete="off" data-nc-company-search><button class="btn btn-outline-secondary" type="button" data-nc-company-clear>移除关联</button></div><div class="form-hint" data-nc-company-hint>当前：{{ workspace.record.company }}。搜索结果最多显示 20 条，结果过多时继续缩小范围。</div><div class="list-group nc-account-company-results" data-nc-company-results hidden></div><div class="invalid-feedback d-block" data-error-for="company"></div></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="contact-email">邮箱</label><input class="form-control" id="contact-email" type="email" name="email" value="{{ workspace.record.email }}" maxlength="320"><div class="invalid-feedback" data-error-for="email"></div></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="contact-phone">电话</label><input class="form-control" id="contact-phone" name="phone" value="{{ workspace.record.phone }}" maxlength="120"><div class="invalid-feedback" data-error-for="phone"></div></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="contact-whatsapp">WhatsApp</label><input class="form-control" id="contact-whatsapp" name="whatsapp_phone" value="{{ workspace.record.whatsapp_phone }}" maxlength="120"><div class="invalid-feedback" data-error-for="whatsapp_phone"></div></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="contact-country">国家 / 地区</label><input class="form-control" id="contact-country" name="country" value="{{ workspace.record.country }}" maxlength="160"><div class="invalid-feedback" data-error-for="country"></div></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="contact-language">首选语言</label><input class="form-control" id="contact-language" name="preferred_language" value="{{ workspace.record.preferred_language }}" maxlength="16"><div class="invalid-feedback" data-error-for="preferred_language"></div></div>
+                {% endif %}
+                <div class="col-12 col-md-6"><label class="form-label" for="account-status">状态</label><select class="form-select" id="account-status" name="status">{% if workspace.kind == 'company' %}<option value="prospect" {% if workspace.record.status == 'prospect' %}selected{% endif %}>潜在客户</option><option value="customer" {% if workspace.record.status == 'customer' %}selected{% endif %}>客户</option><option value="inactive" {% if workspace.record.status == 'inactive' %}selected{% endif %}>停用</option>{% else %}<option value="active" {% if workspace.record.status == 'active' %}selected{% endif %}>有效</option><option value="inactive" {% if workspace.record.status == 'inactive' %}selected{% endif %}>停用</option>{% endif %}</select><div class="invalid-feedback" data-error-for="status"></div></div>
+                <div class="col-12 col-md-6"><label class="form-label" for="account-owner">负责人</label><select class="form-select" id="account-owner" name="owner_user">{% if workspace.can_assign %}<option value="">未分配</option>{% endif %}{% for item in workspace.owner_choices %}<option value="{{ item.value }}" {% if item.selected %}selected{% endif %} {% if item.disabled %}disabled{% endif %}>{{ item.label }}</option>{% endfor %}</select><div class="invalid-feedback" data-error-for="owner_user"></div><div class="form-hint">负责人只能来自当前销售团队；存在关联对象时，需先通过受控账户重分配统一负责人。</div></div>
+                <div class="col-12"><label class="form-label" for="account-notes">备注</label><textarea class="form-control" id="account-notes" name="notes" rows="4">{{ workspace.record.notes }}</textarea><div class="invalid-feedback" data-error-for="notes"></div></div>
+            </div><div class="alert mt-3 mb-0" role="status" aria-live="polite" aria-atomic="true" data-nc-form-status hidden></div></div>
+            <div class="modal-footer"><button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">取消</button><button type="submit" class="btn btn-primary" data-nc-submit><span>保存更改</span></button></div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'console/v2/accounts.js' %}?v=20260830-1"></script><script src="{% static 'console/v2/tasks.js' %}?v=20260831-2"></script>{% endblock %}

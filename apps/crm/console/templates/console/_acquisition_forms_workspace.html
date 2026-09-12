@@ -1,0 +1,155 @@
+<section class="acquisition-shell" data-acquisition-workspace>
+    <header class="acquisition-pagehead">
+        <div>
+            <span class="acquisition-kicker">ACQUISITION CONFIG</span>
+            <h2>公开获客入口</h2>
+            <p>先识别停用、缺少通知或投放范围异常的表单，再进入详情修改字段和回传规则。</p>
+        </div>
+        <a class="button primary" href="{% url 'console:marketing_form_create' %}">新建表单</a>
+    </header>
+
+    <dl class="acquisition-metrics" aria-label="获客表单概况">
+        <div><dt>全部表单</dt><dd>{{ acquisition_forms.stats.total }}</dd></div>
+        <div><dt>正在投放</dt><dd>{{ acquisition_forms.stats.active }}</dd></div>
+        <div class="{% if acquisition_forms.stats.without_notification %}is-warning{% endif %}"><dt>缺少通知</dt><dd>{{ acquisition_forms.stats.without_notification }}</dd></div>
+        <div><dt>CAPI 已启用</dt><dd>{{ acquisition_forms.stats.capi }}</dd></div>
+        <div class="{% if not acquisition_forms.stats.email_ready %}is-warning{% endif %}">
+            <dt>邮件投递</dt>
+            <dd class="is-text">{% if acquisition_forms.stats.email_ready %}已就绪{% else %}未就绪{% endif %}</dd>
+        </div>
+    </dl>
+
+    {% if not acquisition_forms.stats.email_ready %}
+        <section class="acquisition-alert" role="status">
+            <div>
+                <strong>邮件投递尚未就绪</strong>
+                <span>表单仍可接收线索，但新线索邮件与超时提醒不会正常发送。</span>
+            </div>
+            {% if can_manage_email_delivery %}<a class="button neutral compact" href="{% url 'console:system_email' %}">配置邮件投递</a>{% endif %}
+        </section>
+    {% endif %}
+
+    <form method="get" class="acquisition-filterbar" aria-label="筛选获客表单">
+        <label class="acquisition-filter acquisition-filter-search">
+            <span>搜索</span>
+            <input type="search" name="q" value="{{ acquisition_forms.filters.q }}" placeholder="表单名称、代码、分类或投放范围">
+        </label>
+        <label class="acquisition-filter">
+            <span>状态</span>
+            <select name="status">
+                <option value="">全部状态</option>
+                <option value="active"{% if acquisition_forms.filters.status == 'active' %} selected{% endif %}>已启用</option>
+                <option value="disabled"{% if acquisition_forms.filters.status == 'disabled' %} selected{% endif %}>已停用</option>
+                <option value="archived"{% if acquisition_forms.filters.status == 'archived' %} selected{% endif %}>已归档</option>
+            </select>
+        </label>
+        <label class="acquisition-filter">
+            <span>渠道</span>
+            <select name="channel">
+                <option value="">全部渠道</option>
+                {% for value, label in acquisition_forms.channel_options %}
+                    <option value="{{ value }}"{% if acquisition_forms.filters.channel == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="acquisition-filter">
+            <span>语言</span>
+            <select name="language">
+                <option value="">全部语言</option>
+                <option value="shared"{% if acquisition_forms.filters.language == 'shared' %} selected{% endif %}>全站共享</option>
+                {% for locale in acquisition_forms.locale_options %}
+                    <option value="{{ locale.locale_code }}"{% if acquisition_forms.filters.language == locale.locale_code %} selected{% endif %}>{{ locale.label }} · {{ locale.locale_code }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <div class="acquisition-filter-actions">
+            <button type="submit" class="button primary">筛选</button>
+            <a class="button neutral" href="{% url 'console:marketing_forms' %}">重置</a>
+        </div>
+    </form>
+
+    <section class="acquisition-panel" aria-labelledby="acquisition-table-title">
+        <div class="acquisition-section-head">
+            <div>
+                <h3 id="acquisition-table-title">表单定义</h3>
+                <span>{{ acquisition_forms.result_count }} 条结果</span>
+            </div>
+        </div>
+
+        <div class="acquisition-table-wrap">
+            <table class="acquisition-table">
+                <thead>
+                    <tr>
+                        <th>表单</th>
+                        <th>投放范围</th>
+                        <th>字段</th>
+                        <th>通知</th>
+                        <th>CAPI</th>
+                        <th>提交</th>
+                        <th>状态</th>
+                        <th><span class="sr-only">操作</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in acquisition_forms.rows %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.name }}</strong>
+                                <span class="acquisition-subline"><code>{{ item.code }}</code> · {{ item.channel }} · {{ item.updated_at }}</span>
+                            </td>
+                            <td>
+                                <strong class="acquisition-cell-title">{{ item.locale }}</strong>
+                                <span class="acquisition-subline">{{ item.scope }} · {{ item.scope_value }}</span>
+                            </td>
+                            <td><span class="acquisition-count">{{ item.field_count }}</span></td>
+                            <td>
+                                {% if item.recipient_count %}
+                                    <span class="acquisition-status is-active">{{ item.recipient_count }} 个地址</span>
+                                    <span class="acquisition-subline">{{ item.recipient_summary }}</span>
+                                {% else %}
+                                    <span class="acquisition-status is-warning">未配置</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="acquisition-status{% if item.capi_enabled %} is-active{% else %} is-muted{% endif %}">{% if item.capi_enabled %}已启用{% else %}未启用{% endif %}</span></td>
+                            <td><span class="acquisition-count">{{ item.submission_count }}</span></td>
+                            <td><span class="acquisition-status is-{{ item.status }}">{{ item.status_label }}</span></td>
+                            <td class="acquisition-row-action"><a class="button neutral compact" href="{{ item.edit_url }}">查看并编辑</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="8" class="acquisition-empty">没有符合筛选条件的获客表单。</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="acquisition-cards">
+            {% for item in acquisition_forms.rows %}
+                <article class="acquisition-card">
+                    <div class="acquisition-card-head">
+                        <div><strong>{{ item.name }}</strong><span>{{ item.code }} · {{ item.channel }}</span></div>
+                        <span class="acquisition-status is-{{ item.status }}">{{ item.status_label }}</span>
+                    </div>
+                    <dl>
+                        <div><dt>投放范围</dt><dd>{{ item.locale }} · {{ item.scope }}</dd></div>
+                        <div><dt>字段 / 提交</dt><dd>{{ item.field_count }} / {{ item.submission_count }}</dd></div>
+                        <div><dt>通知</dt><dd>{% if item.recipient_count %}{{ item.recipient_count }} 个地址{% else %}未配置{% endif %}</dd></div>
+                        <div><dt>CAPI</dt><dd>{% if item.capi_enabled %}已启用{% else %}未启用{% endif %}</dd></div>
+                    </dl>
+                    <a class="button neutral" href="{{ item.edit_url }}">查看并编辑</a>
+                </article>
+            {% empty %}
+                <div class="acquisition-empty">没有符合筛选条件的获客表单。</div>
+            {% endfor %}
+        </div>
+
+        {% if acquisition_forms.page.total > 1 %}
+            <footer class="acquisition-pagination">
+                <span>第 {{ acquisition_forms.page.number }} / {{ acquisition_forms.page.total }} 页</span>
+                <div>
+                    {% if acquisition_forms.page.has_previous %}<a class="button neutral compact" href="{{ acquisition_forms.page.previous_url }}">上一页</a>{% endif %}
+                    {% if acquisition_forms.page.has_next %}<a class="button neutral compact" href="{{ acquisition_forms.page.next_url }}">下一页</a>{% endif %}
+                </div>
+            </footer>
+        {% endif %}
+    </section>
+</section>

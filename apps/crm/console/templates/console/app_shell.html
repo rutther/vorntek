@@ -1,0 +1,184 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_payload.title }} - 企业网站控制台</title>
+    <link rel="stylesheet" href="{% static 'console/admin-shell.css' %}?v=20260831a">
+    {% if extra_stylesheets %}
+        {% for stylesheet in extra_stylesheets %}
+            <link rel="stylesheet" href="{% static stylesheet %}?v=20260831c">
+        {% endfor %}
+    {% endif %}
+<link rel="stylesheet" href="{% static 'console/vorntek-brand.css' %}">
+</head>
+<body class="admin-body">
+    <a class="admin-skip-link" href="#main-content">跳到主要内容</a>
+    <form id="csrf-template" class="hidden-csrf" aria-hidden="true">
+        {% csrf_token %}
+    </form>
+
+    <div class="app" id="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <a href="{{ console_home_url }}" class="brand-link">
+                    <span class="brand-mark"><img src="{% static 'console/vorntekLogo.png' %}" alt=""></span>
+                    <span class="brand-copy">
+                        <strong>{{ brand_name }}</strong>
+                        <span>获客与销售运营</span>
+                    </span>
+                </a>
+            </div>
+
+            <nav class="nav" aria-label="主导航">
+                {% for item in nav_items %}
+                    <a
+                        href="{{ item.href }}"
+                        class="nav-item{% if item.active %} is-active{% endif %}"
+                        aria-current="{% if item.active %}page{% else %}false{% endif %}"
+                        title="{{ item.label }}"
+                    >
+                        <span class="nav-icon" aria-hidden="true">
+                            <i data-lucide="{{ item.icon }}"></i>
+                        </span>
+                        <span class="nav-copy">
+                            <strong>{{ item.label }}</strong>
+                            <span>{{ item.description }}</span>
+                        </span>
+                    </a>
+                    {% if item.active and item.children %}
+                        <div class="nav-children" role="group" aria-label="{{ item.label }}子导航">
+                            {% for child in item.children %}
+                                <a class="nav-child{% if child.active %} is-active{% endif %}" href="{{ child.href }}" {% if child.active %}aria-current="page"{% endif %}>
+                                    <strong>{{ child.label }}</strong>
+                                    <span>{{ child.description }}</span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </nav>
+
+            <div class="sidebar-foot">
+                <button class="icon-button" id="toggleNav" type="button" aria-label="收起主导航" aria-pressed="false" title="收起主导航">
+                    <i data-lucide="panel-left-close"></i>
+                </button>
+            </div>
+        </aside>
+        <button class="mobile-nav-mask" id="mobileNavMask" type="button" aria-label="关闭导航" hidden></button>
+
+        <main class="main" id="main-content" tabindex="-1">
+            <header class="topbar">
+                <button class="icon-button mobile-nav-button" id="openMobileNav" type="button" aria-label="打开导航" title="打开导航">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="module-head">
+                    <h1 class="module-title">{{ page_payload.title }}</h1>
+                    {% if page_payload.description %}
+                        <span>{{ page_payload.description }}</span>
+                    {% endif %}
+                </div>
+
+                {% if page_payload.pageType == 'list' and not hide_topbar_center %}
+                    <label class="search">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <path d="m20 20-3.5-3.5"></path>
+                        </svg>
+                        <input
+                            id="searchInput"
+                            type="search"
+                            placeholder="{{ page_payload.searchPlaceholder|default:'搜索标题、路径、资产或事件' }}"
+                        >
+                    </label>
+                {% elif hide_topbar_center %}
+                    <div></div>
+                {% else %}
+                    <div class="topbar-note">{{ page_payload.workspaceMeta }}</div>
+                {% endif %}
+
+                <div class="session-row">
+                    <a href="{{ preview_site_url }}" class="button neutral button-with-icon" target="_blank" rel="noreferrer"><i data-lucide="external-link"></i><span>查看网站</span></a>
+                    <span class="session-avatar" aria-hidden="true">{{ request.user.get_username|slice:':1'|upper }}</span>
+                    <div class="session-user">
+                        <strong>{{ request.user.get_username }}</strong>
+                        <span>{{ console_role_label }}</span>
+                    </div>
+                    <form action="{% url 'logout' %}" method="post" class="inline-form">
+                        {% csrf_token %}
+                        <button type="submit" class="button neutral">退出登录</button>
+                    </form>
+                </div>
+            </header>
+
+            {% if not hide_toolrows %}
+                <section class="toolrow toolrow-main">
+                    <div class="chip-row" id="scopebar"></div>
+                    <div class="statusline" id="statusline"></div>
+                    <div class="button-row" id="pageActions"></div>
+                </section>
+
+                <section class="toolrow toolrow-sub">
+                    <div class="chip-row" id="tabs"></div>
+                    <div class="filter-groups" id="filters"></div>
+                    <div class="button-row" id="selectionBar"></div>
+                </section>
+            {% endif %}
+
+            <section class="workspace">
+                {% if messages %}
+                    <div class="message-stack" aria-label="系统消息">
+                        {% for message in messages %}
+                            <div class="message message-{{ message.tags|default:'info' }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% if workspace_template %}
+                    {% include workspace_template %}
+                {% else %}
+                    <div id="workspace-root" class="workspace-root" aria-live="polite"></div>
+                {% endif %}
+            </section>
+        </main>
+    </div>
+
+    <div class="mask" id="detailMask" aria-hidden="true"></div>
+    <aside
+        class="drawer"
+        id="detailDrawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detailTitle"
+        aria-describedby="detailSubtitle"
+        aria-hidden="true"
+        tabindex="-1"
+    >
+        <header class="drawer-head">
+            <div>
+                <h2 id="detailTitle">记录详情</h2>
+                <p id="detailSubtitle">查看当前记录的主要字段。</p>
+            </div>
+            <button class="icon-button" id="closeDetail" type="button" aria-label="关闭详情" title="关闭详情"><i data-lucide="x"></i></button>
+        </header>
+        <div class="drawer-body">
+            <div class="detail-list" id="detailList"></div>
+        </div>
+        <footer class="drawer-foot" id="detailActions"></footer>
+    </aside>
+
+    <div class="toast" id="toast"></div>
+
+    {% if not workspace_template %}
+        {{ page_payload|json_script:"page-payload" }}
+    {% endif %}
+    <script src="{% static 'console/lucide.min.js' %}?v=20260829d" defer></script>
+    <script src="{% static 'console/admin-shell.js' %}?v=20260830g" defer></script>
+    {% if extra_scripts %}
+        {% for script in extra_scripts %}
+            <script src="{% static script %}?v=20260912a" defer></script>
+        {% endfor %}
+    {% endif %}
+</body>
+</html>

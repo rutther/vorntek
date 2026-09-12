@@ -1,0 +1,77 @@
+<section class="data-governance-shell" data-governance-workspace>
+    <header class="governance-head">
+        <div><span class="governance-kicker">PRIVACY &amp; RETENTION</span><h2>数据处理边界</h2><p>先复核高风险隐私请求和候选影响，再保存或执行保留策略。</p></div>
+        <a class="button neutral" href="{% url 'console:marketing_privacy' %}">查看全部隐私请求</a>
+    </header>
+
+    <dl class="governance-metrics" aria-label="数据治理概况">
+        <div class="{% if data_governance.high_risk_count %}is-attention{% endif %}"><dt>需系统处理</dt><dd>{{ data_governance.high_risk_count }}</dd></div>
+        <div><dt>保留策略</dt><dd class="is-text">{% if data_governance.policy.enabled %}已启用{% else %}已停用{% endif %}</dd></div>
+        <div class="{% if data_governance.candidate_total %}is-warning{% endif %}"><dt>候选清理项</dt><dd>{{ data_governance.candidate_total }}</dd></div>
+        <div><dt>保留的活动证据</dt><dd>{{ data_governance.preview.candidates.retained_immutable_activities }}</dd></div>
+    </dl>
+
+    {% if not data_governance.policy.enabled %}
+        <section class="governance-alert" role="status"><div><strong>数据保留策略已停用</strong><span>系统不会自动或手动清理候选数据；保存启用后仍需单独输入确认词执行。</span></div></section>
+    {% endif %}
+
+    <div class="governance-layout">
+        <div class="governance-main">
+            <section class="governance-card" aria-labelledby="system-privacy-title">
+                <div class="governance-card-head"><div><h3 id="system-privacy-title">需要系统管理员处理</h3><p>已核验的导出和处理中的敏感请求。这里不提供无确认的一键执行。</p></div><span>{{ data_governance.high_risk_count }} 条</span></div>
+                <div class="governance-table-wrap">
+                    <table class="governance-table"><thead><tr><th>主体</th><th>类型</th><th>状态</th><th>处理人</th><th>申请时间</th><th><span class="sr-only">操作</span></th></tr></thead><tbody>
+                    {% for item in data_governance.high_risk_rows %}
+                        <tr><td><strong>{{ item.requester_name }}</strong><span>{{ item.requester_email|default:item.requester_phone }}</span></td><td>{{ item.request_type_label }}</td><td><span class="privacy-status is-{{ item.status }}">{{ item.status_label }}</span></td><td>{{ item.handled_by }}</td><td>{{ item.requested_at }}</td><td><a class="button neutral compact" href="{{ item.manage_url }}">{{ item.next_action }}</a></td></tr>
+                    {% empty %}<tr><td colspan="6" class="governance-empty">当前没有等待系统管理员处理的隐私请求。</td></tr>{% endfor %}
+                    </tbody></table>
+                </div>
+            </section>
+
+            <form method="post" id="retention-policy-form" class="governance-card governance-policy-card">
+                {% csrf_token %}{{ retention_policy_form.version }}
+                <div class="governance-card-head"><div><h3>数据保留策略</h3><p>天数按当前站点计算；保存只更新策略，不会立即清理数据。</p></div></div>
+                {% if retention_policy_form.non_field_errors %}<div class="form-errors">{% for error in retention_policy_form.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>{% endif %}
+                <label class="governance-switch">{{ retention_policy_form.enabled }}<span><strong>{{ retention_policy_form.enabled.label }}</strong><small>停用时任何保留执行都会被服务端拒绝。</small></span></label>
+                <div class="governance-policy-grid">
+                    <label class="field field-block"><span class="field-label">{{ retention_policy_form.lead_pii_retention_days.label }}</span><div class="governance-day-input">{{ retention_policy_form.lead_pii_retention_days }}<span>天</span></div><small class="field-help">{{ retention_policy_form.lead_pii_retention_days.help_text }}</small>{% for error in retention_policy_form.lead_pii_retention_days.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                    <label class="field field-block"><span class="field-label">{{ retention_policy_form.inbound_payload_retention_days.label }}</span><div class="governance-day-input">{{ retention_policy_form.inbound_payload_retention_days }}<span>天</span></div>{% for error in retention_policy_form.inbound_payload_retention_days.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                    <label class="field field-block"><span class="field-label">{{ retention_policy_form.outbox_payload_retention_days.label }}</span><div class="governance-day-input">{{ retention_policy_form.outbox_payload_retention_days }}<span>天</span></div>{% for error in retention_policy_form.outbox_payload_retention_days.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                    <label class="field field-block"><span class="field-label">{{ retention_policy_form.privacy_request_retention_days.label }}</span><div class="governance-day-input">{{ retention_policy_form.privacy_request_retention_days }}<span>天</span></div>{% for error in retention_policy_form.privacy_request_retention_days.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                    <label class="field field-block"><span class="field-label">{{ retention_policy_form.whatsapp_message_retention_days.label }}</span><div class="governance-day-input">{{ retention_policy_form.whatsapp_message_retention_days }}<span>天</span></div>{% for error in retention_policy_form.whatsapp_message_retention_days.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                    <label class="field field-block"><span class="field-label">{{ retention_policy_form.whatsapp_media_retention_days.label }}</span><div class="governance-day-input">{{ retention_policy_form.whatsapp_media_retention_days }}<span>天</span></div>{% for error in retention_policy_form.whatsapp_media_retention_days.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                </div>
+            </form>
+
+            <section class="governance-card">
+                <div class="governance-card-head"><div><h3>当前候选影响</h3><p>每次打开页面都会从数据库重新计算；实际执行时会再次锁定策略并重算。</p></div><span>{{ data_governance.preview.generated_at|date:'Y-m-d H:i' }}</span></div>
+                <dl class="governance-impact-grid">
+                    <div><dt>线索 PII</dt><dd>{{ data_governance.preview.candidates.lead_pii }}</dd><small>{% if data_governance.preview.lead_pii_auto_anonymization == 'disabled' %}自动匿名化关闭{% else %}到期后匿名化{% endif %}</small></div>
+                    <div><dt>私有附件</dt><dd>{{ data_governance.preview.candidates.private_attachments }}</dd><small>仅删除完全属于目标主体的文件</small></div>
+                    <div><dt>Webhook 载荷</dt><dd>{{ data_governance.preview.candidates.inbound_payloads }}</dd><small>保留处理状态，清空原始载荷</small></div>
+                    <div><dt>回传载荷</dt><dd>{{ data_governance.preview.candidates.outbox_payloads }}</dd><small>保留事件证据，清空请求响应</small></div>
+                    <div><dt>请求身份信息</dt><dd>{{ data_governance.preview.candidates.privacy_request_identity }}</dd><small>仅已完成或拒绝且已到期</small></div>
+                    <div class="is-retained"><dt>不可变活动</dt><dd>{{ data_governance.preview.candidates.retained_immutable_activities }}</dd><small>按审计策略保留，不删除</small></div>
+                </dl>
+            </section>
+
+            <section class="governance-card">
+                <div class="governance-card-head"><div><h3>最近审计证据</h3><p>隐私状态、导出、真实执行和保留策略操作的不可变记录。</p></div><span>{{ data_governance.audit_rows|length }} 条</span></div>
+                <div class="governance-table-wrap"><table class="governance-table governance-audit-table"><thead><tr><th>动作</th><th>对象</th><th>操作者</th><th>时间</th></tr></thead><tbody>{% for item in data_governance.audit_rows %}<tr><td><strong>{{ item.action_label }}</strong><span>{{ item.action }}</span></td><td>{{ item.entity_table }}{% if item.entity_id %} #{{ item.entity_id }}{% endif %}</td><td>{{ item.actor }}</td><td>{{ item.created_at }}</td></tr>{% empty %}<tr><td colspan="4" class="governance-empty">尚无隐私或保留策略审计记录。</td></tr>{% endfor %}</tbody></table></div>
+            </section>
+        </div>
+
+        <aside class="governance-side">
+            <section class="governance-card governance-action-card"><div class="governance-card-head"><div><h3>保存策略</h3><p>保存后重新计算候选影响，不会立即执行。</p></div></div><button type="submit" form="retention-policy-form" name="_action" value="save_policy" class="button primary">保存并重新预览</button></section>
+            <form method="post" class="governance-card governance-danger-card">
+                {% csrf_token %}{{ retention_execution_form.version }}
+                <div class="governance-card-head"><div><h3>执行保留策略</h3><p>会实际匿名化或清空候选数据，普通编辑无法撤销。</p></div></div>
+                {% if retention_execution_form.non_field_errors %}<div class="form-errors">{% for error in retention_execution_form.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>{% endif %}
+                <label class="field field-block"><span class="field-label">输入 APPLY RETENTION</span>{{ retention_execution_form.confirm }}{% for error in retention_execution_form.confirm.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</label>
+                <button type="submit" name="_action" value="execute_retention" class="button danger"{% if not data_governance.policy.enabled %} disabled{% endif %}>执行 {{ data_governance.candidate_total }} 个候选清理项</button>
+                {% if not data_governance.policy.enabled %}<small>先启用并保存策略，执行按钮才会开放。</small>{% endif %}
+            </form>
+            <section class="governance-card governance-boundary-card"><div class="governance-card-head"><div><h3>不可越过的边界</h3><p>执行范围受站点、终态、到期时间和对象关系共同约束。</p></div></div><ul><li>不会跨站点处理记录。</li><li>不会清理仍在处理中的线索或事件。</li><li>混合绑定到无关对象的附件不会删除。</li><li>活动和审计记录保持不可变。</li></ul></section>
+        </aside>
+    </div>
+</section>

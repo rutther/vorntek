@@ -1,0 +1,216 @@
+<section class="editor-shell lead-form-editor">
+    <form method="post" class="editor-layout" data-acquisition-form>
+        {% csrf_token %}
+        {{ lead_form_editor.version }}
+
+        <div class="editor-main">
+            {% if lead_form_editor.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in lead_form_editor.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card lead-form-card">
+                <header class="editor-card-head">
+                    <div>
+                        <span class="editor-eyebrow">基础设置</span>
+                        <h2>表单身份与投放范围</h2>
+                    </div>
+                    <span class="editor-status-chip{% if lead_form_editor.errors %} is-warning{% endif %}">{% if lead_form_editor.errors %}需要处理{% elif editor_mode == 'edit' %}已保存{% else %}未保存{% endif %}</span>
+                </header>
+
+                <div class="lead-form-grid lead-form-grid-primary">
+                    <label class="field field-block lead-form-name">
+                        <span class="field-label">{{ lead_form_editor.name.label }}</span>
+                        {{ lead_form_editor.name }}
+                        {% for error in lead_form_editor.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_form_editor.code.label }}</span>
+                        {{ lead_form_editor.code }}
+                        {% if lead_form_editor.code.help_text %}<small class="field-help">{{ lead_form_editor.code.help_text }}</small>{% endif %}
+                        {% for error in lead_form_editor.code.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_form_editor.category.label }}</span>
+                        {{ lead_form_editor.category }}
+                        {% for error in lead_form_editor.category.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_form_editor.locale.label }}</span>
+                        {{ lead_form_editor.locale }}
+                        {% for error in lead_form_editor.locale.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_form_editor.channel.label }}</span>
+                        {{ lead_form_editor.channel }}
+                        {% for error in lead_form_editor.channel.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_form_editor.status.label }}</span>
+                        {{ lead_form_editor.status }}
+                        {% for error in lead_form_editor.status.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_form_editor.scope_type.label }}</span>
+                        {{ lead_form_editor.scope_type }}
+                        {% for error in lead_form_editor.scope_type.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block lead-form-scope-value">
+                        <span class="field-label">{{ lead_form_editor.scope_value.label }}</span>
+                        {{ lead_form_editor.scope_value }}
+                        {% for error in lead_form_editor.scope_value.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block lead-form-success">
+                        <span class="field-label">{{ lead_form_editor.success_message.label }}</span>
+                        {{ lead_form_editor.success_message }}
+                        {% for error in lead_form_editor.success_message.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            <section class="editor-card lead-form-card">
+                <header class="editor-card-head">
+                    <div>
+                        <span class="editor-eyebrow">前台字段</span>
+                        <h2>客户需要填写什么</h2>
+                    </div>
+                    <span class="editor-count-chip">{{ lead_field_rows|length }} 个字段</span>
+                </header>
+
+                <div class="lead-field-table" role="table" aria-label="表单字段配置">
+                    <div class="lead-field-row lead-field-row-head" role="row">
+                        <span role="columnheader">字段</span>
+                        <span role="columnheader">启用</span>
+                        <span role="columnheader">必填</span>
+                        <span role="columnheader">显示名称</span>
+                        <span role="columnheader">输入提示</span>
+                    </div>
+                    {% for row in lead_field_rows %}
+                        <div class="lead-field-row" role="row">
+                            <div class="lead-field-identity" role="cell">
+                                <strong>{{ row.default_label }}</strong>
+                                <span class="mono">{{ row.name }}</span>
+                            </div>
+                            <label class="lead-field-toggle" role="cell" aria-label="启用 {{ row.default_label }}">{{ row.enabled_field }}</label>
+                            <label class="lead-field-toggle" role="cell" aria-label="{{ row.default_label }} 必填">{{ row.required_field }}</label>
+                            <label class="field lead-field-input" role="cell">
+                                <span class="sr-only">{{ row.default_label }} 显示名称</span>
+                                {{ row.label_field }}
+                            </label>
+                            <label class="field lead-field-input" role="cell">
+                                <span class="sr-only">{{ row.default_label }} 输入提示</span>
+                                {{ row.placeholder_field }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <details class="editor-card lead-form-card editor-disclosure" open>
+                <summary>
+                    <span>
+                        <span class="editor-eyebrow">自动化</span>
+                        <strong>通知与 Meta CAPI 回传</strong>
+                    </span>
+                    <i data-lucide="chevron-down" aria-hidden="true"></i>
+                </summary>
+                <div class="editor-disclosure-body">
+                    <div class="lead-form-grid lead-form-events">
+                        <label class="field field-block">
+                            <span class="field-label">{{ lead_form_editor.submission_event_name.label }}</span>
+                            {{ lead_form_editor.submission_event_name }}
+                            {% for error in lead_form_editor.submission_event_name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ lead_form_editor.contacted_event_name.label }}</span>
+                            {{ lead_form_editor.contacted_event_name }}
+                            {% for error in lead_form_editor.contacted_event_name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ lead_form_editor.qualified_event_name.label }}</span>
+                            {{ lead_form_editor.qualified_event_name }}
+                            {% for error in lead_form_editor.qualified_event_name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ lead_form_editor.won_event_name.label }}</span>
+                            {{ lead_form_editor.won_event_name }}
+                            {% for error in lead_form_editor.won_event_name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                    <div class="lead-form-automation-row">
+                        <label class="lead-form-switch">
+                            {{ lead_form_editor.capi_enabled }}
+                            <span>
+                                <strong>{{ lead_form_editor.capi_enabled.label }}</strong>
+                                <small>按线索阶段发送服务端事件</small>
+                            </span>
+                        </label>
+                        <label class="field field-block lead-form-notify">
+                            <span class="field-label">{{ lead_form_editor.notify_emails.label }}</span>
+                            {{ lead_form_editor.notify_emails }}
+                            <small class="field-help">多个邮箱用逗号或换行分隔</small>
+                            {% for error in lead_form_editor.notify_emails.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                </div>
+            </details>
+
+            <details class="editor-card lead-form-card editor-disclosure">
+                <summary>
+                    <span>
+                        <span class="editor-eyebrow">高级</span>
+                        <strong>扩展参数</strong>
+                    </span>
+                    <i data-lucide="chevron-down" aria-hidden="true"></i>
+                </summary>
+                <div class="editor-disclosure-body">
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_form_editor.config_json.label }}</span>
+                        {{ lead_form_editor.config_json }}
+                        {% if lead_form_editor.config_json.help_text %}<small class="field-help">{{ lead_form_editor.config_json.help_text }}</small>{% endif %}
+                        {% for error in lead_form_editor.config_json.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </details>
+        </div>
+
+        <aside class="editor-side lead-form-side">
+            <section class="editor-card side-card lead-form-actions-card">
+                <div class="lead-form-actions-head">
+                    <span class="editor-eyebrow">当前表单</span>
+                    <strong>{% if lead_form %}{{ lead_form.name }}{% else %}新表单{% endif %}</strong>
+                    <span>{{ editor_locale.label }} · {{ editor_locale.locale_code }}</span>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary button-with-icon"><i data-lucide="save"></i><span>保存表单</span></button>
+                    <a href="{{ editor_back_url }}" class="button neutral button-with-icon"><i data-lucide="arrow-left"></i><span>返回表单列表</span></a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card lead-form-endpoint-card">
+                <header class="editor-card-head">
+                    <div>
+                        <span class="editor-eyebrow">公开提交地址</span>
+                        <h2>API Endpoint</h2>
+                    </div>
+                </header>
+                <div class="lead-form-endpoint">
+                    {% if lead_form %}
+                        <code>/api/leads/forms/{{ lead_form.code }}/submit/</code>
+                        <a href="/api/leads/forms/{{ lead_form.code }}/submit/" target="_blank" rel="noreferrer" class="icon-button" aria-label="打开提交接口" title="打开提交接口"><i data-lucide="external-link"></i></a>
+                    {% else %}
+                        <code>/api/leads/forms/{form_code}/submit/</code>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="lead-form-side-note">
+                <i data-lucide="shield-check" aria-hidden="true"></i>
+                <p>访问令牌和平台密钥由“平台与归因”统一管理，不保存在表单定义中。</p>
+            </section>
+        </aside>
+    </form>
+</section>

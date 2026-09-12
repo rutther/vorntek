@@ -1,0 +1,57 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>登录 - 企业网站控制台</title>
+    <link rel="stylesheet" href="{% static 'console/admin-auth.css' %}?v=20260830b">
+<link rel="stylesheet" href="{% static 'console/vorntek-brand.css' %}">
+</head>
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-panel">
+            <div class="auth-login">
+                <a class="auth-brand" href="/" aria-label="返回 {{ brand_name }} 官网">
+                    <img src="{% static 'console/vorntekLogo.png' %}" alt="">
+                    <span class="auth-brand-copy">
+                        <strong>{{ brand_name }}</strong>
+                        <span>获客与销售运营</span>
+                    </span>
+                </a>
+                <header class="auth-header">
+                    <span class="auth-kicker">内部工作台</span>
+                    <span class="sr-only">员工登录</span>
+                    <h1>登录线索运营后台</h1>
+                    <p>管理网站询盘、销售跟进与 Meta 数据回传。</p>
+                </header>
+
+                {% if form.errors %}
+                    <div class="auth-alert" role="alert">用户名或密码不正确，请重新输入。</div>
+                {% endif %}
+
+                <form method="post" class="auth-form">
+                    {% csrf_token %}
+                    <label class="field">
+                        <span>用户名</span>
+                        <input type="text" name="username" autocomplete="username" required autofocus>
+                    </label>
+                    <label class="field">
+                        <span>密码</span>
+                        <input type="password" name="password" autocomplete="current-password" required>
+                    </label>
+                    {% if next %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ next }}">
+                    {% endif %}
+                    <button type="submit" class="auth-submit">进入后台</button>
+                </form>
+
+                <footer class="auth-footer">
+                    <span>仅限获授权的公司员工使用</span>
+                    <a class="auth-back" href="/">返回公司网站</a>
+                </footer>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

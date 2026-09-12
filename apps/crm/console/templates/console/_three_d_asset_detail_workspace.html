@@ -1,0 +1,229 @@
+{% with detail=three_d_asset_detail %}
+<section class="three-d-redesign">
+    <header class="three-d-pagehead">
+        <div>
+            <nav class="three-d-crumb" aria-label="当前位置">
+                <a href="{{ detail.workspaceUrl }}">3D 展示管理</a>
+                <span>/</span>
+                <strong>{{ detail.asset.name }}</strong>
+            </nav>
+            <h2>{{ detail.asset.name }}</h2>
+            <p>这里查看 3D 源文件、展示配置和页面引用关系。资产详情不编辑模型文件，只负责让运营和程序员看清楚这个文件正在被哪里使用。</p>
+        </div>
+        <div class="three-d-pagehead__actions">
+            <a class="button neutral" href="{{ detail.workspaceUrl }}">返回 3D 管理</a>
+            {% if detail.createProfileUrl %}<a class="button primary" href="{{ detail.createProfileUrl }}">基于此资产创建配置</a>{% endif %}
+        </div>
+    </header>
+
+    <div class="three-d-layout">
+        <div class="three-d-main">
+            <section class="three-d-strip three-d-strip--three">
+                <div>
+                    <span>展示配置</span>
+                    <strong>{{ detail.profileCount }}</strong>
+                </div>
+                <div>
+                    <span>页面引用</span>
+                    <strong>{{ detail.placementCount }}</strong>
+                </div>
+                <div>
+                    <span>文件状态</span>
+                    <strong>{{ detail.asset.statusLabel }}</strong>
+                </div>
+            </section>
+
+            <section class="three-d-block">
+                <div class="three-d-block__head">
+                    <div>
+                        <h3>资产本体</h3>
+                        <p>源文件信息和公开路径。前台、配置和页面槽位都应该引用公开路径，不直接引用随机磁盘目录。</p>
+                    </div>
+                </div>
+                <div class="three-d-asset-facts">
+                    <div>
+                        <span>原始文件名</span>
+                        <strong>{{ detail.asset.originalName }}</strong>
+                    </div>
+                    <div>
+                        <span>扩展名</span>
+                        <strong>{{ detail.asset.ext }}</strong>
+                    </div>
+                    <div>
+                        <span>文件大小</span>
+                        <strong>{{ detail.asset.size }}</strong>
+                    </div>
+                    <div>
+                        <span>MIME</span>
+                        <strong>{{ detail.asset.mimeType }}</strong>
+                    </div>
+                    <div class="wide">
+                        <span>公开路径</span>
+                        <strong class="mono">{{ detail.asset.publicPath }}</strong>
+                    </div>
+                    {% if detail.asset.storagePath %}
+                        <div class="wide">
+                            <span>内部存储标识</span>
+                            <strong class="mono">{{ detail.asset.storagePath }}</strong>
+                        </div>
+                    {% endif %}
+                    {% if detail.asset.sha256 %}
+                        <div class="wide">
+                            <span>SHA-256</span>
+                            <strong class="mono">{{ detail.asset.sha256 }}</strong>
+                        </div>
+                    {% endif %}
+                    {% if detail.asset.createdBy %}
+                        <div>
+                            <span>上传者</span>
+                            <strong>{{ detail.asset.createdBy }}</strong>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <span>更新时间</span>
+                        <strong>{{ detail.asset.updatedAt }}</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="three-d-block">
+                <div class="three-d-block__head">
+                    <div>
+                        <h3>展示配置</h3>
+                        <p>同一个 3D 文件可以创建多套展示配置，用于不同页面位置或不同视觉场景。</p>
+                    </div>
+                </div>
+                <div class="three-d-table-wrap">
+                    <table class="three-d-grid-table three-d-grid-table--asset-profiles">
+                        <thead>
+                            <tr>
+                                <th>配置</th>
+                                <th>用途</th>
+                                <th>展示参数</th>
+                                <th>绑定与状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for profile in detail.profiles %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ profile.name }}</strong>
+                                        <span>{{ profile.code }}</span>
+                                    </td>
+                                    <td><span>{{ profile.purposeLabel }}</span></td>
+                                    <td>
+                                        <div class="three-d-color-cell"><i style="background: {{ profile.background }}"></i><code>{{ profile.background }}</code></div>
+                                        <span>FOV {{ profile.fov }} · {{ profile.autoRotateLabel }} · {{ profile.interactionLabel }}</span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ profile.slotLabels }}</strong>
+                                        <span>{{ profile.statusLabel }}</span>
+                                    </td>
+                                    <td>{% if profile.editUrl %}<a class="table-button" href="{{ profile.editUrl }}">编辑配置</a>{% else %}<span>只读</span>{% endif %}</td>
+                                </tr>
+                            {% empty %}
+                                {% if detail.permissions.canWrite %}
+                                    <tr><td colspan="5" class="empty-cell">这个 3D 资产还没有展示配置。请先创建配置，再绑定到页面槽位。</td></tr>
+                                {% else %}
+                                    <tr><td colspan="5" class="empty-cell">这个 3D 资产还没有展示配置。当前账号仅可查看；需要新增时，请联系具备资产写入权限的成员。</td></tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="three-d-block">
+                <div class="three-d-block__head">
+                    <div>
+                        <h3>页面引用</h3>
+                        <p>这些页面槽位正在通过展示配置使用该 3D 文件。</p>
+                    </div>
+                </div>
+                <div class="three-d-table-wrap">
+                    <table class="three-d-grid-table three-d-grid-table--asset-placements">
+                        <thead>
+                            <tr>
+                                <th>页面位置</th>
+                                <th>槽位代码</th>
+                                <th>使用配置</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for placement in detail.placements %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ placement.slotLabel }}</strong>
+                                        <span>{{ placement.name }}</span>
+                                    </td>
+                                    <td><code>{{ placement.slotCode }}</code></td>
+                                    <td><strong>{{ placement.profileName }}</strong></td>
+                                    <td class="three-d-compact"><span class="status-pill {{ placement.statusTone }}">{{ placement.statusLabel }}</span></td>
+                                    <td>
+                                        {% if placement.editUrl %}<a class="table-button" href="{{ placement.editUrl }}">编辑槽位</a>{% endif %}
+                                        {% if placement.profileEditUrl %}<a class="table-button" href="{{ placement.profileEditUrl }}">配置</a>{% endif %}
+                                        {% if not placement.editUrl and not placement.profileEditUrl %}<span>只读</span>{% endif %}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="5" class="empty-cell">还没有页面槽位引用这个 3D 资产。</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <aside class="three-d-side">
+            <section class="three-d-sidebox">
+                <h3>下一步</h3>
+                {% if detail.profileCount %}
+                    {% if detail.permissions.canWrite %}
+                        <p>这个资产已有展示配置。可继续检查槽位绑定，或调整配置后生成预览产物。</p>
+                    {% else %}
+                        <p>这个资产已有展示配置。当前账号可查看配置、槽位绑定和预览状态。</p>
+                    {% endif %}
+                {% else %}
+                    {% if detail.permissions.canWrite %}
+                        <p>这个资产还没有展示配置。请先创建配置，设置视角、背景和交互。</p>
+                    {% else %}
+                        <p>这个资产还没有展示配置。当前账号仅可查看；需要新增时，请联系具备资产写入权限的成员。</p>
+                    {% endif %}
+                {% endif %}
+                <div class="three-d-side-actions">
+                    {% if detail.createProfileUrl %}<a class="button primary wide" href="{{ detail.createProfileUrl }}">创建展示配置</a>{% endif %}
+                    {% if detail.buildPreviewUrl %}
+                        <form action="{{ detail.buildPreviewUrl }}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="button neutral wide">生成预览产物</button>
+                        </form>
+                    {% endif %}
+                    {% if not detail.createProfileUrl and not detail.buildPreviewUrl %}<p>当前账号仅可查看此资产及其引用关系。</p>{% endif %}
+                </div>
+            </section>
+
+            <section class="three-d-sidebox">
+                <h3>关系说明</h3>
+                <ol class="three-d-steps">
+                    <li><span>1</span>资产是源文件，只管存储和公开路径</li>
+                    <li><span>2</span>展示配置决定视角、背景、旋转和交互</li>
+                    <li><span>3</span>页面槽位决定首页或产品页读取哪套配置</li>
+                </ol>
+            </section>
+
+            <section class="three-d-sidebox">
+                <h3>路径给程序员</h3>
+                <div class="three-d-meta-list">
+                    <div>
+                        <span>公开路径</span>
+                        <strong class="mono">{{ detail.asset.publicPath }}</strong>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </div>
+</section>
+{% endwith %}

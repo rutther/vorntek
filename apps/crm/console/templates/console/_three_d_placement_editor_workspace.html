@@ -1,0 +1,151 @@
+<section class="three-d-redesign">
+    <form method="post" class="three-d-placement-editor">
+        {% csrf_token %}
+
+        <header class="three-d-pagehead">
+            <div>
+                <nav class="three-d-crumb" aria-label="当前位置">
+                    <a href="{% url 'console:assets_three_d' %}">3D 展示管理</a>
+                    <span>/</span>
+                    <strong>{% if three_d_placement %}{{ three_d_placement.name }}{% else %}新增页面槽位{% endif %}</strong>
+                </nav>
+                <h2>{% if three_d_placement %}{{ three_d_placement.name }}{% else %}新增页面槽位{% endif %}</h2>
+                <p>页面槽位只负责把前台固定位置绑定到一套展示配置。它不编辑模型，也不编辑视角。</p>
+            </div>
+            <div class="three-d-pagehead__actions">
+                {% if three_d_placement %}
+                    <a href="{% url 'console:three_d_profile_edit' three_d_placement.profile_id %}" class="button neutral">编辑当前配置</a>
+                {% endif %}
+                <button type="submit" class="button primary">保存槽位</button>
+            </div>
+        </header>
+
+        <div class="three-d-editor-layout">
+            <div class="three-d-editor-main">
+                {% if three_d_placement_form.non_field_errors %}
+                    <div class="form-errors">
+                        {% for error in three_d_placement_form.non_field_errors %}
+                            <div class="field-error">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <section class="three-d-form-section">
+                    <div class="three-d-form-section__head">
+                        <span>01</span>
+                        <div>
+                            <h3>页面位置</h3>
+                            <p>选择前台代码已经约定好的槽位。槽位代码应该稳定，不能频繁改名。</p>
+                        </div>
+                    </div>
+                    <div class="three-d-fields two">
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_placement_form.slot_code.label }}</span>
+                            {{ three_d_placement_form.slot_code }}
+                            {% for error in three_d_placement_form.slot_code.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_placement_form.name.label }}</span>
+                            {{ three_d_placement_form.name }}
+                            {% for error in three_d_placement_form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                </section>
+
+                <section class="three-d-form-section">
+                    <div class="three-d-form-section__head">
+                        <span>02</span>
+                        <div>
+                            <h3>绑定展示配置</h3>
+                            <p>运营在这里决定这个页面位置当前显示哪套 3D 配置。</p>
+                        </div>
+                    </div>
+                    <div class="three-d-fields two">
+                        <label class="field field-block">
+                            <span class="field-label">{{ three_d_placement_form.profile.label }}</span>
+                            {{ three_d_placement_form.profile }}
+                            {% for error in three_d_placement_form.profile.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="three-d-switch three-d-switch--field">
+                            {{ three_d_placement_form.enabled }}
+                            <span>启用该页面槽位</span>
+                            {% for error in three_d_placement_form.enabled.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                </section>
+
+                <section class="three-d-form-section">
+                    <div class="three-d-form-section__head">
+                        <span>03</span>
+                        <div>
+                            <h3>说明</h3>
+                            <p>记录该槽位在代码中的使用位置，方便程序员和运营对齐。</p>
+                        </div>
+                    </div>
+                    <label class="field field-block three-d-note-field">
+                        <span class="field-label">{{ three_d_placement_form.notes.label }}</span>
+                        {{ three_d_placement_form.notes }}
+                        {% for error in three_d_placement_form.notes.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </section>
+            </div>
+
+            <aside class="three-d-inspector">
+                <section class="three-d-sidebox">
+                    <h3>当前绑定</h3>
+                    {% if three_d_placement %}
+                        <div class="three-d-meta-list">
+                            <div>
+                                <span>槽位代码</span>
+                                <strong class="mono">{{ three_d_placement.slot_code }}</strong>
+                            </div>
+                            <div>
+                                <span>展示配置</span>
+                                <strong>{{ three_d_placement.profile.name }}</strong>
+                            </div>
+                            <div>
+                                <span>3D 资产</span>
+                                <strong>{{ three_d_placement.profile.asset.title|default:three_d_placement.profile.asset.original_name }}</strong>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p>保存后这里会显示槽位绑定关系。</p>
+                    {% endif %}
+                </section>
+
+                <section class="three-d-sidebox">
+                    <h3>预览</h3>
+                    {% if three_d_preview_url %}
+                        <div class="three-d-live-preview">
+                            {% if three_d_public_config.modelUrl %}
+                                <div class="three-d-empty-preview">
+                                    <span>模型入口</span>
+                                    <strong class="mono">{{ three_d_public_config.modelUrl }}</strong>
+                                </div>
+                            {% else %}
+                                <iframe src="{{ three_d_preview_url }}" title="3D 槽位预览"></iframe>
+                            {% endif %}
+                        </div>
+                        <div class="three-d-meta-list">
+                            <div>
+                                <span>预览链接</span>
+                                <strong class="mono">{{ three_d_preview_url }}</strong>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="three-d-empty-preview">保存槽位后生成预览入口。</div>
+                    {% endif %}
+                </section>
+
+                <section class="three-d-sidebox">
+                    <h3>读取规则</h3>
+                    <ol class="three-d-steps">
+                        <li><span>1</span>前台读取槽位代码</li>
+                        <li><span>2</span>槽位找到当前展示配置</li>
+                        <li><span>3</span>展示配置决定模型、视角和交互</li>
+                    </ol>
+                </section>
+            </aside>
+        </div>
+    </form>
+</section>

@@ -1,0 +1,46 @@
+{
+  "observed_on": "2026-09-12",
+  "scope": "first-party registry archives, integrity verification and selected byte matches; no package scripts executed",
+  "packages": [
+    {
+      "name": "lucide",
+      "version": "1.8.0",
+      "archive": "https://registry.npmjs.org/lucide/-/lucide-1.8.0.tgz",
+      "integrity": "sha512-JjV/QnadgFLj1Pyu9IKl0lknrolFEzo04B64QcYLLeRzZl/iEHpdbSrRRKbyXcv45SZNv+WGjIUCT33e7xHO6Q==",
+      "github_tag_commit": "3c62e4bfef50fb88dd9618439b46811af912ba4a",
+      "exact_matches": {
+        "apps/crm/console/static/console/lucide.min.js": "ab85225ecc1daa2033607856f03dd2dabcbc08e2d260a5b97e17c690aa929766",
+        "apps/crm/console/static/console/lucide.LICENSE.txt": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57"
+      }
+    },
+    {
+      "name": "@tabler/core",
+      "version": "1.4.0",
+      "archive": "https://registry.npmjs.org/@tabler/core/-/core-1.4.0.tgz",
+      "integrity": "sha512-5BigzOlbOH9N0Is4u0rYNRCiwtnUXWO57K9zwuscygcicAa8UV9MGaS4zTgQsZEtZ9tsNANhN/YD8gCBGKYCiw==",
+      "license_limitation": "Package metadata/header declare MIT; own root LICENSE absent from archive; inherited notice retained, versioned GitHub license not verified",
+      "exact_matches": {
+        "apps/crm/console/static/console/vendor/tabler/1.4.0/tabler.min.js": "b60c76160e97624574dbb8cf10abe6aee9a6493b60096fdfc15dd1dd2bd99eb9",
+        "apps/crm/console/static/console/vendor/tabler/1.4.0/tabler.min.css": "7ef750bd10546a695d0b12767ad8048bd8f3ec5de7daefb1067f9d0daa3d1c9a"
+      }
+    },
+    {
+      "name": "bootstrap",
+      "version": "5.3.7",
+      "archive": "https://registry.npmjs.org/bootstrap/-/bootstrap-5.3.7.tgz",
+      "integrity": "sha512-7KgiD8UHjfcPBHEpDNg+zGz8L3LqR3GVwqZiBRFX04a1BCArZOz1r2kjly2HQ0WokqTO0v1nF+QAt8dsW4lKlw==",
+      "exact_matches": {
+        "apps/crm/console/static/console/vendor/tabler/1.4.0/BOOTSTRAP_LICENSE": "4620c84ad5ce8602ff65640ed6b7c8b78ebb9e036584f0ebc1ccc88206a4bb51"
+      }
+    },
+    {
+      "name": "@popperjs/core",
+      "version": "2.11.8",
+      "archive": "https://registry.npmjs.org/@popperjs/core/-/core-2.11.8.tgz",
+      "integrity": "sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==",
+      "exact_matches": {
+        "apps/crm/console/static/console/vendor/tabler/1.4.0/POPPER_LICENSE": "bf67e2c9b7974543bb18ced3a0b37f53729aaff953b442dd89a3adaf90fd93e8"
+      }
+    }
+  ]
+}

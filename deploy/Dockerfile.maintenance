@@ -1,0 +1,23 @@
+ARG POSTGRES_IMAGE=postgres:18.3-bookworm
+FROM ${POSTGRES_IMAGE} AS maintenance_filesystem
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-psycopg \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 newcrown \
+    && useradd --uid 10001 --gid 10001 --no-create-home newcrown
+# The upstream server image includes a generated default test key. Maintenance
+# runs only PostgreSQL clients; it must never distribute this key. Removing it
+# in a later inherited layer alone would leave its bytes in published history.
+RUN rm -f /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem
+COPY scripts/database_archive.py /tools/database_archive.py
+COPY scripts/file_archive.py /tools/file_archive.py
+
+# Copy the sanitized filesystem, including dependency/license files, into a new
+# final image so the donor's earlier layers are not part of the release artifact.
+# Never publish the intermediate maintenance_filesystem stage or its build cache.
+FROM scratch
+COPY --from=maintenance_filesystem / /
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin \
+    LANG=C.UTF-8
+USER 10001:10001
+ENTRYPOINT ["python3", "/tools/database_archive.py"]

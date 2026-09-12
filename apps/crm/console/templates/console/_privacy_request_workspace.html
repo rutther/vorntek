@@ -1,0 +1,148 @@
+<section class="editor-shell privacy-workspace" data-privacy-status="{{ privacy_request.status }}" data-system-admin="{{ is_system_admin|yesno:'true,false' }}">
+    <ol class="privacy-stagebar" aria-label="隐私请求处理进度">
+        {% for step in privacy_status_steps %}
+            <li class="privacy-stage {{ step.state }}">
+                <span>{{ forloop.counter }}</span>
+                <strong>{{ step.label }}</strong>
+            </li>
+        {% endfor %}
+    </ol>
+
+    {% if privacy_request.status == 'rejected' %}
+        <div class="privacy-state-notice rejected"><strong>请求已拒绝</strong><span>{{ privacy_request.resolution }}</span></div>
+    {% endif %}
+
+    <form method="post" class="editor-layout">
+        {% csrf_token %}
+        {{ privacy_workflow_form.version }}
+        {% if privacy_return_context %}<input type="hidden" name="return_to" value="{{ privacy_return_context }}">{% endif %}
+        <div class="editor-main">
+            {% if privacy_workflow_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in privacy_workflow_form.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>请求与身份</h2>
+                        <p>仅依据已核验的邮箱、电话或关联线索确定数据范围。</p>
+                    </div>
+                </div>
+                <dl class="privacy-facts">
+                    <div><dt>请求类型</dt><dd>{{ privacy_type_label }}</dd></div>
+                    <div><dt>当前状态</dt><dd><span class="badge {% if privacy_request.status == 'completed' %}green{% elif privacy_request.status == 'rejected' %}red{% elif privacy_request.status == 'pending' %}amber{% else %}blue{% endif %}">{{ privacy_status_label }}</span></dd></div>
+                    <div><dt>请求人</dt><dd>{{ privacy_request.requester_name|default:'未提供' }}</dd></div>
+                    <div><dt>匹配记录</dt><dd>{{ subject_record_count }} 条线索</dd></div>
+                    <div><dt>邮箱</dt><dd>{{ privacy_request.requester_email|default:'未提供' }}</dd></div>
+                    <div><dt>电话</dt><dd>{{ privacy_request.requester_phone|default:'未提供' }}</dd></div>
+                    <div>
+                        <dt>关联线索</dt>
+                        <dd>
+                            {% if privacy_request.submission_id %}
+                                <a href="{% url 'console:lead_submission_edit' privacy_request.submission_id %}">线索 #{{ privacy_request.submission_id }}</a>
+                            {% else %}未指定，由身份字段匹配{% endif %}
+                        </dd>
+                    </div>
+                    <div><dt>处理人</dt><dd>{% if privacy_request.handled_by_user %}{{ privacy_request.handled_by_user.get_full_name|default:privacy_request.handled_by_user.username }}{% else %}未分配{% endif %}</dd></div>
+                </dl>
+            </section>
+
+            {% if can_execute %}
+                <section class="editor-card privacy-impact-card">
+                    <div class="editor-card-head">
+                        <div>
+                            <h2>执行影响范围</h2>
+                            <p>根据已核验主体和同站点对象关系实时计算；实际执行时服务端会重新锁定并校验。</p>
+                        </div>
+                    </div>
+                    <dl class="privacy-impact-grid">
+                        <div><dt>线索</dt><dd>{{ privacy_impact.submissions }}</dd></div>
+                        <div><dt>联系人</dt><dd>{{ privacy_impact.contacts }}</dd></div>
+                        <div><dt>企业 / 机会</dt><dd>{{ privacy_impact.companies }} / {{ privacy_impact.opportunities }}</dd></div>
+                        <div><dt>私有附件</dt><dd>{{ privacy_impact.attachments }}</dd></div>
+                        <div><dt>任务</dt><dd>{{ privacy_impact.tasks }}</dd></div>
+                        <div class="is-retained"><dt>不可变活动</dt><dd>{{ privacy_impact.activities }}</dd></div>
+                    </dl>
+                </section>
+
+                <section class="editor-card privacy-danger-card">
+                    <div class="editor-card-head">
+                        <div>
+                            <h2>系统执行确认</h2>
+                            <p>该动作会实际修改个人数据。请输入确认词后再执行，操作无法通过普通编辑撤销。</p>
+                        </div>
+                    </div>
+                    <label class="field field-block">
+                        <span class="field-label">输入 {{ required_confirmation }}</span>
+                        {{ privacy_workflow_form.confirm }}
+                        {% for error in privacy_workflow_form.confirm.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </section>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>处理记录</h2>
+                        <p>核验时记录依据；完成或拒绝时必须留下可复核的结论。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ privacy_workflow_form.resolution.label }}</span>
+                    {{ privacy_workflow_form.resolution }}
+                    {% for error in privacy_workflow_form.resolution.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>下一步</h2>
+                        <p>按钮只显示当前状态允许且当前角色有权执行的动作。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    {% if can_verify %}<button type="submit" name="_action" value="transition:verified" class="button primary">确认身份已核验</button>{% endif %}
+                    {% if can_start_processing %}<button type="submit" name="_action" value="transition:processing" class="button primary">开始处理</button>{% endif %}
+                    {% if can_export %}<a href="{% url 'console:privacy_request_export' privacy_request.id %}?locale={{ editor_locale.locale_code }}" class="button neutral" data-sensitive-action="export">下载数据导出包</a>{% endif %}
+                    {% if can_complete_export %}<button type="submit" name="_action" value="transition:completed" class="button primary" data-sensitive-action="complete-export">确认导出已交付</button>{% endif %}
+                    {% if can_execute %}<button type="submit" name="_action" value="execute" class="button danger" data-sensitive-action="execute">执行{{ privacy_type_label }}</button>{% endif %}
+                    {% if can_reject %}<button type="submit" name="_action" value="transition:rejected" class="button neutral">拒绝请求</button>{% endif %}
+                    <a href="{{ privacy_back_url }}" class="button neutral">返回隐私请求列表</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div><h2>时间与责任</h2><p>这些时间来自数据库，不根据界面推断。</p></div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item"><span>申请时间</span><strong>{{ privacy_request.requested_at|date:'Y-m-d H:i' }}</strong></div>
+                    <div class="meta-item"><span>核验时间</span><strong>{{ privacy_request.verified_at|date:'Y-m-d H:i'|default:'尚未核验' }}</strong></div>
+                    <div class="meta-item"><span>完成时间</span><strong>{{ privacy_request.completed_at|date:'Y-m-d H:i'|default:'尚未完成' }}</strong></div>
+                    <div class="meta-item"><span>最后更新</span><strong>{{ privacy_request.updated_at|date:'Y-m-d H:i' }}</strong></div>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div><h2>权限说明</h2><p>身份核验与高风险数据操作分离。</p></div>
+                </div>
+                <ul class="hint-list">
+                    {% if is_system_admin %}
+                        <li>当前为系统管理员，可在核验后执行敏感操作。</li>
+                    {% else %}
+                        <li>当前为营销运营，可登记、核验、开始处理或拒绝。</li>
+                        <li>导出、撤回、限制和删除需系统管理员执行。</li>
+                    {% endif %}
+                    <li>所有状态变更和敏感动作都会写入不可变审计日志。</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

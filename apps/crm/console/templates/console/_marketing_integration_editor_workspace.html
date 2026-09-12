@@ -1,0 +1,362 @@
+<section class="editor-shell">
+    <form method="post" class="editor-layout" autocomplete="off">
+        {% csrf_token %}
+
+        <div class="editor-mobile-actions">
+            <a href="{% url 'console:marketing' %}" class="button neutral">返回</a>
+            <button type="submit" class="button primary">保存设置</button>
+        </div>
+
+        <div class="editor-main">
+            {% if marketing_integration_editor.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in marketing_integration_editor.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>接入身份</h2>
+                        <p>平台 ID 决定事件发往哪个广告资产；只有完成密钥和权限配置后才启用。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ marketing_integration_editor.name.label }}</span>
+                        {{ marketing_integration_editor.name }}
+                        {% for error in marketing_integration_editor.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ marketing_integration_editor.public_id.label }}</span>
+                        {{ marketing_integration_editor.public_id }}
+                        {% for error in marketing_integration_editor.public_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ marketing_integration_editor.consent_category.label }}</span>
+                        {{ marketing_integration_editor.consent_category }}
+                        {% for error in marketing_integration_editor.consent_category.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block checkbox-field">
+                        <span class="field-label">{{ marketing_integration_editor.enabled.label }}</span>
+                        <span class="checkbox-inline">{{ marketing_integration_editor.enabled }} 接入生效</span>
+                        {% for error in marketing_integration_editor.enabled.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            <details class="editor-card editor-disclosure">
+                <summary>
+                    <span>
+                        <h2>{% if is_google %}Google 身份验证{% else %}平台凭据{% endif %}</h2>
+                        <p>仅在首次接入或更换密钥时打开；已保存的敏感信息不会在页面中显示。</p>
+                    </span>
+                </summary>
+                <div class="editor-disclosure-body">
+                    <div class="field-grid cols-2">
+                        <label class="field field-block">
+                            <span class="field-label">{{ marketing_integration_editor.secret_ref.label }}</span>
+                            {{ marketing_integration_editor.secret_ref }}
+                            {% if marketing_integration_editor.secret_ref.help_text %}<small class="field-help">{{ marketing_integration_editor.secret_ref.help_text }}</small>{% endif %}
+                            {% for error in marketing_integration_editor.secret_ref.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ marketing_integration_editor.primary_secret.label }}</span>
+                            {{ marketing_integration_editor.primary_secret }}
+                            {% if marketing_integration_editor.primary_secret.help_text %}<small class="field-help">{{ marketing_integration_editor.primary_secret.help_text }}</small>{% endif %}
+                            {% for error in marketing_integration_editor.primary_secret.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                    <label class="field field-block checkbox-field">
+                        <span class="checkbox-inline">{{ marketing_integration_editor.clear_stored_secret }} {{ marketing_integration_editor.clear_stored_secret.label }}</span>
+                        {% for error in marketing_integration_editor.clear_stored_secret.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </details>
+
+            {% if is_meta_pixel %}
+                <details class="editor-card editor-disclosure">
+                    <summary>
+                        <span><h2>测试与开发选项</h2><p>日常投放无需修改；只在 Events Manager 联调时填写测试事件码。</p></span>
+                    </summary>
+                    <div class="editor-disclosure-body">
+                        <div class="field-grid cols-2">
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.api_version.label }}</span>
+                                {{ marketing_integration_editor.api_version }}
+                                {% for error in marketing_integration_editor.api_version.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.test_event_code.label }}</span>
+                                {{ marketing_integration_editor.test_event_code }}
+                                {% for error in marketing_integration_editor.test_event_code.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                        </div>
+                    </div>
+                </details>
+            {% endif %}
+
+            {% if is_webhook %}
+                <section class="editor-card">
+                    <div class="editor-card-head">
+                        <div><h2>Webhook 与 CRM 入站</h2><p>Meta 直连与 YCloud 官方 Coexistence 使用独立回调和签名；只有当前选中的传输方式会生效。</p></div>
+                    </div>
+                    <label class="field field-block">
+                        <span class="field-label">Callback URL</span>
+                        <input type="text" value="{{ callback_url }}" readonly class="mono">
+                    </label>
+                    <div class="field-grid cols-2">
+                        <label class="field field-block">
+                            <span class="field-label">Meta 直连 · {{ marketing_integration_editor.app_secret.label }}</span>
+                            {{ marketing_integration_editor.app_secret }}
+                            {% for error in marketing_integration_editor.app_secret.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">Meta 直连 · {{ marketing_integration_editor.webhook_verify_token.label }}</span>
+                            {{ marketing_integration_editor.webhook_verify_token }}
+                            {% for error in marketing_integration_editor.webhook_verify_token.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                    <div class="field-grid cols-2">
+                        <label class="field field-block">
+                            <span class="field-label">{{ marketing_integration_editor.form_code.label }}</span>
+                            {{ marketing_integration_editor.form_code }}
+                            {% for error in marketing_integration_editor.form_code.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        {% if is_meta_leadgen %}
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.leadgen_form_ids.label }}</span>
+                                {{ marketing_integration_editor.leadgen_form_ids }}
+                                {% if marketing_integration_editor.leadgen_form_ids.help_text %}<small class="field-help">{{ marketing_integration_editor.leadgen_form_ids.help_text }}</small>{% endif %}
+                                {% for error in marketing_integration_editor.leadgen_form_ids.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                        {% endif %}
+                        {% if is_whatsapp %}
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.waba_id.label }}</span>
+                                {{ marketing_integration_editor.waba_id }}
+                                {% for error in marketing_integration_editor.waba_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                        {% else %}
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.api_version.label }}</span>
+                                {{ marketing_integration_editor.api_version }}
+                            </label>
+                        {% endif %}
+                    </div>
+                    {% if is_whatsapp %}
+                        <div class="field-grid cols-2">
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.transport_provider.label }}</span>
+                                {{ marketing_integration_editor.transport_provider }}
+                                {% if marketing_integration_editor.transport_provider.help_text %}<small class="field-help">{{ marketing_integration_editor.transport_provider.help_text }}</small>{% endif %}
+                                {% for error in marketing_integration_editor.transport_provider.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.business_phone_e164.label }}</span>
+                                {{ marketing_integration_editor.business_phone_e164 }}
+                                {% if marketing_integration_editor.business_phone_e164.help_text %}<small class="field-help">{{ marketing_integration_editor.business_phone_e164.help_text }}</small>{% endif %}
+                                {% for error in marketing_integration_editor.business_phone_e164.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                        </div>
+                        <div class="field-grid cols-2">
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.ycloud_webhook_endpoint_id.label }}</span>
+                                {{ marketing_integration_editor.ycloud_webhook_endpoint_id }}
+                                {% if marketing_integration_editor.ycloud_webhook_endpoint_id.help_text %}<small class="field-help">{{ marketing_integration_editor.ycloud_webhook_endpoint_id.help_text }}</small>{% endif %}
+                                {% for error in marketing_integration_editor.ycloud_webhook_endpoint_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.ycloud_webhook_secret.label }}</span>
+                                {{ marketing_integration_editor.ycloud_webhook_secret }}
+                                {% for error in marketing_integration_editor.ycloud_webhook_secret.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                        </div>
+                        <div class="field-grid cols-2">
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.ctwa_identity_mode.label }}</span>
+                                {{ marketing_integration_editor.ctwa_identity_mode }}
+                                {% if marketing_integration_editor.ctwa_identity_mode.help_text %}<small class="field-help">{{ marketing_integration_editor.ctwa_identity_mode.help_text }}</small>{% endif %}
+                                {% for error in marketing_integration_editor.ctwa_identity_mode.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.page_id.label }}</span>
+                                {{ marketing_integration_editor.page_id }}
+                                {% if marketing_integration_editor.page_id.help_text %}<small class="field-help">{{ marketing_integration_editor.page_id.help_text }}</small>{% endif %}
+                                {% for error in marketing_integration_editor.page_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                        </div>
+                        <div class="field-grid cols-2">
+                            <label class="field field-block">
+                                <span class="field-label">{{ marketing_integration_editor.api_version.label }}</span>
+                                {{ marketing_integration_editor.api_version }}
+                                {% for error in marketing_integration_editor.api_version.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                            </label>
+                        </div>
+                    {% endif %}
+                    <div class="field-grid cols-2">
+                        <label class="field field-block checkbox-field">
+                            <span class="checkbox-inline">{{ marketing_integration_editor.contact_consent_confirmed }} {{ marketing_integration_editor.contact_consent_confirmed.label }}</span>
+                            {% for error in marketing_integration_editor.contact_consent_confirmed.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block checkbox-field">
+                            <span class="checkbox-inline">{{ marketing_integration_editor.marketing_consent_confirmed }} {{ marketing_integration_editor.marketing_consent_confirmed.label }}</span>
+                            {% for error in marketing_integration_editor.marketing_consent_confirmed.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                    {% if is_meta_leadgen %}
+                        <label class="field field-block checkbox-field">
+                            <span class="checkbox-inline">{{ marketing_integration_editor.queue_initial_crm_event }} {{ marketing_integration_editor.queue_initial_crm_event.label }}</span>
+                            {% if marketing_integration_editor.queue_initial_crm_event.help_text %}<small class="field-help">{{ marketing_integration_editor.queue_initial_crm_event.help_text }}</small>{% endif %}
+                            {% for error in marketing_integration_editor.queue_initial_crm_event.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    {% endif %}
+                    <label class="field field-block checkbox-field">
+                        <span class="checkbox-inline">{{ marketing_integration_editor.clear_webhook_secrets }} {{ marketing_integration_editor.clear_webhook_secrets.label }}</span>
+                    </label>
+                </section>
+            {% endif %}
+
+            {% if is_google %}
+                <section class="editor-card">
+                    <div class="editor-card-head"><div><h2>Google 浏览器测量</h2><p>Tag ID 是公开标识，不是密钥。标签只在访客同意后加载，服务器端 Data Manager 可独立保持验证或禁用状态。</p></div></div>
+                    <label class="field field-block">
+                        <span class="field-label">{{ marketing_integration_editor.google_tag_id.label }}</span>
+                        {{ marketing_integration_editor.google_tag_id }}
+                        {% if marketing_integration_editor.google_tag_id.help_text %}<small class="field-help">{{ marketing_integration_editor.google_tag_id.help_text }}</small>{% endif %}
+                        {% for error in marketing_integration_editor.google_tag_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block checkbox-field">
+                        <span class="checkbox-inline">{{ marketing_integration_editor.google_tag_enabled }} {{ marketing_integration_editor.google_tag_enabled.label }}</span>
+                        {% if marketing_integration_editor.google_tag_enabled.help_text %}<small class="field-help">{{ marketing_integration_editor.google_tag_enabled.help_text }}</small>{% endif %}
+                    </label>
+                </section>
+                <section class="editor-card">
+                    <div class="editor-card-head"><div><h2>Google Ads 转化目标</h2><p>Qualified 与 Converted 使用两个独立 Conversion Action，便于外贸 B2B 分阶段优化和价值分析。</p></div></div>
+                    <div class="field-grid cols-2">
+                        <label class="field field-block">
+                            <span class="field-label">{{ marketing_integration_editor.credentials_mode.label }}</span>
+                            {{ marketing_integration_editor.credentials_mode }}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ marketing_integration_editor.login_account_id.label }}</span>
+                            {{ marketing_integration_editor.login_account_id }}
+                        </label>
+                    </div>
+                    <div class="field-grid cols-2">
+                        <label class="field field-block">
+                            <span class="field-label">{{ marketing_integration_editor.qualified_conversion_action_id.label }}</span>
+                            {{ marketing_integration_editor.qualified_conversion_action_id }}
+                            {% for error in marketing_integration_editor.qualified_conversion_action_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                        <label class="field field-block">
+                            <span class="field-label">{{ marketing_integration_editor.converted_conversion_action_id.label }}</span>
+                            {{ marketing_integration_editor.converted_conversion_action_id }}
+                            {% for error in marketing_integration_editor.converted_conversion_action_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    </div>
+                    <label class="field field-block checkbox-field">
+                        <span class="checkbox-inline">{{ marketing_integration_editor.validate_only }} {{ marketing_integration_editor.validate_only.label }}</span>
+                        {% if marketing_integration_editor.validate_only.help_text %}<small class="field-help">{{ marketing_integration_editor.validate_only.help_text }}</small>{% endif %}
+                    </label>
+                </section>
+            {% endif %}
+
+            <details class="editor-card editor-disclosure">
+                <summary>
+                    <span><h2>高级配置</h2><p>仅供特殊扩展与排障使用，通常不需要修改。</p></span>
+                </summary>
+                <div class="editor-disclosure-body">
+                    <label class="field field-block">
+                        <span class="field-label">{{ marketing_integration_editor.config_json.label }}</span>
+                        {{ marketing_integration_editor.config_json }}
+                        {% if marketing_integration_editor.config_json.help_text %}<small class="field-help">{{ marketing_integration_editor.config_json.help_text }}</small>{% endif %}
+                        {% for error in marketing_integration_editor.config_json.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </details>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head"><div><h2>保存设置</h2><p>保存前会检查当前接入所需的 ID、密钥和同意状态。</p></div></div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">保存接入</button>
+                    <a href="{% url 'console:marketing' %}" class="button neutral">取消并返回</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head"><div><h2>配置状态</h2><p>这里表示服务器是否具备所需配置，不等同于平台账号已经授权成功。</p></div></div>
+                <div class="meta-list">
+                    <div class="meta-item"><span>平台</span><strong>{{ integration.provider.name }}</strong></div>
+                    <div class="meta-item"><span>类型</span><strong>{{ integration.integration_type }}</strong></div>
+                    <div class="meta-item"><span>启用</span><strong>{% if integration.enabled %}是{% else %}否{% endif %}</strong></div>
+                    <div class="meta-item"><span>主凭据</span><strong>{% if connection_status.primary_exists %}已配置{% else %}未配置{% endif %}</strong></div>
+                    <div class="meta-item"><span>保存模式</span><strong>{{ connection_status.primary_mode }}</strong></div>
+                    {% if vault_last4 %}<div class="meta-item"><span>密钥末四位</span><strong class="mono">****{{ vault_last4 }}</strong></div>{% endif %}
+                    {% if is_webhook %}
+                        {% if is_whatsapp %}<div class="meta-item"><span>传输方式</span><strong>{{ whatsapp_transport_provider }}</strong></div>{% endif %}
+                        <div class="meta-item"><span>Meta App Secret</span><strong>{% if connection_status.app_secret_exists %}已配置{% else %}未配置{% endif %}</strong></div>
+                        <div class="meta-item"><span>Meta Verify Token</span><strong>{% if connection_status.verify_token_exists %}已配置{% else %}未配置{% endif %}</strong></div>
+                        {% if is_whatsapp %}<div class="meta-item"><span>YCloud Signing Secret</span><strong>{% if connection_status.ycloud_webhook_secret_exists %}已配置{% else %}未配置{% endif %}</strong></div>{% endif %}
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head"><div><h2>连接诊断</h2><p>只读检查服务器凭据、资产访问和必要 ID；不会发送测试转化，也不会显示密钥。</p></div></div>
+                <div class="side-actions">
+                    <button type="submit" name="_action" value="diagnose" class="button neutral">运行连接诊断</button>
+                </div>
+                {% if last_diagnostic %}
+                    <div class="meta-list">
+                        <div class="meta-item"><span>结论</span><strong>{% if last_diagnostic.overall == 'pass' %}通过{% elif last_diagnostic.overall == 'fail' %}有阻断项{% else %}需继续配置{% endif %}</strong></div>
+                        <div class="meta-item"><span>检查时间</span><strong class="mono">{{ last_diagnostic.tested_at }}</strong></div>
+                        {% for check in last_diagnostic.checks %}
+                            <div class="meta-item">
+                                <span>{{ check.label }}</span>
+                                <strong>{% if check.status == 'pass' %}通过{% elif check.status == 'fail' %}失败{% elif check.status == 'warn' %}提醒{% else %}信息{% endif %}</strong>
+                            </div>
+                            <small class="field-help">{{ check.detail }}</small>
+                        {% endfor %}
+                    </div>
+                    <small class="field-help">{{ last_diagnostic.acceptance_note }}</small>
+                {% else %}
+                    <p class="field-help">尚未运行。保存真实平台 ID 和凭据后再执行，结果才有判断价值。</p>
+                {% endif %}
+            </section>
+
+            {% if is_webhook %}
+                <section class="editor-card side-card">
+                    <div class="editor-card-head"><div><h2>入站事件</h2><p>Webhook 先持久化，再进入 CRM；失败事件可由服务器任务重试。</p></div></div>
+                    <div class="meta-list">
+                        <div class="meta-item"><span>待处理</span><strong>{{ inbound_pending_count }}</strong></div>
+                        <div class="meta-item"><span>失败</span><strong>{{ inbound_failed_count }}</strong></div>
+                        <div class="meta-item"><span>已入库</span><strong>{{ inbound_processed_count }}</strong></div>
+                    </div>
+                </section>
+            {% endif %}
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head"><div><h2>回传队列</h2><p>Google 的“处理中”表示已获 requestId，仍在等待平台最终结果。</p></div></div>
+                <div class="meta-list queue-status-grid">
+                    <div class="meta-item"><span>等待发送</span><strong>{{ outbox_pending_count }}</strong></div>
+                    <div class="meta-item"><span>我方发送中</span><strong>{{ outbox_sending_count }}</strong></div>
+                    <div class="meta-item"><span>平台处理中</span><strong>{{ outbox_processing_count }}</strong></div>
+                    <div class="meta-item"><span>部分成功 / 人工处理</span><strong>{{ outbox_partial_count }}</strong></div>
+                    <div class="meta-item"><span>失败</span><strong>{{ outbox_failed_count }}</strong></div>
+                    <div class="meta-item"><span>仅校验</span><strong>{{ outbox_validated_count }}</strong></div>
+                    <div class="meta-item"><span>平台已接收</span><strong>{{ outbox_sent_count }}</strong></div>
+                    <div class="meta-item"><span>未发送</span><strong>{{ outbox_skipped_count }}</strong></div>
+                </div>
+                <p class="workspace-note">平台已接收只表示接口接受事件，不代表逐条用户匹配成功；匹配状态在平台未提供证据时保持未知。</p>
+                <div class="side-actions">
+                    <button type="submit" formaction="{% url 'console:lead_outbox_dispatch_pending' %}" formmethod="post" class="button neutral">重试并刷新状态</button>
+                </div>
+            </section>
+        </aside>
+    </form>
+</section>

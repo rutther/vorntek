@@ -1,0 +1,225 @@
+{% extends 'console/v2/base.html' %}
+
+{% block title %}事件运营 · {{ brand_name }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{% url 'console:marketing_events' %}">营销</a>
+    <i data-lucide="chevron-right" aria-hidden="true"></i>
+    <strong>事件运营</strong>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 nc-event-workspace">
+    <header class="page-header mb-3">
+        <div class="row align-items-start g-3">
+            <div class="col min-w-0">
+                <div class="page-pretitle">{{ workspace.site.name }}</div>
+                <h1 class="page-title">{{ workspace.title }}</h1>
+                <p class="text-secondary mt-1 mb-0">{{ workspace.description }}</p>
+            </div>
+            <div class="col-auto ms-auto d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-secondary" href="{{ workspace.attribution_url }}">
+                    <i data-lucide="chart-no-axes-combined" aria-hidden="true"></i>
+                    来源分析
+                </a>
+                <a class="btn btn-outline-secondary" href="{{ workspace.platforms_url }}">
+                    <i data-lucide="plug-zap" aria-hidden="true"></i>
+                    平台接入
+                </a>
+            </div>
+        </div>
+    </header>
+
+    {% if workspace.load_error %}
+        <section class="alert alert-danger d-flex align-items-start gap-3" role="alert" aria-labelledby="event-load-error-title">
+            <i data-lucide="server-off" aria-hidden="true"></i>
+            <div class="flex-fill">
+                <h2 class="h4 mb-1" id="event-load-error-title">事件队列暂时无法读取</h2>
+                <p class="mb-2">页面结构仍保留。请重新读取状态，不要在结果未知时重复发送事件。</p>
+                <a class="btn btn-danger btn-sm" href="{{ workspace.retry_url }}">重新载入</a>
+            </div>
+        </section>
+    {% else %}
+        <section class="row row-cards mb-3" aria-label="事件状态摘要">
+            {% for metric in workspace.summary %}
+                <div class="col-6 col-xl-3">
+                    <a class="card card-link card-link-pop h-100 text-reset text-decoration-none {% if metric.active %}nc-event-metric-active{% endif %}" href="{{ metric.href }}" {% if metric.active %}aria-current="true"{% endif %}>
+                        <div class="card-body">
+                            <div class="d-flex align-items-start gap-3">
+                                <span class="avatar avatar-sm bg-{{ metric.tone }}-lt text-{{ metric.tone }}"><i data-lucide="{{ metric.icon }}" aria-hidden="true"></i></span>
+                                <div class="min-w-0">
+                                    <div class="text-secondary text-uppercase small fw-semibold">{{ metric.label }}</div>
+                                    <div class="h2 mb-0">{{ metric.value }}</div>
+                                    <div class="text-secondary small mt-1">{{ metric.description }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </section>
+
+        <section class="card mb-3" aria-labelledby="event-filter-title">
+            <div class="card-body">
+                <h2 class="visually-hidden" id="event-filter-title">筛选事件</h2>
+                <form action="{% url 'console:marketing_events' %}" method="get" class="nc-event-filters" role="search">
+                    <div class="nc-event-filter-search">
+                        <label class="form-label" for="event-search">搜索事件</label>
+                        <div class="input-icon">
+                            <span class="input-icon-addon"><i data-lucide="search" aria-hidden="true"></i></span>
+                            <input class="form-control" id="event-search" name="q" value="{{ workspace.filters.q }}" placeholder="事件名、精确 ID 或平台接入">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label" for="event-direction">方向</label>
+                        <select class="form-select" id="event-direction" name="direction">
+                            {% for option in workspace.options.directions %}
+                                <option value="{{ option.value }}" {% if workspace.filters.direction == option.value %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="event-provider">平台</label>
+                        <select class="form-select" id="event-provider" name="provider">
+                            {% for option in workspace.options.providers %}
+                                <option value="{{ option.value }}" {% if workspace.filters.provider == option.value %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="event-status">状态</label>
+                        <select class="form-select" id="event-status" name="status">
+                            {% for option in workspace.options.statuses %}
+                                <option value="{{ option.value }}" {% if workspace.filters.status == option.value %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="event-page-size">每页</label>
+                        <select class="form-select" id="event-page-size" name="page_size">
+                            {% for option in workspace.options.page_sizes %}
+                                <option value="{{ option }}" {% if workspace.filters.page_size == option %}selected{% endif %}>{{ option }} 条</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="nc-event-filter-actions">
+                        <button class="btn btn-primary" type="submit">应用筛选</button>
+                        <a class="btn btn-outline-secondary" href="{{ workspace.clear_filters_url }}">清除</a>
+                    </div>
+                </form>
+                {% if workspace.active_filter_labels %}
+                    <div class="nc-event-filter-summary" aria-label="当前筛选条件">
+                        <span class="text-secondary small">当前条件</span>
+                        {% for label in workspace.active_filter_labels %}<span class="badge bg-secondary-lt text-secondary">{{ label }}</span>{% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="event-queue-title">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title" id="event-queue-title">处理队列</h2>
+                    <p class="card-subtitle mt-1">只显示当前站点；重试操作始终绑定一个精确事件 ID。</p>
+                </div>
+                <div class="card-actions text-secondary small">
+                    {% if workspace.total %}第 {{ workspace.pagination.start }}–{{ workspace.pagination.end }} 条，共 {{ workspace.total }} 条{% else %}共 0 条{% endif %}
+                </div>
+            </div>
+
+            {% if workspace.rows %}
+                <div class="table-responsive">
+                    <table class="table table-vcenter card-table nc-event-table">
+                        <caption class="visually-hidden">当前站点的入站与出站营销事件处理队列</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">事件</th>
+                                <th scope="col">平台接入</th>
+                                <th scope="col">业务对象</th>
+                                <th scope="col">状态</th>
+                                <th scope="col">尝试</th>
+                                <th scope="col">最近错误</th>
+                                <th scope="col" class="text-end">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in workspace.rows %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                            <span class="badge bg-{{ row.direction_tone }}-lt text-{{ row.direction_tone }}"><i data-lucide="{{ row.direction_icon }}" aria-hidden="true"></i> {{ row.direction_label }}</span>
+                                            {% if row.demo %}<span class="badge bg-purple-lt text-purple">演示数据</span>{% endif %}
+                                        </div>
+                                        <div class="fw-semibold text-break">{{ row.event_name }}</div>
+                                        <div class="text-secondary small text-break" title="{{ row.external_id }}">{{ row.record_label }} · {{ row.external_id|truncatechars:42 }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-break">{{ row.provider_name }}</div>
+                                        <div class="text-secondary small text-break">{{ row.integration_name }}</div>
+                                        <div class="small mt-1">
+                                            {% if row.integration_enabled %}<span class="text-success">已启用</span>{% else %}<span class="text-danger">已停用</span>{% endif %}
+                                            <span class="text-secondary"> · {{ row.credential_label }}</span>
+                                        </div>
+                                    </td>
+                                    <td><span class="text-break">{{ row.business_object }}</span></td>
+                                    <td>
+                                        <span class="badge bg-{{ row.status_tone }}-lt text-{{ row.status_tone }}">{{ row.status_label }}</span>
+                                    </td>
+                                    <td>
+                                        <div>{{ row.attempts }} 次</div>
+                                        {% if row.last_activity_at %}<time class="text-secondary small d-block" datetime="{{ row.last_activity_at|date:'c' }}">{{ row.last_activity_at|date:'m-d H:i' }}</time>{% endif %}
+                                        {% if row.next_retry_at %}<span class="text-secondary small d-block">下次 {{ row.next_retry_at|date:'m-d H:i' }}</span>{% elif row.action.kind == 'retry' %}<span class="text-warning small d-block">现在可重试</span>{% endif %}
+                                    </td>
+                                    <td><p class="nc-event-error mb-0" title="{{ row.error_summary }}">{{ row.error_summary }}</p></td>
+                                    <td class="text-end">
+                                        {% if row.action.kind == 'retry' %}
+                                            <form action="{{ row.action.url }}" method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="return_to" value="{{ workspace.current_url }}">
+                                                <button class="btn btn-outline-primary btn-sm" type="submit" aria-label="精确重试 {{ row.record_label }}">{{ row.action.label }}</button>
+                                            </form>
+                                        {% elif row.action %}
+                                            <span class="badge bg-warning-lt text-warning" title="{{ row.action.reason }}">{{ row.action.label }}</span>
+                                        {% else %}
+                                            <span class="text-secondary small">无需操作</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty py-6">
+                    {% if workspace.total_site_events == 0 %}
+                        <div class="empty-icon"><span class="avatar avatar-lg bg-secondary-lt text-secondary"><i data-lucide="radio-tower" aria-hidden="true"></i></span></div>
+                        <h3 class="empty-title">接入尚未产生事件</h3>
+                        <p class="empty-subtitle text-secondary">完成平台接入与真实测试后，接收和发送证据会出现在这里。</p>
+                        <div class="empty-action"><a class="btn btn-primary" href="{{ workspace.platforms_url }}">检查平台接入</a></div>
+                    {% elif workspace.filters.status == 'needs_attention' and not workspace.active_filter_labels %}
+                        <div class="empty-icon"><span class="avatar avatar-lg bg-success-lt text-success"><i data-lucide="circle-check-big" aria-hidden="true"></i></span></div>
+                        <h3 class="empty-title">当前没有需要处理的事件</h3>
+                        <p class="empty-subtitle text-secondary">当前站点没有失败、部分成功或超出等待窗口的事件。</p>
+                        <div class="empty-action"><a class="btn btn-outline-secondary" href="{{ workspace.view_all_url }}">查看全部事件</a></div>
+                    {% else %}
+                        <div class="empty-icon"><span class="avatar avatar-lg bg-secondary-lt text-secondary"><i data-lucide="search-x" aria-hidden="true"></i></span></div>
+                        <h3 class="empty-title">没有匹配的事件</h3>
+                        <p class="empty-subtitle text-secondary">{% if workspace.active_filter_labels %}当前筛选：{{ workspace.active_filter_labels|join:'、' }}。{% endif %}请调整条件或清除筛选。</p>
+                        <div class="empty-action"><a class="btn btn-outline-secondary" href="{{ workspace.clear_filters_url }}">清除筛选</a></div>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if workspace.pagination.total_pages > 1 %}
+                <div class="card-footer d-flex align-items-center justify-content-between gap-3">
+                    <span class="text-secondary small">第 {{ workspace.pagination.current_page }} / {{ workspace.pagination.total_pages }} 页</span>
+                    <nav class="btn-list" aria-label="事件分页">
+                        {% if workspace.pagination.previous_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ workspace.pagination.previous_url }}" rel="prev"><i data-lucide="chevron-left" aria-hidden="true"></i>上一页</a>{% else %}<span class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true"><i data-lucide="chevron-left" aria-hidden="true"></i>上一页</span>{% endif %}
+                        {% if workspace.pagination.next_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ workspace.pagination.next_url }}" rel="next">下一页<i data-lucide="chevron-right" aria-hidden="true"></i></a>{% else %}<span class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">下一页<i data-lucide="chevron-right" aria-hidden="true"></i></span>{% endif %}
+                    </nav>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

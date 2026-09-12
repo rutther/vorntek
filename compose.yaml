@@ -1,0 +1,209 @@
+name: ${COMPOSE_PROJECT_NAME:-vorntek}
+
+x-crm: &crm
+  image: ${NEWCROWN_CRM_IMAGE:-vorntek-crm:dev}
+  build:
+    context: .
+    dockerfile: deploy/Dockerfile.crm
+  environment: &crm-environment
+    SITEOS_ADMIN_DEBUG: "0"
+    SITEOS_ADMIN_SECRET_KEY_FILE: /run/secrets/django_key
+    SITEOS_SECRET_VAULT_KEY_FILE: /run/secrets/vault_key
+    SITEOS_ADMIN_DATABASE_HOST: db
+    SITEOS_ADMIN_DATABASE_NAME: newcrown
+    SITEOS_ADMIN_DATABASE_USER: newcrown_app
+    SITEOS_ADMIN_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+    SITEOS_ADMIN_DATABASE_SSLMODE: disable
+    SITEOS_ADMIN_ALLOWED_HOSTS: ${NEWCROWN_ALLOWED_HOSTS:-localhost,127.0.0.1,crm}
+    SITEOS_ADMIN_CSRF_TRUSTED_ORIGINS: ${NEWCROWN_SITE_URL:-http://localhost:8088}
+    SITEOS_PUBLIC_FORM_ALLOWED_ORIGINS: ${NEWCROWN_SITE_URL:-http://localhost:8088}
+    SITEOS_ADMIN_PUBLIC_URL: ${NEWCROWN_SITE_URL:-http://localhost:8088}/admin
+    NEWCROWN_SITE_URL: ${NEWCROWN_SITE_URL:-http://localhost:8088}
+    SITEOS_ADMIN_STATIC_ROOT: /app/staticfiles
+    SITEOS_ASSET_STORAGE_ROOTS: /data/assets
+    SITEOS_CRM_ATTACHMENT_STORAGE_ROOT: /data/crm-attachments
+    SITEOS_WHATSAPP_MEDIA_ROOT: /data/whatsapp-media
+    SITEOS_ADMIN_SECURE_SSL_REDIRECT: "0"
+    SITEOS_ADMIN_SESSION_COOKIE_SECURE: "0"
+    SITEOS_ADMIN_CSRF_COOKIE_SECURE: "0"
+    SITEOS_ADMIN_SECURE_HSTS_SECONDS: "0"
+    NEWCROWN_ALLOW_EXTERNAL_IO: "0"
+    NEWCROWN_RUN_SCHEDULED_TASKS: "0"
+    SITEOS_EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+    SITEOS_WHATSAPP_ALLOW_LIVE_SEND: "0"
+    SITEOS_WHATSAPP_INLINE_MOCK_DISPATCH: "0"
+  secrets: [db_password, django_key, vault_key]
+  networks: [private]
+  volumes:
+    - crm_static:/app/staticfiles
+    - crm_runtime:/app/.runtime
+    - crm_files:/data
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+
+services:
+  filebackup:
+    profiles: [maintenance]
+    image: ${NEWCROWN_MAINTENANCE_IMAGE:-vorntek-maintenance:dev}
+    entrypoint: [python3, /tools/file_archive.py]
+    network_mode: none
+    volumes:
+      - crm_files:/data:ro
+      - crm_runtime:/runtime:ro
+      - type: bind
+        source: ./backups
+        target: /backups
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: "no"
+
+  filerestore:
+    profiles: [maintenance]
+    image: ${NEWCROWN_MAINTENANCE_IMAGE:-vorntek-maintenance:dev}
+    entrypoint: [python3, /tools/file_archive.py]
+    network_mode: none
+    volumes:
+      - crm_files:/data
+      - crm_runtime:/runtime
+      - type: bind
+        source: ./backups
+        target: /backups
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: "no"
+
+  maintenance:
+    profiles: [maintenance]
+    image: ${NEWCROWN_MAINTENANCE_IMAGE:-vorntek-maintenance:dev}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.maintenance
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: newcrown
+      PGUSER: newcrown_app
+      PGPASSWORD_FILE: /run/secrets/db_password
+      PGSSLMODE: disable
+    secrets: [db_password]
+    networks: [private]
+    volumes:
+      - type: bind
+        source: ./backups
+        target: /backups
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: "no"
+
+  db:
+    image: postgres:18.3-bookworm
+    environment:
+      POSTGRES_DB: newcrown
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_admin_password
+    secrets: [db_admin_password, db_password]
+    networks: [private]
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./deploy/initdb/10-app-role.sql:/docker-entrypoint-initdb.d/10-app-role.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d newcrown"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  initialize:
+    <<: *crm
+    command: [sh, -c, "python manage.py initialize_database --apply && python manage.py bootstrap_site && python manage.py collectstatic --noinput"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  crm:
+    <<: *crm
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz/', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  exports:
+    <<: *crm
+    command: [python, manage.py, process_customer_exports, --watch, --interval-seconds, "2", --limit, "20"]
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    stop_grace_period: 60s
+
+  scheduler:
+    <<: *crm
+    command: [python, manage.py, run_scheduled_tasks]
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, manage.py, run_scheduled_tasks, --healthcheck]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    stop_grace_period: 45s
+    restart: unless-stopped
+
+  website:
+    image: ${NEWCROWN_WEBSITE_IMAGE:-vorntek-website:dev}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.website
+    ports:
+      - "127.0.0.1:${NEWCROWN_HTTP_PORT:-8088}:8080"
+    volumes:
+      - crm_static:/srv/crm-static:ro
+    networks: [private, entry]
+    depends_on:
+      crm:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  private:
+    internal: true
+  entry: {}
+
+volumes:
+  postgres_data: {}
+  crm_static: {}
+  crm_runtime: {}
+  crm_files: {}
+
+secrets:
+  db_admin_password:
+    file: .secrets/db_admin_password
+  db_password:
+    file: .secrets/db_password
+  django_key:
+    file: .secrets/django_key
+  vault_key:
+    file: .secrets/vault_key

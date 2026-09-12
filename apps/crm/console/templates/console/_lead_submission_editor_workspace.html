@@ -1,0 +1,415 @@
+<section class="editor-shell">
+    <form method="post" class="editor-layout">
+        {% csrf_token %}
+
+        <div class="editor-main">
+            {% if lead_submission_editor.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in lead_submission_editor.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>线索基础信息</h2>
+                        <p>先确认来源、联系方式和项目需求，再安排负责人和下一次跟进。只有签约后才填写成交金额与币种。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item"><span>表单</span><strong>{{ submission.form.name }}</strong></div>
+                    <div class="meta-item"><span>语言</span><strong>{% if submission.locale %}{{ submission.locale.label }} ({{ submission.locale.locale_code }}){% else %}未绑定{% endif %}</strong></div>
+                    <div class="meta-item"><span>姓名</span><strong>{{ submission.full_name|default:"未填写" }}</strong></div>
+                    <div class="meta-item"><span>公司</span><strong>{{ submission.company|default:"未填写" }}</strong></div>
+                    <div class="meta-item"><span>国家/地区</span><strong>{{ submission.country|default:"未填写" }}</strong></div>
+                    <div class="meta-item"><span>邮箱</span><strong>{{ submission.email|default:"未填写" }}</strong></div>
+                    <div class="meta-item"><span>电话</span><strong>{{ submission.phone|default:"未填写" }}</strong></div>
+                    <div class="meta-item"><span>产品类别</span><strong>{{ submission.payload_json.product_category|default:"未填写" }}</strong></div>
+                    {% if submission.payload_json.business_line %}
+                    <div class="meta-item"><span>业务方向标识</span><strong>{{ submission.payload_json.business_line }}</strong></div>
+                    <div class="meta-item"><span>应用背景</span><strong>{{ submission.payload_json.application_context|default:"未填写" }}</strong></div>
+                    {% else %}
+                    <div class="meta-item"><span>产能目标</span><strong>{{ submission.payload_json.capacity|default:"未填写" }}</strong></div>
+                    {% endif %}
+                    <div class="meta-item"><span>来源页面</span><strong class="mono">{{ submission.source_url|default:"未记录" }}</strong></div>
+                    <div class="meta-item"><span>留言</span><strong>{{ submission.message|default:"未填写" }}</strong></div>
+                    {% if submission.duplicate_of_id %}
+                        <div class="meta-item"><span>重复联系人</span><strong>关联线索 #{{ submission.duplicate_of_id }}</strong></div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>合格线索判定</h2>
+                        <p>每项 20 分。满足四项即达到 80 分，可进入“已合格”；特殊项目可以人工覆盖，但必须写明依据。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item"><span>当前合格评分</span><strong>{{ submission.qualification_score|default:0 }} / 100</strong></div>
+                    <div class="meta-item"><span>合格时间</span><strong>{{ submission.qualified_at|date:"Y-m-d H:i"|default:"尚未判定" }}</strong></div>
+                </div>
+                <div class="field-grid cols-3">
+                    <label class="field field-block checkbox-field">
+                        <span class="field-label">{{ lead_submission_editor.qualification_contactable.label }}</span>
+                        <span class="checkbox-inline">{{ lead_submission_editor.qualification_contactable }} 已核验</span>
+                    </label>
+                    <label class="field field-block checkbox-field">
+                        <span class="field-label">{{ lead_submission_editor.qualification_company.label }}</span>
+                        <span class="checkbox-inline">{{ lead_submission_editor.qualification_company }} 已核验</span>
+                    </label>
+                    <label class="field field-block checkbox-field">
+                        <span class="field-label">{{ lead_submission_editor.qualification_project.label }}</span>
+                        <span class="checkbox-inline">{{ lead_submission_editor.qualification_project }} 已核验</span>
+                    </label>
+                    <label class="field field-block checkbox-field">
+                        <span class="field-label">{{ lead_submission_editor.qualification_fit.label }}</span>
+                        <span class="checkbox-inline">{{ lead_submission_editor.qualification_fit }} 已核验</span>
+                    </label>
+                    <label class="field field-block checkbox-field">
+                        <span class="field-label">{{ lead_submission_editor.qualification_next_step.label }}</span>
+                        <span class="checkbox-inline">{{ lead_submission_editor.qualification_next_step }} 已核验</span>
+                    </label>
+                    <label class="field field-block checkbox-field">
+                        <span class="field-label">{{ lead_submission_editor.qualification_overridden.label }}</span>
+                        <span class="checkbox-inline">{{ lead_submission_editor.qualification_overridden }} 允许低于 80 分进入已合格</span>
+                        {% for error in lead_submission_editor.qualification_overridden.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block" style="grid-column: 1 / -1">
+                        <span class="field-label">{{ lead_submission_editor.qualification_notes.label }}</span>
+                        {{ lead_submission_editor.qualification_notes }}
+                        {% for error in lead_submission_editor.qualification_notes.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>负责人和跟进计划</h2>
+                        <p>把负责人、下一次动作和沟通结果留在同一条线索中，避免询盘只停在邮箱或聊天记录里。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-3">
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_submission_editor.stage.label }}</span>
+                        {{ lead_submission_editor.stage }}
+                        {% for error in lead_submission_editor.stage.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_submission_editor.assignee.label }}</span>
+                        {{ lead_submission_editor.assignee }}
+                        {% for error in lead_submission_editor.assignee.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_submission_editor.next_follow_up_at.label }}</span>
+                        {{ lead_submission_editor.next_follow_up_at }}
+                        {% for error in lead_submission_editor.next_follow_up_at.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_submission_editor.source_channel.label }}</span>
+                        {{ lead_submission_editor.source_channel }}
+                        {% for error in lead_submission_editor.source_channel.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block" style="grid-column: span 2">
+                        <span class="field-label">{{ lead_submission_editor.source_detail.label }}</span>
+                        {{ lead_submission_editor.source_detail }}
+                        {% for error in lead_submission_editor.source_detail.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block" style="grid-column: 1 / -1">
+                        <span class="field-label">{{ lead_submission_editor.follow_up_notes.label }}</span>
+                        {{ lead_submission_editor.follow_up_notes }}
+                        {% for error in lead_submission_editor.follow_up_notes.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block" style="grid-column: 1 / -1">
+                        <span class="field-label">{{ lead_submission_editor.follow_up_entry.label }}</span>
+                        {{ lead_submission_editor.follow_up_entry }}
+                        <span class="field-help">本次记录会追加到历史，不会覆盖上面的长期备注。</span>
+                        {% for error in lead_submission_editor.follow_up_entry.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>成交信息</h2>
+                        <p>只有确认签约或项目成交后才填写金额。营销事件由系统自动处理，不需要销售人员手工发送。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-3">
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_submission_editor.buyer_value.label }}</span>
+                        {{ lead_submission_editor.buyer_value }}
+                        {% for error in lead_submission_editor.buyer_value.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ lead_submission_editor.buyer_currency.label }}</span>
+                        {{ lead_submission_editor.buyer_currency }}
+                        {% for error in lead_submission_editor.buyer_currency.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            <section
+                class="editor-card lead-engagement"
+                id="lead-engagement"
+                data-lead-id="{{ submission.id }}"
+                data-detail-url="{% url 'console:crm_record_detail' 'lead' submission.id %}"
+                data-activity-url="{% url 'console:activity_create' %}"
+                data-task-url="{% url 'console:task_create' %}"
+                data-task-complete-url="{% url 'console:task_complete' 0 %}"
+                data-attachment-url="{% url 'console:crm_attachments' %}"
+                {% if lead_conversion %}data-opportunity-detail-url="{% url 'console:crm_record_detail' 'opportunity' lead_conversion.opportunity_id %}"{% endif %}
+            >
+                <div class="editor-card-head lead-engagement-head">
+                    <div>
+                        <h2>沟通、任务与文件</h2>
+                        <p>每次沟通都追加保存；任务和附件与这条原始线索保持关联，不覆盖历史记录。</p>
+                    </div>
+                    <div class="lead-engagement-actions">
+                        <button type="button" class="button neutral" data-lead-dialog="activity">记录沟通</button>
+                        <button type="button" class="button neutral" data-lead-dialog="task">创建任务</button>
+                        <button type="button" class="button neutral" data-lead-dialog="attachment">上传附件</button>
+                    </div>
+                </div>
+                <div class="lead-engagement-status" id="lead-engagement-status" role="status">正在读取跟进记录...</div>
+                <div class="lead-engagement-grid">
+                    <section aria-labelledby="lead-activities-title">
+                        <h3 id="lead-activities-title">最近沟通</h3>
+                        <div class="lead-engagement-list" id="lead-activities-list"></div>
+                    </section>
+                    <section aria-labelledby="lead-tasks-title">
+                        <h3 id="lead-tasks-title">跟进任务</h3>
+                        <div class="lead-engagement-list" id="lead-tasks-list"></div>
+                    </section>
+                    <section aria-labelledby="lead-files-title">
+                        <h3 id="lead-files-title">项目文件</h3>
+                        <div class="lead-engagement-list" id="lead-files-list"></div>
+                    </section>
+                </div>
+                {% if lead_conversion %}
+                    <section class="lead-stage-evidence" aria-labelledby="lead-stage-evidence-title">
+                        <div>
+                            <h3 id="lead-stage-evidence-title">项目阶段依据</h3>
+                            <p>成交或丢单原因与阶段变化来自已转换的销售项目。</p>
+                        </div>
+                        <div id="lead-stage-evidence-list"></div>
+                    </section>
+                {% endif %}
+            </section>
+
+            {% if show_lead_technical_details %}
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>原始识别信息</h2>
+                        <p>这些字段主要用于排障、归因和 CAPI 匹配，不建议运营随意改动。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item"><span>submission_key</span><strong class="mono">{{ submission.submission_key }}</strong></div>
+                    <div class="meta-item"><span>提交时间</span><strong>{{ submission.submitted_at|date:"Y-m-d H:i" }}</strong></div>
+                    <div class="meta-item"><span>客户端 IP</span><strong>{{ submission.client_ip|default:"未记录" }}</strong></div>
+                    <div class="meta-item"><span>User-Agent</span><strong class="mono">{{ submission.user_agent|default:"未记录" }}</strong></div>
+                    <div class="meta-item"><span>识别字段 JSON</span><strong class="mono">{{ submission.identifiers_json }}</strong></div>
+                    <div class="meta-item"><span>UTM JSON</span><strong class="mono">{{ submission.utm_json }}</strong></div>
+                    <div class="meta-item"><span>扩展字段 JSON</span><strong class="mono">{{ submission.payload_json }}</strong></div>
+                    <div class="meta-item"><span>通知状态</span><strong>{{ submission.notification_status }}{% if submission.notification_error %} / {{ submission.notification_error }}{% endif %}</strong></div>
+                </div>
+            </section>
+            {% endif %}
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>操作</h2>
+                        <p>保存负责人、来源、下一次跟进、备注和阶段。原始提交内容保持只读。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">保存跟进信息</button>
+                    <a href="{% url 'console:leads' %}?locale={{ editor_locale.locale_code }}" class="button neutral">返回线索管理</a>
+                </div>
+            </section>
+
+            <section
+                class="editor-card side-card lead-conversion-card"
+                id="lead-conversion-card"
+                data-convert-url="{% url 'console:lead_convert' submission.id %}"
+                data-pipeline-url="{% url 'console:sales_workspace' %}?view=pipeline"
+            >
+                <div class="editor-card-head">
+                    <div>
+                        <h2>销售项目</h2>
+                        {% if lead_conversion %}
+                            <p>这条线索已经进入销售管道，企业、联系人和项目之间的来源关系已保留。</p>
+                        {% elif can_convert_lead %}
+                            <p>建立项目后，后续沟通、任务、附件和阶段进展都在销售管道中管理。</p>
+                        {% else %}
+                            <p>完成资格判断并将阶段保存为“已合格”后，可以建立正式销售项目。</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if lead_conversion %}
+                    <div class="lead-conversion-summary">
+                        <span>企业</span><strong>{{ lead_conversion.company.name }}</strong>
+                        <span>联系人</span><strong>{{ lead_conversion.contact.full_name }}</strong>
+                        <span>项目</span><strong>{{ lead_conversion.opportunity.name }}</strong>
+                    </div>
+                    <div class="side-actions">
+                        <a class="button primary" href="{% url 'console:sales_workspace' %}?view=pipeline&amp;q={{ lead_conversion.opportunity.name|urlencode }}">在管道中查看</a>
+                    </div>
+                {% elif can_convert_lead %}
+                    <div class="lead-conversion-form">
+                        <label class="field field-block">
+                            <span class="field-label">项目名称（可选）</span>
+                            <input type="text" id="lead-opportunity-name" maxlength="180" placeholder="留空时按企业和产品范围自动生成">
+                        </label>
+                        <div class="field-error" id="lead-conversion-error" role="alert" hidden></div>
+                    </div>
+                    <div class="side-actions">
+                        <button type="button" class="button primary" id="lead-convert-button">建立销售项目</button>
+                    </div>
+                {% endif %}
+            </section>
+
+            {% if show_lead_technical_details %}
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>回传说明</h2>
+                        <p>系统只在阶段首次变化时追加对应事件，避免反复保存造成重复回传。发送结果可在回传队列中查看。</p>
+                    </div>
+                </div>
+                <ul class="hint-list">
+                    <li>新提交默认回传 Lead。</li>
+                    <li>首次建立有效联系后回传 contacted_lead。</li>
+                    <li>达到判定标准并切到已合格后回传 qualified_lead。</li>
+                    <li>确认签约或项目成交后回传 converted；金额和币种作为补充信息。</li>
+                    <li>发送失败可在线索模块中重试。</li>
+                </ul>
+            </section>
+            {% endif %}
+        </aside>
+    </form>
+</section>
+
+<dialog class="lead-engagement-dialog" id="lead-activity-dialog" aria-labelledby="lead-activity-dialog-title">
+    <form method="dialog" id="lead-activity-form">
+        <input type="hidden" name="idempotency_token" value="">
+        <div class="lead-dialog-head">
+            <div><h2 id="lead-activity-dialog-title">记录一次沟通</h2><p>电话、邮件、WhatsApp、会议和现场拜访都应留下结果。</p></div>
+            <button type="button" class="button neutral" data-dialog-close>关闭</button>
+        </div>
+        <div class="lead-dialog-grid">
+            <label class="field field-block"><span class="field-label">活动类型</span><select name="activity_type" required><option value="note">跟进记录</option><option value="call">电话</option><option value="email">邮件</option><option value="whatsapp">WhatsApp</option><option value="meeting">会议</option><option value="site_visit">现场拜访</option></select></label>
+            <label class="field field-block"><span class="field-label">沟通方向</span><select name="direction" required><option value="outbound">我方发起</option><option value="inbound">客户发起</option><option value="internal">内部记录</option></select></label>
+            <label class="field field-block lead-dialog-wide"><span class="field-label">主题</span><input name="subject" maxlength="240" required></label>
+            <label class="field field-block"><span class="field-label">发生时间</span><input type="datetime-local" name="occurred_at" required></label>
+            <label class="field field-block lead-dialog-wide"><span class="field-label">沟通结果</span><textarea name="body" rows="5" required></textarea></label>
+        </div>
+        <div class="field-error" data-dialog-error hidden></div>
+        <div class="lead-dialog-actions"><button type="submit" class="button primary">保存沟通记录</button></div>
+    </form>
+</dialog>
+
+<dialog class="lead-engagement-dialog" id="lead-task-dialog" aria-labelledby="lead-task-dialog-title">
+    <form method="dialog" id="lead-task-form">
+        <input type="hidden" name="idempotency_token" value="">
+        <div class="lead-dialog-head">
+            <div><h2 id="lead-task-dialog-title">创建跟进任务</h2><p>明确负责人、到期时间和下一步动作。</p></div>
+            <button type="button" class="button neutral" data-dialog-close>关闭</button>
+        </div>
+        <div class="lead-dialog-grid">
+            <label class="field field-block lead-dialog-wide"><span class="field-label">任务</span><input name="title" maxlength="240" required></label>
+            <label class="field field-block"><span class="field-label">类型</span><select name="task_type" required><option value="follow_up">跟进</option><option value="call">电话</option><option value="email">邮件</option><option value="whatsapp">WhatsApp</option><option value="meeting">会议</option><option value="quote">报价</option><option value="review">内部评审</option><option value="other">其他</option></select></label>
+            <label class="field field-block"><span class="field-label">优先级</span><select name="priority" required><option value="normal">普通</option><option value="high">高</option><option value="urgent">紧急</option><option value="low">低</option></select></label>
+            <label class="field field-block"><span class="field-label">负责人</span><select name="owner_user" id="lead-task-owner" required></select></label>
+            <label class="field field-block"><span class="field-label">到期时间</span><input type="datetime-local" name="due_at" required></label>
+            <label class="field field-block lead-dialog-wide"><span class="field-label">说明</span><textarea name="description" rows="4"></textarea></label>
+        </div>
+        <div class="field-error" data-dialog-error hidden></div>
+        <div class="lead-dialog-actions"><button type="submit" class="button primary">创建任务</button></div>
+    </form>
+</dialog>
+
+<dialog class="lead-engagement-dialog" id="lead-attachment-dialog" aria-labelledby="lead-attachment-dialog-title">
+    <form method="dialog" id="lead-attachment-form" enctype="multipart/form-data">
+        <div class="lead-dialog-head">
+            <div><h2 id="lead-attachment-dialog-title">上传项目文件</h2><p>报价依据、布局资料、包装样品和客户文件保存在私有附件目录。</p></div>
+            <button type="button" class="button neutral" data-dialog-close>关闭</button>
+        </div>
+        <div class="lead-dialog-grid">
+            <label class="field field-block lead-dialog-wide"><span class="field-label">附件标题（可选）</span><input name="title" maxlength="240"></label>
+            <label class="field field-block lead-dialog-wide"><span class="field-label">选择文件</span><input type="file" name="file" required></label>
+        </div>
+        <div class="field-error" data-dialog-error hidden></div>
+        <div class="lead-dialog-actions"><button type="submit" class="button primary">上传附件</button></div>
+    </form>
+</dialog>
+
+{% if can_convert_lead %}
+<script>
+    (function () {
+        const card = document.getElementById('lead-conversion-card');
+        const button = document.getElementById('lead-convert-button');
+        const errorNode = document.getElementById('lead-conversion-error');
+        const nameInput = document.getElementById('lead-opportunity-name');
+        if (!card || !button || !errorNode || !nameInput) return;
+
+        button.addEventListener('click', async function () {
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+            const body = new FormData();
+            body.append('opportunity_name', nameInput.value.trim());
+            errorNode.hidden = true;
+            errorNode.textContent = '';
+            button.disabled = true;
+            button.textContent = '正在建立...';
+            try {
+                const response = await fetch(card.dataset.convertUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'Accept': 'application/json', 'X-CSRFToken': csrfToken},
+                    body: body
+                });
+                const payload = await response.json();
+                if (!response.ok || payload.ok === false) {
+                    const messages = Object.values(payload.errors || {}).flat();
+                    throw new Error(messages.join(' ') || '建立销售项目失败。');
+                }
+                const target = new URL(card.dataset.pipelineUrl, window.location.origin);
+                if (nameInput.value.trim()) target.searchParams.set('q', nameInput.value.trim());
+                card.replaceChildren();
+                const head = document.createElement('div');
+                head.className = 'editor-card-head';
+                const copy = document.createElement('div');
+                const title = document.createElement('h2');
+                title.textContent = '销售项目已建立';
+                const description = document.createElement('p');
+                description.textContent = '企业、联系人和项目已进入销售管道，原始线索归因关系已保留。';
+                copy.append(title, description);
+                head.append(copy);
+                const actions = document.createElement('div');
+                actions.className = 'side-actions';
+                const link = document.createElement('a');
+                link.className = 'button primary';
+                link.href = target.toString();
+                link.textContent = '在管道中查看';
+                actions.append(link);
+                card.append(head, actions);
+            } catch (error) {
+                errorNode.textContent = error.message;
+                errorNode.hidden = false;
+                button.disabled = false;
+                button.textContent = '建立销售项目';
+            }
+        });
+    }());
+</script>
+{% endif %}

@@ -1,0 +1,44 @@
+<section class="sales-workspace" id="sales-workspace" aria-busy="true">
+    <header class="sales-commandbar">
+        <div class="sales-command-copy">
+            <span class="sales-live-status"><i data-lucide="circle-check"></i>线索与跟进数据实时读取</span>
+            <span id="sales-today-label"></span>
+        </div>
+        <div class="sales-command-actions">
+            <a class="button neutral button-with-icon" href="{{ sales_workspace.leads_url }}"><i data-lucide="inbox"></i><span>线索收件箱</span></a>
+        </div>
+    </header>
+
+    <nav class="sales-nav" aria-label="销售工作区">
+        <a href="?view=workbench" data-sales-view="workbench"{% if sales_workspace.active_view == 'workbench' %} class="is-active" aria-current="page"{% endif %}><i data-lucide="list-todo"></i><span>今日工作</span></a>
+        <a href="?view=pipeline" data-sales-view="pipeline"{% if sales_workspace.active_view == 'pipeline' %} class="is-active" aria-current="page"{% endif %}><i data-lucide="badge-dollar-sign"></i><span>销售机会</span></a>
+        <a href="?view=companies" data-sales-view="companies"{% if sales_workspace.active_view == 'companies' %} class="is-active" aria-current="page"{% endif %}><i data-lucide="building-2"></i><span>企业</span></a>
+        <a href="?view=contacts" data-sales-view="contacts"{% if sales_workspace.active_view == 'contacts' %} class="is-active" aria-current="page"{% endif %}><i data-lucide="contact"></i><span>联系人</span></a>
+        <a href="?view=tasks" data-sales-view="tasks"{% if sales_workspace.active_view == 'tasks' %} class="is-active" aria-current="page"{% endif %}><i data-lucide="check-square-2"></i><span>任务</span></a>
+    </nav>
+
+    <div class="sales-status" id="sales-status" role="status">
+        <span class="sales-spinner" aria-hidden="true"></span>
+        <span>正在读取当前工作区...</span>
+    </div>
+    <div class="sales-root" id="sales-root"></div>
+</section>
+
+<dialog class="sales-dialog" id="sales-dialog">
+    <form method="dialog" class="sales-dialog-shell" id="sales-dialog-form">
+        <header>
+            <div>
+                <p class="sales-eyebrow" id="sales-dialog-eyebrow">新建记录</p>
+                <h2 id="sales-dialog-title">记录</h2>
+            </div>
+            <button class="icon-button" value="cancel" aria-label="关闭" title="关闭" type="submit">×</button>
+        </header>
+        <div class="sales-dialog-body" id="sales-dialog-body"></div>
+        <footer>
+            <button class="button neutral" value="cancel" type="submit">取消</button>
+            <button class="button primary" id="sales-dialog-submit" value="default" type="button">保存</button>
+        </footer>
+    </form>
+</dialog>
+
+{{ sales_config|json_script:"sales-config" }}

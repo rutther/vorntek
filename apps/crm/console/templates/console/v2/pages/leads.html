@@ -1,0 +1,674 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+
+{% block title %}线索工作区 · {{ brand_name }}{% endblock %}
+{% block body_class %}{% if workspace.selected and workspace.can_write %}nc-has-actionbar{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="{% url 'console:lead_workspace_v2' %}">销售</a>
+    <i data-lucide="chevron-right" aria-hidden="true"></i>
+    <a href="{% url 'console:lead_workspace_v2' %}">线索</a>
+    {% if workspace.selected %}
+        <i data-lucide="chevron-right" aria-hidden="true"></i>
+        <strong>{{ workspace.selected.title }}</strong>
+    {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+    <script src="{% static 'console/v2/leads.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="nc-lead-workspace" data-nc-lead-workspace data-nc-user-id="{{ request.user.pk }}" data-nc-site-id="{{ workspace.site.pk }}" data-nc-selected-record="{{ workspace.selected.id|default:'' }}" data-nc-list-url="{{ workspace.list_url }}" data-nc-bulk-url="{{ workspace.bulk.url|default:'' }}" data-nc-bulk-max="{{ workspace.bulk.max_records|default:0 }}">
+    {% if workspace.assignment_readiness.blocked %}
+        <div class="alert alert-warning m-3 mb-0" role="alert" data-nc-assignment-readiness>
+            <strong>负责人配置未就绪。</strong> {{ workspace.assignment_readiness.message }}
+            {% if workspace.assignment_readiness.manage_url %}<a class="alert-link" href="{{ workspace.assignment_readiness.manage_url }}">配置销售团队</a>{% else %}<span>请联系系统管理员配置团队成员。</span>{% endif %}
+        </div>
+    {% endif %}
+    <aside class="nc-view-rail" aria-label="线索视图">
+        <div class="nc-rail-heading">
+            <span>线索视图</span>
+            <i data-lucide="chevron-down" aria-hidden="true"></i>
+        </div>
+        <nav class="nc-queue-views" aria-label="快捷队列">
+            <a class="{% if workspace.quick_views.all_active %}is-active{% endif %}" href="{% url 'console:lead_workspace_v2' %}?sort=sla">
+                <span>所有线索</span><strong>{{ workspace.stats.total }}</strong>
+            </a>
+            <a class="{% if workspace.filters.owner == 'unassigned' %}is-active{% endif %}" href="{% url 'console:lead_workspace_v2' %}?owner=unassigned&amp;sort=sla">
+                <span>未分配</span><strong>{{ workspace.stats.unassigned }}</strong>
+            </a>
+            <a class="{% if workspace.filters.sla == 'overdue' %}is-active{% endif %}" href="{% url 'console:lead_workspace_v2' %}?sla=overdue&amp;sort=sla">
+                <span>超时跟进</span><strong class="is-danger">{{ workspace.stats.overdue }}</strong>
+            </a>
+            <a class="{% if workspace.filters.owner == 'mine' %}is-active{% endif %}" href="{% url 'console:lead_workspace_v2' %}?owner=mine&amp;sort=sla">
+                <span>我的跟进</span><strong>{{ workspace.stats.mine }}</strong>
+            </a>
+            <a class="{% if workspace.filters.stage == 'new' %}is-active{% endif %}" href="{% url 'console:lead_workspace_v2' %}?stage=new&amp;sort=newest">
+                <span>新提交</span><strong>{{ workspace.stats.new }}</strong>
+            </a>
+        </nav>
+
+        <section class="nc-saved-views" aria-labelledby="saved-views-title">
+            <div class="nc-saved-views-heading">
+                <span id="saved-views-title">保存的视图</span>
+                <button type="button" data-bs-toggle="modal" data-bs-target="#lead-save-view-modal" aria-label="保存当前线索视图" title="保存当前视图">
+                    <i data-lucide="plus" aria-hidden="true"></i>
+                </button>
+            </div>
+            <nav class="nc-saved-view-list" aria-label="保存的线索视图" data-nc-saved-view-list>
+                {% for view in workspace.saved_views %}
+                    {% if view.apply_url %}
+                        <a href="{{ view.apply_url }}" title="{{ view.name }}" data-nc-saved-view-id="{{ view.id }}" data-nc-saved-view-default="{{ view.is_default|yesno:'true,false' }}" data-nc-saved-view-shared="{{ view.is_shared|yesno:'true,false' }}" data-nc-saved-view-team="{{ view.team.label|default:'团队' }}">
+                            <span>{{ view.name }}</span>
+                            {% if view.is_default %}<em>默认</em>{% elif view.is_shared %}<em>{{ view.team.label|default:'团队' }}</em>{% endif %}
+                        </a>
+                    {% else %}
+                        <span class="nc-saved-view-invalid" title="该历史视图包含不兼容条件，请重新保存" data-nc-saved-view-id="{{ view.id }}" data-nc-saved-view-default="{{ view.is_default|yesno:'true,false' }}"><span>{{ view.name }}</span><em>需重建</em></span>
+                    {% endif %}
+                {% empty %}
+                    <p data-nc-saved-view-empty>还没有保存视图</p>
+                {% endfor %}
+            </nav>
+            <button class="nc-save-view-button" type="button" data-bs-toggle="modal" data-bs-target="#lead-save-view-modal">
+                <i data-lucide="bookmark-plus" aria-hidden="true"></i> 保存当前视图
+            </button>
+        </section>
+
+        <form class="nc-rail-filter" action="{% url 'console:lead_workspace_v2' %}" method="get">
+            <input type="hidden" name="q" value="{{ workspace.filters.query }}">
+            <input type="hidden" name="sort" value="{{ workspace.filters.sort }}">
+            <input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
+            <div class="nc-section-label">筛选条件</div>
+            <label>
+                <span>阶段</span>
+                <select name="stage">
+                    {% for option in workspace.options.stages %}
+                        <option value="{{ option.value }}" {% if workspace.filters.stage == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>来源</span>
+                <select name="source">
+                    {% for option in workspace.options.sources %}
+                        <option value="{{ option.value }}" {% if workspace.filters.source == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>负责人</span>
+                <select name="owner">
+                    {% for option in workspace.options.owners %}
+                        <option value="{{ option.value }}" {% if workspace.filters.owner == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>语言</span>
+                <select name="language">
+                    {% for option in workspace.options.languages %}
+                        <option value="{{ option.value }}" {% if workspace.filters.language == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>SLA</span>
+                <select name="sla">
+                    {% for option in workspace.options.sla %}
+                        <option value="{{ option.value }}" {% if workspace.filters.sla == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="nc-rail-filter-actions">
+                <a href="{{ workspace.clear_filters_url }}">清除筛选</a>
+                <button type="submit"><i data-lucide="check" aria-hidden="true"></i> 应用</button>
+            </div>
+        </form>
+    </aside>
+
+    <section class="nc-list-pane" aria-label="线索列表">
+        <div class="nc-list-toolbar">
+            <button class="nc-view-button" type="button" data-bs-toggle="offcanvas" data-bs-target="#lead-filters" aria-controls="lead-filters">
+                <i data-lucide="bookmark" aria-hidden="true"></i> 视图
+            </button>
+            <form class="nc-search" action="{% url 'console:lead_workspace_v2' %}" method="get" role="search">
+                <i data-lucide="search" aria-hidden="true"></i>
+                <label class="visually-hidden" for="lead-search">搜索线索</label>
+                <input id="lead-search" name="q" value="{{ workspace.filters.query }}" placeholder="搜索姓名、公司、邮箱或电话">
+                <input type="hidden" name="stage" value="{{ workspace.filters.stage }}">
+                <input type="hidden" name="language" value="{{ workspace.filters.language }}">
+                <input type="hidden" name="source" value="{{ workspace.filters.source }}">
+                <input type="hidden" name="owner" value="{{ workspace.filters.owner }}">
+                <input type="hidden" name="sla" value="{{ workspace.filters.sla }}">
+                <input type="hidden" name="sort" value="{{ workspace.filters.sort }}">
+                <input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
+            </form>
+            <button class="nc-icon-button nc-filter-button" type="button" data-bs-toggle="offcanvas" data-bs-target="#lead-filters" aria-controls="lead-filters" aria-label="筛选线索">
+                <i data-lucide="list-filter" aria-hidden="true"></i>
+                {% if workspace.active_filter_chips %}<span>{{ workspace.active_filter_chips|length }}</span>{% endif %}
+            </button>
+        </div>
+
+        {% if workspace.active_filter_chips %}
+            <div class="nc-filter-chips" aria-label="当前筛选">
+                {% for chip in workspace.active_filter_chips %}
+                    <a href="{{ chip.remove_url }}"><span>{{ chip.label }}</span><i data-lucide="x" aria-hidden="true"></i></a>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="nc-list-subbar">
+            <div class="nc-list-count">
+                {% if workspace.bulk.can_assign and workspace.rows %}
+                    <label class="nc-select-page" for="lead-select-page">
+                        <input id="lead-select-page" type="checkbox" data-nc-select-page aria-describedby="lead-select-page-note">
+                        <span>选择本页</span>
+                    </label>
+                    <small id="lead-select-page-note">仅当前页</small>
+                {% else %}
+                    <span>共 {{ workspace.stats.filtered }} 条</span>
+                {% endif %}
+            </div>
+            <form action="{% url 'console:lead_workspace_v2' %}" method="get">
+                <input type="hidden" name="q" value="{{ workspace.filters.query }}">
+                <input type="hidden" name="stage" value="{{ workspace.filters.stage }}">
+                <input type="hidden" name="language" value="{{ workspace.filters.language }}">
+                <input type="hidden" name="source" value="{{ workspace.filters.source }}">
+                <input type="hidden" name="owner" value="{{ workspace.filters.owner }}">
+                <input type="hidden" name="sla" value="{{ workspace.filters.sla }}">
+                <input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
+                <label class="visually-hidden" for="lead-sort">排序</label>
+                <select id="lead-sort" name="sort" data-nc-submit-on-change>
+                    {% for option in workspace.options.sort %}
+                        <option value="{{ option.value }}" {% if workspace.filters.sort == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+
+        <ul class="nc-lead-list" aria-label="线索结果">
+            {% for row in workspace.rows %}
+                <li class="{% if workspace.bulk.can_assign %}nc-selectable-row{% endif %}" data-nc-record-row data-nc-record-id="{{ row.id }}">
+                    {% if workspace.bulk.can_assign %}
+                        <label class="nc-row-select">
+                            <input type="checkbox" name="record_ids" value="{{ row.id }}" aria-label="选择 {{ row.title }}" data-nc-record-select>
+                            <span class="visually-hidden">选择 {{ row.title }}</span>
+                        </label>
+                    {% endif %}
+                    <a class="nc-lead-row {% if workspace.selected and row.id == workspace.selected.id %}is-selected{% endif %}" href="{{ row.detail_url }}" {% if workspace.selected and row.id == workspace.selected.id %}aria-current="true"{% endif %}>
+                        <span class="nc-row-title"><strong>{{ row.title }}</strong><em class="nc-stage nc-stage-{{ row.stage.tone }}">{{ row.stage.label }}</em></span>
+                        <span class="nc-row-company"><span>{{ row.company }}</span><i>·</i><span>{{ row.country }}</span></span>
+                        <span class="nc-row-demand"><span title="产品：{{ row.product }}"><i data-lucide="package" aria-hidden="true"></i>{{ row.product }}</span><span title="{{ row.context_label }}：{{ row.capacity }}"><i data-lucide="gauge" aria-hidden="true"></i>{{ row.capacity }}</span></span>
+                        <span class="nc-row-contact" title="可用联系方式：{{ row.contact }}"><i data-lucide="at-sign" aria-hidden="true"></i>{{ row.contact }}</span>
+                        <span class="nc-row-meta"><span>{{ row.source.label }}</span><i>·</i><time datetime="{{ row.submitted_at|date:'c' }}">{{ row.submitted_at_label }}</time></span>
+                        <span class="nc-row-footer">
+                            <span data-nc-row-owner>{{ row.owner }}</span>
+                            <span class="nc-row-signals">
+                                {% if row.duplicate %}<em class="nc-risk nc-risk-duplicate">疑似重复</em>{% endif %}
+                                {% if row.spam_risk %}<em class="nc-risk nc-risk-spam">垃圾风险 {{ row.spam_risk }}</em>{% endif %}
+                                <span class="nc-sla nc-sla-{{ row.sla.tone }}">{{ row.sla.label }}</span>
+                            </span>
+                        </span>
+                    </a>
+                </li>
+            {% empty %}
+                <li class="nc-empty-state">
+                    <span class="nc-empty-icon"><i data-lucide="search-x" aria-hidden="true"></i></span>
+                    {% if workspace.stats.total %}
+                        <strong>没有匹配的线索</strong>
+                        <p>调整搜索词，或清除当前筛选条件。</p>
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ workspace.clear_filters_url }}">清除筛选</a>
+                    {% else %}
+                        <strong>还没有线索</strong>
+                        <p>新提交会在这里出现，并按 SLA 自动进入处理队列。</p>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+
+        {% if workspace.pagination.total_pages > 1 %}
+            <nav class="nc-pagination" aria-label="线索分页">
+                {% if workspace.pagination.previous_url %}<a href="{{ workspace.pagination.previous_url }}" aria-label="上一页"><i data-lucide="chevron-left" aria-hidden="true"></i></a>{% else %}<span aria-disabled="true"><i data-lucide="chevron-left" aria-hidden="true"></i></span>{% endif %}
+                <strong>{{ workspace.pagination.current_page }} / {{ workspace.pagination.total_pages }}</strong>
+                {% if workspace.pagination.next_url %}<a href="{{ workspace.pagination.next_url }}" aria-label="下一页"><i data-lucide="chevron-right" aria-hidden="true"></i></a>{% else %}<span aria-disabled="true"><i data-lucide="chevron-right" aria-hidden="true"></i></span>{% endif %}
+            </nav>
+        {% endif %}
+
+        {% if workspace.bulk.can_assign and workspace.rows %}
+            <section class="nc-bulk-bar" aria-label="本页线索批量操作" aria-hidden="true" data-nc-bulk-bar>
+                <div class="nc-bulk-summary">
+                    <strong><span data-nc-selected-count aria-live="polite">0</span> 条已选</strong>
+                    <span>仅处理当前页已勾选的线索</span>
+                </div>
+                <label class="nc-bulk-owner" for="lead-bulk-owner">
+                    <span class="visually-hidden">批量分配负责人</span>
+                    <select id="lead-bulk-owner" data-nc-bulk-owner>
+                        <option value="">选择负责人</option>
+                        {% for owner in workspace.bulk.owners %}<option value="{{ owner.id }}">{{ owner.label }}</option>{% endfor %}
+                    </select>
+                </label>
+                <button class="btn btn-primary btn-sm" type="button" data-nc-bulk-assign disabled>批量分配</button>
+                <button class="btn btn-ghost-secondary btn-sm nc-bulk-clear" type="button" data-nc-bulk-clear>清除</button>
+                <div class="nc-bulk-failures" role="status" aria-live="polite" data-nc-bulk-failures hidden>
+                    <details data-nc-bulk-failure-details>
+                        <summary><strong><span data-nc-bulk-failure-count>0</span> 条未更新</strong><span>查看逐条原因</span></summary>
+                        <ul data-nc-bulk-failure-list></ul>
+                    </details>
+                </div>
+            </section>
+        {% endif %}
+    </section>
+
+    <section class="nc-detail-pane" aria-label="线索详情">
+        {% if workspace.selected %}
+            {% if workspace.can_write %}
+            <form id="lead-disposition-form" class="nc-disposition-form" method="post" action="{{ workspace.disposition_url }}" data-nc-disposition-form novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="expected_updated_at" value="{{ workspace.selected.updated_at_iso }}">
+                <input type="hidden" name="idempotency_token" value="" data-nc-idempotency-token>
+                <input type="hidden" name="continue_action" value="stay" data-nc-continue-action>
+                <input type="hidden" name="current_url" value="{{ request.get_full_path }}">
+                <input type="hidden" name="next_url" value="{{ workspace.next_url }}">
+                <input type="hidden" name="q" value="{{ workspace.filters.query }}">
+                <input type="hidden" name="stage_filter" value="{{ workspace.filters.stage }}">
+                <input type="hidden" name="language" value="{{ workspace.filters.language }}">
+                <input type="hidden" name="source" value="{{ workspace.filters.source }}">
+                <input type="hidden" name="owner" value="{{ workspace.filters.owner }}">
+                <input type="hidden" name="sla" value="{{ workspace.filters.sla }}">
+                <input type="hidden" name="sort" value="{{ workspace.filters.sort }}">
+                <input type="hidden" name="page" value="{{ workspace.selected_page|default:workspace.filters.page }}">
+                <input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
+                <input type="hidden" name="locale" value="{{ workspace.locale.locale_code }}">
+            {% endif %}
+
+            <div class="nc-record-navigation">
+                <a href="{{ workspace.list_url }}"><i data-lucide="arrow-left" aria-hidden="true"></i> 返回队列</a>
+                <div>
+                    {% if workspace.previous_url %}<a href="{{ workspace.previous_url }}"><i data-lucide="chevron-left" aria-hidden="true"></i> 上一条</a>{% else %}<span class="is-disabled"><i data-lucide="chevron-left" aria-hidden="true"></i> 上一条</span>{% endif %}
+                    <span>共 {{ workspace.stats.filtered }} 条</span>
+                    {% if workspace.next_url %}<a href="{{ workspace.next_url }}">下一条 <i data-lucide="chevron-right" aria-hidden="true"></i></a>{% else %}<span class="is-disabled">下一条 <i data-lucide="chevron-right" aria-hidden="true"></i></span>{% endif %}
+                </div>
+            </div>
+
+            {% if workspace.can_write %}
+                <div class="nc-recovery-stack" data-nc-recovery-stack>
+                    <section class="nc-recovery-alert" role="status" aria-live="polite" aria-labelledby="lead-draft-title" tabindex="-1" data-nc-draft-alert hidden>
+                        <i data-lucide="file-warning" aria-hidden="true"></i>
+                        <div>
+                            <strong id="lead-draft-title">发现未保存草稿</strong>
+                            <p>这条线索有一份尚未提交的本机草稿，保存于 <time data-nc-draft-time>稍早</time>。服务器内容不会被自动覆盖。<span data-nc-draft-version-warning hidden>服务器记录在草稿保存后有更新；恢复只会覆盖可编辑字段。</span></p>
+                        </div>
+                        <div class="nc-recovery-actions">
+                            <button class="btn btn-primary btn-sm" type="button" data-nc-draft-restore>恢复草稿</button>
+                            <button class="btn btn-ghost-secondary btn-sm" type="button" data-nc-draft-discard>舍弃草稿</button>
+                        </div>
+                    </section>
+                    <section class="nc-recovery-alert is-conflict" role="alert" aria-live="assertive" aria-labelledby="lead-conflict-title" tabindex="-1" data-nc-conflict-panel hidden>
+                        <i data-lucide="git-compare-arrows" aria-hidden="true"></i>
+                        <div>
+                            <strong id="lead-conflict-title">服务器内容已更新</strong>
+                            <p data-nc-conflict-message>你的输入已保存为本机草稿。请先载入最新版本，再决定是否恢复草稿。</p>
+                        </div>
+                        <div class="nc-recovery-actions">
+                            <button class="btn btn-primary btn-sm" type="button" data-nc-conflict-reload>载入最新版本并保留草稿</button>
+                            <button class="btn btn-outline-danger btn-sm" type="button" data-nc-conflict-discard>舍弃草稿后重载</button>
+                        </div>
+                    </section>
+                </div>
+            {% endif %}
+
+            <header class="nc-record-summary">
+                <div class="nc-record-identity">
+                    <span class="nc-lead-avatar" aria-hidden="true">{{ workspace.selected.title|slice:":2"|upper }}</span>
+                    <div>
+                        <h1>{{ workspace.selected.title }}</h1>
+                        <span>{{ workspace.selected.company }}</span>
+                    </div>
+                    <span class="nc-stage nc-stage-{{ workspace.selected.stage.tone }}">{{ workspace.selected.stage.label }}</span>
+                    {% if workspace.can_assign %}
+                        <div class="nc-owner-assignment" data-nc-owner-assignment data-nc-record-id="{{ workspace.selected.id }}">
+                            <label class="nc-owner-select">
+                                <span class="visually-hidden">负责人</span>
+                                <select aria-label="负责人" data-nc-assignee data-nc-original-assignee="{{ workspace.selected_owner.id|default:'' }}">
+                                    <option value="">选择负责人</option>
+                                    {% if workspace.selected_owner %}
+                                        <option value="{{ workspace.selected_owner.id }}" selected>{{ workspace.selected_owner.label }}</option>
+                                    {% endif %}
+                                    {% for owner in workspace.owners %}
+                                        {% if owner.id != workspace.selected_owner.id %}<option value="{{ owner.id }}">{{ owner.get_full_name|default:owner.get_username }}</option>{% endif %}
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <button class="nc-owner-update" type="button" data-nc-update-owner disabled aria-label="更新负责人" title="更新负责人">
+                                <i data-lucide="check" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    {% else %}
+                        <span class="nc-owner-readonly"><i data-lucide="user-round" aria-hidden="true"></i>{{ workspace.selected.owner.label }}</span>
+                    {% endif %}
+                    {% if workspace.can_write %}
+                        <button class="btn btn-outline-primary btn-sm nc-next-step-button" type="button" data-nc-open-task data-bs-toggle="modal" data-bs-target="#lead-task-modal">
+                            <i data-lucide="calendar-plus" aria-hidden="true"></i> 安排下一步
+                        </button>
+                    {% endif %}
+                </div>
+
+                <dl class="nc-summary-grid">
+                    <div><dt><i data-lucide="languages" aria-hidden="true"></i>语言</dt><dd>{{ workspace.selected.language.label }}</dd></div>
+                    <div><dt><i data-lucide="map-pin" aria-hidden="true"></i>国家/地区</dt><dd>{{ workspace.selected.country }}</dd></div>
+                    <div><dt><i data-lucide="megaphone" aria-hidden="true"></i>来源</dt><dd class="is-accent">{{ workspace.selected.source.label }}</dd></div>
+                    <div><dt><i data-lucide="clock-3" aria-hidden="true"></i>提交时间</dt><dd>{{ workspace.selected.submitted_at_label }}</dd></div>
+                    <div><dt><i data-lucide="package" aria-hidden="true"></i>产品类别</dt><dd>{{ workspace.selected.product }}</dd></div>
+                    <div><dt><i data-lucide="gauge" aria-hidden="true"></i>{{ workspace.selected.context_label }}</dt><dd>{{ workspace.selected.capacity }}</dd></div>
+                    <div><dt><i data-lucide="timer" aria-hidden="true"></i>SLA 状态</dt><dd class="nc-sla nc-sla-{{ workspace.selected.sla.tone }}">{{ workspace.selected.sla.label }}</dd></div>
+                    <div><dt><i data-lucide="list-checks" aria-hidden="true"></i>下一步跟进</dt><dd>{{ workspace.selected.next_step.text }}</dd></div>
+                </dl>
+            </header>
+
+            <div class="nc-record-tabs" role="tablist" aria-label="线索详情分区">
+                <button type="button" role="tab" tabindex="0" aria-selected="true" aria-controls="lead-tab-overview" id="lead-tab-overview-control" data-nc-tab="overview" class="is-active">概览</button>
+                <button type="button" role="tab" tabindex="-1" aria-selected="false" aria-controls="lead-tab-activity" id="lead-tab-activity-control" data-nc-tab="activity">动态 <span>{{ workspace.activity_total }}</span></button>
+                <button type="button" role="tab" tabindex="-1" aria-selected="false" aria-controls="lead-tab-relations" id="lead-tab-relations-control" data-nc-tab="relations">关系</button>
+                <button type="button" role="tab" tabindex="-1" aria-selected="false" aria-controls="lead-tab-qualification" id="lead-tab-qualification-control" data-nc-tab="qualification">资格判断</button>
+                <button type="button" role="tab" tabindex="-1" aria-selected="false" aria-controls="lead-tab-raw" id="lead-tab-raw-control" data-nc-tab="raw">原始数据</button>
+            </div>
+
+            <div class="nc-record-body">
+                <div class="nc-record-main">
+                    <section id="lead-tab-overview" class="nc-tab-panel is-active" role="tabpanel" aria-labelledby="lead-tab-overview-control" data-nc-panel="overview">
+                        <div class="nc-overview-grid">
+                            <article class="nc-info-card">
+                                <h2>项目需求</h2>
+                                <dl>
+                                    <div><dt>产品类别</dt><dd>{{ workspace.selected.project.product }}</dd></div>
+                                    {% if workspace.selected.industrial %}
+                                    <div><dt>业务方向标识</dt><dd>{{ workspace.selected.project.business_line }}</dd></div>
+                                    <div><dt>应用背景</dt><dd>{{ workspace.selected.project.application_context }}</dd></div>
+                                    {% else %}
+                                    <div><dt>询盘类型</dt><dd>{{ workspace.selected.project.inquiry_type }}</dd></div>
+                                    <div><dt>容器 / 包装</dt><dd>{{ workspace.selected.project.container }}</dd></div>
+                                    <div><dt>产能目标</dt><dd>{{ workspace.selected.project.capacity }}</dd></div>
+                                    <div><dt>项目时间</dt><dd>{{ workspace.selected.project.timeline }}</dd></div>
+                                    <div><dt>项目条件</dt><dd>{{ workspace.selected.project.condition }}</dd></div>
+                                    {% endif %}
+                                    <div><dt>客户留言</dt><dd>{{ workspace.selected.message }}</dd></div>
+                                    <div><dt>{% if workspace.can_write %}<label for="lead-follow-up-notes">跟进备注</label>{% else %}跟进备注{% endif %}</dt><dd>{% if workspace.can_write %}<textarea id="lead-follow-up-notes" name="follow_up_notes" rows="3" placeholder="记录长期有效的跟进背景…">{{ workspace.selected.follow_up_notes }}</textarea>{% else %}{{ workspace.selected.follow_up_notes|default:'暂无跟进备注' }}{% endif %}</dd></div>
+                                </dl>
+                            </article>
+                            <article class="nc-info-card">
+                                <h2>来源与联系</h2>
+                                <dl>
+                                    <div><dt>来源渠道</dt><dd>{{ workspace.selected.source.label }}</dd></div>
+                                    <div><dt>来源说明</dt><dd>{{ workspace.selected.source.detail }}</dd></div>
+                                    <div><dt>邮箱</dt><dd>{{ workspace.selected.email }}</dd></div>
+                                    <div><dt>电话</dt><dd>{{ workspace.selected.phone }}</dd></div>
+                                    <div><dt>提交页面</dt><dd>{{ workspace.selected.source_url|default:'未记录' }}</dd></div>
+                                    <div><dt>引荐页面</dt><dd>{{ workspace.selected.referrer_url|default:'未记录' }}</dd></div>
+                                    {% for item in workspace.selected.attribution %}<div><dt>{{ item.key }}</dt><dd>{{ item.value }}</dd></div>{% empty %}<div><dt>广告归因</dt><dd>未采集（未同意营销 Cookie 或无归因参数）</dd></div>{% endfor %}
+                                </dl>
+                            </article>
+                            <article class="nc-info-card">
+                                <h2>权限与同意</h2>
+                                <dl>
+                                    {% for item in workspace.selected.consent.snapshot %}<div><dt>{{ item.purpose }}</dt><dd>{{ item.decision }}</dd></div>{% empty %}<div><dt>当前快照</dt><dd>未记录</dd></div>{% endfor %}
+                                    {% for item in workspace.selected.consent.records %}<div><dt>{{ item.purpose }} · {{ item.captured_at_label }}</dt><dd>{{ item.decision }} · {{ item.source }} · 政策 {{ item.policy_version }}</dd></div>{% empty %}<div><dt>审计记录</dt><dd>暂无逐条同意记录</dd></div>{% endfor %}
+                                </dl>
+                            </article>
+                            <article class="nc-info-card">
+                                <h2>技术追踪</h2>
+                                <dl>
+                                    <div><dt>提交键</dt><dd>{{ workspace.selected.technical.submission_key }}</dd></div>
+                                    <div><dt>内部通知</dt><dd>{{ workspace.selected.technical.notification_status }}{% if workspace.selected.technical.notification_error %} · {{ workspace.selected.technical.notification_error }}{% endif %}</dd></div>
+                                    <div><dt>重复记录</dt><dd>{% if workspace.selected.technical.duplicate_of_id %}原记录 #{{ workspace.selected.technical.duplicate_of_id }}{% else %}否{% endif %}</dd></div>
+                                    <div><dt>安全检查</dt><dd>评分 {{ workspace.selected.technical.spam_score }}{% if workspace.selected.technical.spam_reason %} · {{ workspace.selected.technical.spam_reason }}{% endif %}</dd></div>
+                                    {% for event in workspace.selected.technical.event_deliveries %}<div><dt>{{ event.event_name }} · {{ event.stage_key }}</dt><dd>{{ event.status }} / {{ event.delivery_mode }} · 尝试 {{ event.attempts }} 次 · 匹配 {{ event.match_status }} · {{ event.updated_at_label }}<br><small>事件 {{ event.event_id }} · 请求 {{ event.provider_request_id }}{% if event.last_error %} · {{ event.last_error }}{% endif %}</small></dd></div>{% empty %}<div><dt>Meta 回传</dt><dd>暂无事件队列记录</dd></div>{% endfor %}
+                                </dl>
+                            </article>
+                        </div>
+                    </section>
+
+                    <section id="lead-tab-activity" class="nc-tab-panel" role="tabpanel" aria-labelledby="lead-tab-activity-control" data-nc-panel="activity" hidden>
+                        {% if workspace.can_write %}
+                            <div class="nc-composer" data-nc-composer>
+                                <div class="nc-activity-types" role="group" aria-label="联系类型">
+                                    <label><input type="radio" name="activity_type" value="call" checked><span><i data-lucide="phone" aria-hidden="true"></i>电话</span></label>
+                                    <label><input type="radio" name="activity_type" value="email"><span><i data-lucide="mail" aria-hidden="true"></i>邮件</span></label>
+                                    <label><input type="radio" name="activity_type" value="whatsapp"><span><i data-lucide="message-circle" aria-hidden="true"></i>WhatsApp</span></label>
+                                    <label><input type="radio" name="activity_type" value="meeting"><span><i data-lucide="video" aria-hidden="true"></i>会议</span></label>
+                                    <label><input type="radio" name="activity_type" value="note"><span><i data-lucide="notebook-pen" aria-hidden="true"></i>内部备注</span></label>
+                                </div>
+                                <div class="nc-composer-fields">
+                                    <label>
+                                        <span>沟通方向</span>
+                                        <select name="activity_direction"><option value="outbound">我方发起</option><option value="inbound">客户发起</option><option value="internal">内部记录</option></select>
+                                    </label>
+                                    <label>
+                                        <span>主题</span>
+                                        <input name="activity_subject" value="跟进 {{ workspace.selected.title }}" required>
+                                    </label>
+                                </div>
+                                <label class="nc-composer-note">
+                                    <span class="visually-hidden">跟进记录</span>
+                                    <textarea name="activity_body" rows="4" placeholder="记录沟通结果、客户反馈与明确的下一步…" required data-nc-activity-body></textarea>
+                                </label>
+                                <div class="nc-composer-footer"><span><i data-lucide="shield-check" aria-hidden="true"></i> 保存后会写入可追溯活动时间线</span><button type="button" class="btn btn-outline-primary btn-sm" data-nc-open-task data-bs-toggle="modal" data-bs-target="#lead-task-modal"><i data-lucide="calendar-plus" aria-hidden="true"></i>安排下一步</button></div>
+                            </div>
+                        {% else %}
+                            <div class="nc-readonly-notice"><i data-lucide="lock-keyhole" aria-hidden="true"></i><span>你可以查看这条线索，但没有写入其销售记录的权限。</span></div>
+                        {% endif %}
+
+                        <div class="nc-timeline">
+                            <div class="nc-timeline-heading"><strong>最近动态</strong><span>{{ workspace.activity_total }} 条</span></div>
+                            {% for item in workspace.activities %}
+                                <article class="nc-timeline-item">
+                                    <span class="nc-timeline-icon"><i data-lucide="{% if item.type == 'call' %}phone{% elif item.type == 'email' %}mail{% elif item.type == 'meeting' %}video{% elif item.type == 'whatsapp' %}message-circle{% else %}notebook-pen{% endif %}" aria-hidden="true"></i></span>
+                                    <div><strong><a href="{% url 'console:activity_workspace_detail_v2' item.id %}">{{ item.subject }}</a></strong><p>{{ item.body|default:item.type_label }}</p><small>{{ item.actor }} · {{ item.direction }}</small></div>
+                                    <time datetime="{{ item.occurred_at|date:'c' }}">{{ item.occurred_at_label }}</time>
+                                </article>
+                            {% empty %}
+                                <div class="nc-inline-empty">还没有沟通记录；第一次处置会成为时间线的起点。</div>
+                            {% endfor %}
+                            <article class="nc-timeline-item is-system">
+                                <span class="nc-timeline-icon"><i data-lucide="inbox" aria-hidden="true"></i></span>
+                                <div><strong>表单提交</strong><p>{{ workspace.selected.form.name }}</p><small>{{ workspace.selected.source.label }} · {{ workspace.selected.language.label }}</small></div>
+                                <time datetime="{{ workspace.selected.submitted_at|date:'c' }}">{{ workspace.selected.submitted_at_label }}</time>
+                            </article>
+                        </div>
+                    </section>
+
+                    <section id="lead-tab-relations" class="nc-tab-panel" role="tabpanel" aria-labelledby="lead-tab-relations-control" data-nc-panel="relations" hidden>
+                        <div class="nc-relation-flow">
+                            <span><i data-lucide="inbox" aria-hidden="true"></i><small>线索</small><strong>{{ workspace.selected.title }}</strong></span>
+                            <i data-lucide="arrow-right" aria-hidden="true"></i>
+                            <span class="{% if not workspace.selected.conversion.company %}is-pending{% endif %}"><i data-lucide="building-2" aria-hidden="true"></i><small>{% if workspace.selected.conversion.company %}已关联企业{% else %}企业 · 尚未转换{% endif %}</small><strong>{% if workspace.selected.conversion.company %}{{ workspace.selected.conversion.company.name }}{% else %}尚未转换{% endif %}</strong>{% if not workspace.selected.conversion.company %}<em>候选：{{ workspace.selected.company }}</em>{% endif %}</span>
+                            <i data-lucide="arrow-right" aria-hidden="true"></i>
+                            <span class="{% if not workspace.selected.conversion.opportunity %}is-pending{% endif %}"><i data-lucide="circle-dollar-sign" aria-hidden="true"></i><small>{% if workspace.selected.conversion.opportunity %}已关联商机{% else %}商机 · 尚未转换{% endif %}</small><strong>{% if workspace.selected.conversion.opportunity %}{{ workspace.selected.conversion.opportunity.name }}{% else %}尚未转换{% endif %}</strong></span>
+                        </div>
+                    </section>
+
+                    <section id="lead-tab-qualification" class="nc-tab-panel" role="tabpanel" aria-labelledby="lead-tab-qualification-control" data-nc-panel="qualification" hidden>
+                        <div class="nc-qualification-workspace">
+                            <header><span>至少完成 4 项，才能进入“高质量”阶段</span><strong data-nc-qualification-score>{{ workspace.selected.qualification.score }}%</strong></header>
+                            <p>{{ workspace.selected.qualification.notes }}</p>
+                            <p>资格判断可在右侧面板直接更新；保存时会和沟通记录、阶段及下一任务一起原子提交。</p>
+                        </div>
+                    </section>
+
+                    <section id="lead-tab-raw" class="nc-tab-panel" role="tabpanel" aria-labelledby="lead-tab-raw-control" data-nc-panel="raw" hidden>
+                        <div class="nc-raw-alert"><i data-lucide="triangle-alert" aria-hidden="true"></i><span>原始数据用于排查来源和字段映射，日常销售无需修改。</span></div>
+                        <pre>{{ workspace.selected.payload|pprint }}</pre>
+                    </section>
+                </div>
+
+                <aside class="nc-record-rail" aria-label="线索判断与关系">
+                    <section class="nc-rail-card">
+                        <header><strong>关系</strong><i data-lucide="refresh-cw" aria-hidden="true"></i></header>
+                        <div class="nc-relation-list">
+                            <span class="{% if not workspace.selected.conversion.company %}is-pending{% endif %}"><i data-lucide="building-2" aria-hidden="true"></i><small>{% if workspace.selected.conversion.company %}企业 · 已关联{% else %}企业 · 尚未转换{% endif %}</small><strong>{% if workspace.selected.conversion.company %}{{ workspace.selected.conversion.company.name }}{% else %}尚未转换{% endif %}</strong></span>
+                            <span class="{% if not workspace.selected.conversion.contact %}is-pending{% endif %}"><i data-lucide="user-round" aria-hidden="true"></i><small>{% if workspace.selected.conversion.contact %}联系人 · 已关联{% else %}联系人 · 尚未转换{% endif %}</small><strong>{% if workspace.selected.conversion.contact %}{{ workspace.selected.conversion.contact.name }}{% else %}尚未转换{% endif %}</strong></span>
+                            <span class="{% if not workspace.selected.conversion.opportunity %}is-pending{% endif %}"><i data-lucide="circle-dollar-sign" aria-hidden="true"></i><small>{% if workspace.selected.conversion.opportunity %}商机 · 已关联{% else %}商机 · 尚未转换{% endif %}</small><strong>{% if workspace.selected.conversion.opportunity %}{{ workspace.selected.conversion.opportunity.name }}{% else %}尚未转换{% endif %}</strong></span>
+                            <span><i data-lucide="list-checks" aria-hidden="true"></i><small>待办任务</small><strong>{{ workspace.task_total }} 条</strong></span>
+                        </div>
+                        {% if workspace.can_convert %}
+                            <button class="btn btn-outline-primary btn-sm w-100 mt-2" type="button" data-nc-open-conversion data-bs-toggle="modal" data-bs-target="#lead-conversion-modal" aria-haspopup="dialog">
+                                <i data-lucide="git-merge" aria-hidden="true"></i> 转换为销售项目
+                            </button>
+                        {% endif %}
+                    </section>
+
+                    <section class="nc-rail-card nc-qualification-card">
+                        <header><strong>转换准备度</strong><em data-nc-qualification-score>{{ workspace.selected.qualification.score }}%</em></header>
+                        <div class="nc-qualification-list">
+                            <label><input type="checkbox" name="qualification_contactable" {% if workspace.selected.qualification.raw.contactable %}checked{% endif %} {% if not workspace.can_write %}disabled{% endif %}><span><i data-lucide="circle-check" aria-hidden="true"></i>客户可联系</span></label>
+                            <label><input type="checkbox" name="qualification_company_verified" {% if workspace.selected.qualification.raw.company_verified %}checked{% endif %} {% if not workspace.can_write %}disabled{% endif %}><span><i data-lucide="circle-check" aria-hidden="true"></i>企业已核实</span></label>
+                            <label><input type="checkbox" name="qualification_project_confirmed" {% if workspace.selected.qualification.raw.project_confirmed %}checked{% endif %} {% if not workspace.can_write %}disabled{% endif %}><span><i data-lucide="circle-check" aria-hidden="true"></i>项目已确认</span></label>
+                            <label><input type="checkbox" name="qualification_technical_fit" {% if workspace.selected.qualification.raw.technical_fit %}checked{% endif %} {% if not workspace.can_write %}disabled{% endif %}><span><i data-lucide="circle-check" aria-hidden="true"></i>技术方案匹配</span></label>
+                            <label><input type="checkbox" name="qualification_next_step_confirmed" {% if workspace.selected.qualification.raw.next_step_confirmed %}checked{% endif %} {% if not workspace.can_write %}disabled{% endif %}><span><i data-lucide="circle-check" aria-hidden="true"></i>下一步已确认</span></label>
+                        </div>
+                        <div class="nc-progress"><span data-nc-qualification-progress style="width: {{ workspace.selected.qualification.score }}%"></span></div>
+                        {% if workspace.can_write %}
+                            <label class="nc-small-field"><span>判定说明</span><textarea name="qualification_notes" rows="2">{% if workspace.selected.qualification.notes != '暂无资格判断说明' %}{{ workspace.selected.qualification.notes }}{% endif %}</textarea></label>
+                            <label class="nc-override"><input type="checkbox" name="qualification_overridden" {% if workspace.selected.qualification.overridden %}checked{% endif %}>人工覆盖评分（必须说明原因）</label>
+                        {% endif %}
+                    </section>
+
+                    {% if workspace.tasks %}
+                        <section class="nc-rail-card nc-task-card">
+                            <header><strong>待办任务</strong><em>{{ workspace.task_total }}</em></header>
+                            {% for task in workspace.tasks|slice:":3" %}
+                                <a class="nc-task-item {% if task.overdue %}is-overdue{% endif %}" href="{% url 'console:task_workspace_detail_v2' task.id %}"><strong>{{ task.title }}</strong><span>{{ task.due_at_label }} · {{ task.owner }}</span></a>
+                            {% endfor %}
+                        </section>
+                    {% endif %}
+                </aside>
+            </div>
+
+            {% if workspace.can_write %}
+                <div class="nc-triage-actionbar" aria-label="连续处置操作">
+                    <div class="nc-triage-progress"><span>队列进度</span><strong>当前 {{ workspace.selected_page|default:workspace.filters.page }} / 共 {{ workspace.pagination.total_pages|default:1 }} 页</strong><div><i style="width: {% widthratio workspace.selected_page|default:workspace.filters.page workspace.pagination.total_pages|default:1 100 %}%"></i></div></div>
+                    <label class="nc-stage-control"><span>处置阶段</span><select name="stage" required>{% for option in workspace.options.stages %}{% if option.value != 'all' %}<option value="{{ option.value }}" {% if workspace.selected.stage.value == option.value %}selected{% endif %}>{{ option.label }}</option>{% endif %}{% endfor %}</select></label>
+                    <button class="btn btn-primary" type="submit" data-nc-submit="next"><i data-lucide="check" aria-hidden="true"></i>{% if workspace.next_url %}保存并打开下一条{% else %}保存{% endif %} <kbd>Ctrl ↵</kbd></button>
+                    <button class="btn btn-outline-secondary" type="submit" data-nc-submit="stay">仅保存 <kbd>Ctrl S</kbd></button>
+                    {% if workspace.next_url %}<a class="btn btn-ghost-secondary" href="{{ workspace.next_url }}"><i data-lucide="skip-forward" aria-hidden="true"></i>跳过并查看下一条</a>{% endif %}
+                </div>
+
+                <div class="modal fade" id="lead-task-modal" tabindex="-1" aria-labelledby="lead-task-title" aria-hidden="true" data-nc-task-modal>
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header"><div><h2 class="modal-title" id="lead-task-title">安排下一步</h2><p>为 {{ workspace.selected.title }} 创建一条明确的跟进任务。</p></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button></div>
+                            <div class="modal-body nc-task-form">
+                                <label class="nc-check-row"><input type="checkbox" name="create_task" value="1" data-nc-create-task><span>保存时创建任务</span></label>
+                                <label><span>下一步动作</span><input name="task_title" value="首次联系" data-nc-task-field></label>
+                                <label><span>计划时间</span><input type="datetime-local" name="task_due_at" data-nc-task-field></label>
+                                <label><span>任务类型</span><select name="task_type" data-nc-task-field><option value="follow_up">跟进</option><option value="call">电话</option><option value="email">邮件</option><option value="whatsapp">WhatsApp</option><option value="meeting">会议</option><option value="quote">报价</option><option value="review">复核</option><option value="other">其他</option></select></label>
+                                <label><span>优先级</span><select name="task_priority" data-nc-task-field><option value="normal">普通</option><option value="high">高</option><option value="urgent">紧急</option><option value="low">低</option></select></label>
+                                <label class="is-full"><span>备注（可选）</span><textarea name="task_description" rows="3" data-nc-task-field></textarea></label>
+                            </div>
+                            <div class="modal-footer"><button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-primary" data-nc-confirm-task><i data-lucide="calendar-check" aria-hidden="true"></i>确认下一步</button></div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+        {% else %}
+            <div class="nc-detail-empty">
+                <span><i data-lucide="inbox" aria-hidden="true"></i></span>
+                <h1>线索工作区</h1>
+                {% if workspace.rows %}<p>从左侧队列选择一条线索，查看完整上下文并开始处置。</p>{% else %}<p>当前视图中没有可处理的线索。</p>{% endif %}
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+{% if workspace.selected and workspace.can_convert %}
+<div class="modal fade" id="lead-conversion-modal" tabindex="-1" aria-labelledby="lead-conversion-title" aria-describedby="lead-conversion-consequence" aria-hidden="true" data-nc-conversion-modal>
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" action="{{ workspace.conversion_url }}" method="post" data-nc-conversion-form novalidate>
+            {% csrf_token %}
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title" id="lead-conversion-title">转换为销售项目</h2>
+                    <p>确认 {{ workspace.selected.title }} 已具备进入销售管道的条件。</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭" data-nc-conversion-dismiss></button>
+            </div>
+            <div class="modal-body nc-save-view-form">
+                <div class="alert alert-info is-full mb-0" id="lead-conversion-consequence" role="note">
+                    系统会关联或创建企业与联系人，并新建一条资格判断阶段的商机；本次操作会写入活动和审计记录。
+                </div>
+                <label class="is-full" for="lead-opportunity-name">
+                    <span>商机名称</span>
+                    <input id="lead-opportunity-name" type="text" name="opportunity_name" value="{{ workspace.conversion_opportunity_name }}" maxlength="240" autocomplete="off" aria-describedby="lead-opportunity-name-help lead-conversion-feedback">
+                </label>
+                <p class="nc-form-help is-full" id="lead-opportunity-name-help">可以修改名称；留空时系统会按企业与产品范围自动命名。</p>
+                <div class="alert is-full mb-0" id="lead-conversion-feedback" role="status" aria-live="polite" aria-atomic="true" data-nc-conversion-feedback hidden></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal" data-nc-conversion-dismiss>取消</button>
+                <button type="submit" class="btn btn-primary" data-nc-conversion-submit>
+                    <i data-lucide="git-merge" aria-hidden="true"></i><span data-nc-conversion-submit-label>确认转换</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="offcanvas offcanvas-start nc-filter-offcanvas" tabindex="-1" id="lead-filters" aria-labelledby="lead-filters-title">
+    <div class="offcanvas-header"><h2 class="offcanvas-title" id="lead-filters-title">线索视图与筛选</h2><button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="关闭"></button></div>
+    <div class="offcanvas-body">
+        <nav class="nc-queue-views" aria-label="快捷队列">
+            <a href="{% url 'console:lead_workspace_v2' %}?sort=sla"><span>所有线索</span><strong>{{ workspace.stats.total }}</strong></a>
+            <a href="{% url 'console:lead_workspace_v2' %}?owner=unassigned&amp;sort=sla"><span>未分配</span><strong>{{ workspace.stats.unassigned }}</strong></a>
+            <a href="{% url 'console:lead_workspace_v2' %}?sla=overdue&amp;sort=sla"><span>超时跟进</span><strong class="is-danger">{{ workspace.stats.overdue }}</strong></a>
+            <a href="{% url 'console:lead_workspace_v2' %}?owner=mine&amp;sort=sla"><span>我的跟进</span><strong>{{ workspace.stats.mine }}</strong></a>
+        </nav>
+        <section class="nc-saved-views nc-saved-views-drawer" aria-labelledby="saved-views-drawer-title">
+            <div class="nc-saved-views-heading"><span id="saved-views-drawer-title">保存的视图</span></div>
+            <nav class="nc-saved-view-list" aria-label="保存的线索视图" data-nc-saved-view-list>
+                {% for view in workspace.saved_views %}
+                    {% if view.apply_url %}<a href="{{ view.apply_url }}" title="{{ view.name }}" data-nc-saved-view-id="{{ view.id }}" data-nc-saved-view-default="{{ view.is_default|yesno:'true,false' }}" data-nc-saved-view-shared="{{ view.is_shared|yesno:'true,false' }}" data-nc-saved-view-team="{{ view.team.label|default:'团队' }}"><span>{{ view.name }}</span>{% if view.is_default %}<em>默认</em>{% elif view.is_shared %}<em>{{ view.team.label|default:'团队' }}</em>{% endif %}</a>{% else %}<span class="nc-saved-view-invalid" title="该历史视图包含不兼容条件，请重新保存" data-nc-saved-view-id="{{ view.id }}" data-nc-saved-view-default="{{ view.is_default|yesno:'true,false' }}"><span>{{ view.name }}</span><em>需重建</em></span>{% endif %}
+                {% empty %}<p data-nc-saved-view-empty>还没有保存视图</p>{% endfor %}
+            </nav>
+            <button class="nc-save-view-button" type="button" data-bs-toggle="modal" data-bs-target="#lead-save-view-modal"><i data-lucide="bookmark-plus" aria-hidden="true"></i> 保存当前视图</button>
+        </section>
+        <form class="nc-drawer-filter" action="{% url 'console:lead_workspace_v2' %}" method="get">
+            <input type="hidden" name="q" value="{{ workspace.filters.query }}"><input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
+            <label><span>阶段</span><select name="stage">{% for option in workspace.options.stages %}<option value="{{ option.value }}" {% if workspace.filters.stage == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
+            <label><span>来源</span><select name="source">{% for option in workspace.options.sources %}<option value="{{ option.value }}" {% if workspace.filters.source == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
+            <label><span>负责人</span><select name="owner">{% for option in workspace.options.owners %}<option value="{{ option.value }}" {% if workspace.filters.owner == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
+            <label><span>语言</span><select name="language">{% for option in workspace.options.languages %}<option value="{{ option.value }}" {% if workspace.filters.language == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
+            <label><span>SLA</span><select name="sla">{% for option in workspace.options.sla %}<option value="{{ option.value }}" {% if workspace.filters.sla == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
+            <label><span>排序</span><select name="sort">{% for option in workspace.options.sort %}<option value="{{ option.value }}" {% if workspace.filters.sort == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
+            <div><a class="btn btn-ghost-secondary" href="{{ workspace.clear_filters_url }}">清除</a><button class="btn btn-primary" type="submit">应用筛选</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="lead-save-view-modal" tabindex="-1" aria-labelledby="lead-save-view-title" aria-hidden="true" data-nc-save-view-modal>
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" action="{{ workspace.saved_view.save_url|default:'' }}" method="post" data-nc-save-view-form novalidate>
+            {% csrf_token %}
+            <div class="modal-header">
+                <div><h2 class="modal-title" id="lead-save-view-title">保存当前视图</h2><p>保存当前筛选与排序，之后可以从视图栏一键恢复。</p></div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body nc-save-view-form">
+                <input type="hidden" name="scope" value="leads">
+                <input type="hidden" name="filters_json" value="{}" data-nc-view-filters>
+                <input type="hidden" name="columns_json" value="[]" data-nc-view-columns>
+                <input type="hidden" name="sort_json" value="[]" data-nc-view-sort>
+                {% for field in workspace.saved_view.allowed_filter_fields %}<input type="hidden" value="{{ field }}" data-nc-allowed-filter-field disabled>{% endfor %}
+                <label class="is-full" for="lead-view-name"><span>视图名称</span><input id="lead-view-name" name="name" maxlength="120" autocomplete="off" required aria-describedby="lead-save-view-help lead-save-view-error" placeholder="例如：本周待跟进"></label>
+                <label for="lead-view-visibility"><span>可见范围</span><select id="lead-view-visibility" data-nc-view-visibility><option value="personal">仅自己</option>{% if workspace.saved_view.shareable_teams %}<option value="team">团队共享</option>{% endif %}</select></label>
+                <label for="lead-view-team" data-nc-view-team-wrap hidden><span>共享团队</span><select id="lead-view-team" name="team" data-nc-view-team disabled required><option value="">选择团队</option>{% for team in workspace.saved_view.shareable_teams %}<option value="{{ team.id }}">{{ team.label }}</option>{% endfor %}</select></label>
+                <label class="nc-check-row is-full"><input type="checkbox" name="is_default" value="1"><span>设为我的默认线索视图</span></label>
+                <p class="nc-form-help is-full" id="lead-save-view-help">保存内容包含当前搜索、筛选、每页数量与排序，不包含本页勾选状态。</p>
+                <div class="nc-form-error is-full" id="lead-save-view-error" role="alert" aria-live="assertive" data-nc-save-view-error hidden></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">取消</button><button type="submit" class="btn btn-primary" data-nc-save-view-submit><i data-lucide="bookmark-check" aria-hidden="true"></i>保存视图</button></div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+<section class="system-shell">
+    <header class="system-pagehead">
+        <div>
+            <span class="system-kicker">SALES ACCESS SCOPE</span>
+            <h2>团队范围与业务占用</h2>
+            <p>停用前必须先迁移启用成员和仍在进行的销售记录。</p>
+        </div>
+        <div class="system-page-actions">
+            <a class="button primary" href="{% url 'console:system_team_create' %}">新增团队</a>
+        </div>
+    </header>
+
+    <dl class="system-metrics is-four" aria-label="团队概况">
+        <div><dt>全部团队</dt><dd>{{ system_team_stats.total }}</dd></div>
+        <div><dt>启用团队</dt><dd>{{ system_team_stats.enabled }}</dd></div>
+        <div><dt>有启用成员</dt><dd>{{ system_team_stats.with_members }}</dd></div>
+        <div><dt>有进行中业务</dt><dd>{{ system_team_stats.with_work }}</dd></div>
+    </dl>
+
+    <form method="get" class="system-filterbar system-team-filterbar" aria-label="筛选销售团队">
+        <label class="system-filter system-filter-search">
+            <span>搜索</span>
+            <input type="search" name="q" value="{{ selected_search }}" placeholder="团队名称、代码或站点">
+        </label>
+        <label class="system-filter">
+            <span>站点</span>
+            <select name="site">
+                <option value="">全部站点</option>
+                {% for site in system_sites %}<option value="{{ site.id }}"{% if selected_site == site.id|stringformat:'s' %} selected{% endif %}>{{ site.name }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="system-filter">
+            <span>状态</span>
+            <select name="status">
+                <option value="">全部状态</option>
+                <option value="enabled"{% if selected_status == 'enabled' %} selected{% endif %}>已启用</option>
+                <option value="disabled"{% if selected_status == 'disabled' %} selected{% endif %}>已停用</option>
+            </select>
+        </label>
+        <div class="system-filter-actions">
+            <button type="submit" class="button primary">筛选</button>
+            <a href="{% url 'console:system_teams' %}" class="button neutral">重置</a>
+        </div>
+    </form>
+
+    <section class="system-users-panel" aria-labelledby="system-team-list-title">
+        <div class="system-section-head">
+            <div><h3 id="system-team-list-title">销售团队</h3><span>{{ system_team_rows|length }} 条结果</span></div>
+        </div>
+        <div class="system-user-table-wrap">
+            <table class="system-user-table system-team-table">
+                <thead><tr><th>团队</th><th>站点</th><th>启用成员</th><th>开放线索</th><th>可执行任务</th><th>开放机会</th><th>状态</th><th><span class="sr-only">操作</span></th></tr></thead>
+                <tbody>
+                    {% for item in system_team_rows %}
+                        <tr>
+                            <td><strong>{{ item.name }}</strong><span class="system-subline">{{ item.code }}</span></td>
+                            <td><span class="system-team-line">{{ item.site_name }}</span></td>
+                            <td><span class="system-count{% if item.active_members %} has-value{% endif %}">{{ item.active_members }}</span></td>
+                            <td><span class="system-count{% if item.open_leads %} has-value{% endif %}">{{ item.open_leads }}</span></td>
+                            <td><span class="system-count{% if item.actionable_tasks %} has-value{% endif %}">{{ item.actionable_tasks }}</span></td>
+                            <td><span class="system-count{% if item.open_opportunities %} has-value{% endif %}">{{ item.open_opportunities }}</span></td>
+                            <td><span class="system-status{% if item.enabled %} is-active{% else %} is-inactive{% endif %}">{% if item.enabled %}已启用{% else %}已停用{% endif %}</span></td>
+                            <td class="system-row-action"><a class="button neutral compact" href="{% url 'console:system_team_edit' item.id %}">查看并编辑</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="8" class="system-table-empty">没有符合筛选条件的团队。</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>

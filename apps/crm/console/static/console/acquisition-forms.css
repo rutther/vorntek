@@ -1,0 +1,255 @@
+.acquisition-shell {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+
+.acquisition-shell .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.acquisition-pagehead {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 4px 2px 2px;
+}
+
+.acquisition-kicker {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--blue);
+    font-size: 10px;
+    font-weight: 820;
+}
+
+.acquisition-pagehead h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.acquisition-pagehead p {
+    max-width: 720px;
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.acquisition-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.acquisition-metrics > div {
+    min-width: 0;
+    padding: 14px 16px;
+    border-right: 1px solid var(--line-soft);
+}
+
+.acquisition-metrics > div:last-child { border-right: 0; }
+.acquisition-metrics > div.is-warning { background: #fffaf0; }
+
+.acquisition-metrics dt {
+    margin: 0 0 5px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 760;
+}
+
+.acquisition-metrics dd {
+    margin: 0;
+    color: var(--ink);
+    font-size: 22px;
+    font-weight: 820;
+}
+
+.acquisition-metrics dd.is-text { font-size: 15px; line-height: 27px; }
+
+.acquisition-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 11px 13px;
+    border: 1px solid #efd49b;
+    border-radius: 8px;
+    background: #fffaf0;
+}
+
+.acquisition-alert > div { display: grid; gap: 3px; }
+.acquisition-alert strong { color: #704a00; font-size: 12px; }
+.acquisition-alert span { color: #795f2a; font-size: 10.5px; }
+
+.acquisition-filterbar {
+    display: grid;
+    grid-template-columns: minmax(230px, 1.5fr) repeat(3, minmax(145px, .75fr)) auto;
+    gap: 10px;
+    align-items: end;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.acquisition-filter { display: grid; gap: 5px; min-width: 0; }
+.acquisition-filter > span { color: var(--muted); font-size: 10px; font-weight: 760; }
+.acquisition-filter input,
+.acquisition-filter select {
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+}
+
+.acquisition-filter input:focus,
+.acquisition-filter select:focus {
+    border-color: var(--blue);
+    outline: 3px solid rgba(26, 99, 216, .12);
+}
+
+.acquisition-filter-actions { display: flex; gap: 7px; }
+
+.acquisition-panel {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.acquisition-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 56px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.acquisition-section-head h3 { margin: 0; color: var(--ink); font-size: 14px; }
+.acquisition-section-head span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+
+.acquisition-table-wrap { min-width: 0; overflow-x: auto; }
+.acquisition-table {
+    width: 100%;
+    min-width: 930px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.acquisition-table th,
+.acquisition-table td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.acquisition-table th { background: var(--panel-soft); color: var(--muted); font-size: 10px; font-weight: 800; }
+.acquisition-table th:nth-child(1) { width: 24%; }
+.acquisition-table th:nth-child(2) { width: 18%; }
+.acquisition-table th:nth-child(3) { width: 7%; }
+.acquisition-table th:nth-child(4) { width: 15%; }
+.acquisition-table th:nth-child(5) { width: 9%; }
+.acquisition-table th:nth-child(6) { width: 7%; }
+.acquisition-table th:nth-child(7) { width: 9%; }
+.acquisition-table th:nth-child(8) { width: 11%; }
+.acquisition-table tbody tr:last-child td { border-bottom: 0; }
+.acquisition-table tbody tr:hover { background: #fbfcfe; }
+.acquisition-table td > strong,
+.acquisition-cell-title { display: block; overflow: hidden; color: var(--ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.acquisition-subline { display: block; overflow: hidden; margin-top: 3px; color: var(--muted); font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
+.acquisition-subline code { color: #4c5d74; font-size: inherit; }
+.acquisition-count { color: var(--ink); font-size: 12px; font-weight: 780; }
+
+.acquisition-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #5a687a;
+    font-size: 10px;
+    font-weight: 780;
+    white-space: nowrap;
+}
+
+.acquisition-status.is-active { background: #e9f7ef; color: #1f6e42; }
+.acquisition-status.is-warning { background: #fff3d8; color: #7a5100; }
+.acquisition-status.is-disabled,
+.acquisition-status.is-muted { background: #f0f2f5; color: #657184; }
+.acquisition-status.is-archived { background: #f4f1f8; color: #655273; }
+.acquisition-row-action { text-align: right !important; }
+.acquisition-empty { padding: 42px 18px !important; color: var(--muted); text-align: center !important; }
+.acquisition-cards { display: none; }
+
+.acquisition-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 14px;
+    border-top: 1px solid var(--line-soft);
+    color: var(--muted);
+    font-size: 10.5px;
+}
+
+.acquisition-pagination > div { display: flex; gap: 7px; }
+
+@media (max-width: 1180px) {
+    .acquisition-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .acquisition-metrics > div { padding-inline: 12px; }
+    .acquisition-filterbar { grid-template-columns: minmax(210px, 1.4fr) repeat(3, minmax(125px, .7fr)) auto; }
+}
+
+@media (max-width: 920px) {
+    .acquisition-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .acquisition-metrics > div { border-bottom: 1px solid var(--line-soft); }
+    .acquisition-filterbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .acquisition-filter-search { grid-column: 1 / -1; }
+    .acquisition-filter-actions { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+    .acquisition-pagehead,
+    .acquisition-alert { align-items: stretch; flex-direction: column; }
+    .acquisition-pagehead > .button { width: 100%; justify-content: center; }
+    .acquisition-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .acquisition-filterbar { grid-template-columns: minmax(0, 1fr); }
+    .acquisition-filter-search,
+    .acquisition-filter-actions { grid-column: auto; }
+    .acquisition-filter-actions > * { flex: 1; justify-content: center; }
+    .acquisition-table-wrap { display: none; }
+    .acquisition-cards { display: grid; gap: 10px; padding: 10px; }
+    .acquisition-card { display: grid; gap: 12px; padding: 13px; border: 1px solid var(--line-soft); border-radius: 7px; }
+    .acquisition-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .acquisition-card-head > div { min-width: 0; }
+    .acquisition-card-head strong { display: block; color: var(--ink); font-size: 13px; }
+    .acquisition-card-head span:not(.acquisition-status) { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .acquisition-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 0; }
+    .acquisition-card dl > div { min-width: 0; }
+    .acquisition-card dt { color: var(--muted); font-size: 9.5px; }
+    .acquisition-card dd { margin: 3px 0 0; color: var(--ink); font-size: 11px; }
+}

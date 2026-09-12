@@ -1,0 +1,113 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}{{ brand_name }} 后台{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'console/vendor/tabler/1.4.0/tabler.min.css' %}">
+    <link rel="stylesheet" href="{% static 'console/v2/vorntek-theme.css' %}">
+    <link rel="stylesheet" href="{% static 'console/v2/vorntek-v2.css' %}?v=20260830-6">
+    {% block extra_head %}{% endblock %}
+<link rel="stylesheet" href="{% static 'console/vorntek-brand.css' %}">
+</head>
+<body class="nc-body {% block body_class %}{% endblock %}">
+    <a class="nc-skip-link" href="#main-content">跳到主要内容</a>
+    <div class="nc-shell">
+        <aside class="nc-sidebar" aria-label="后台主导航">
+            <a class="nc-brand" href="{% url 'console:workbench' %}" aria-label="{{ brand_name }} 后台首页">
+                <img src="{% static 'console/vorntekLogo.png' %}" alt="" width="34" height="34">
+                <span><strong>{{ brand_name }}</strong><small>获客与销售运营</small></span>
+            </a>
+
+            <nav class="nc-primary-nav">
+                {% for item in nav_items %}
+                    <a class="nc-nav-item {% if item.active %}is-active{% endif %}" href="{{ item.href }}" aria-label="{{ item.label }}：{{ item.description }}" title="{{ item.label }}" {% if item.active %}aria-current="page"{% endif %}>
+                        <i data-lucide="{{ item.icon }}" aria-hidden="true"></i>
+                        <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+                    </a>
+                    {% if item.active and item.children %}
+                        <div class="nc-nav-children" role="group" aria-label="{{ item.label }}子导航">
+                            {% for child in item.children %}
+                                <a class="nc-nav-child {% if child.active %}is-active{% endif %}" href="{{ child.href }}" {% if child.active %}aria-current="page"{% endif %}>
+                                    <strong>{{ child.label }}</strong>
+                                    <small>{{ child.description }}</small>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </nav>
+
+            <div class="nc-sidebar-footer">
+                <button type="button" class="nc-sidebar-collapse" data-nc-sidebar-collapse aria-pressed="false" aria-label="收起主导航" title="收起主导航">
+                    <i data-lucide="panel-left-close" aria-hidden="true"></i>
+                    <span>收起菜单</span>
+                </button>
+            </div>
+        </aside>
+
+        <div class="nc-app">
+            <header class="nc-topbar">
+                <div class="nc-breadcrumb" aria-label="面包屑">
+                    {% block breadcrumb %}<strong>后台</strong>{% endblock %}
+                </div>
+                <div class="nc-topbar-actions">
+                    {% if create_actions %}
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle nc-create-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i data-lucide="plus" aria-hidden="true"></i> 新建
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                {% for action in create_actions %}
+                                    <a class="dropdown-item" href="{{ action.href }}">{% if action.icon %}<i data-lucide="{{ action.icon }}" aria-hidden="true"></i>{% endif %}{{ action.label }}</a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    <a class="nc-icon-button" href="{{ preview_site_url }}" target="_blank" rel="noopener" aria-label="查看网站" title="查看网站">
+                        <i data-lucide="external-link" aria-hidden="true"></i>
+                    </a>
+                    <div class="nc-account">
+                        <span class="nc-account-copy"><strong>{{ request.user.get_username }}</strong><small>{{ console_role_label }}</small></span>
+                        <div class="dropdown">
+                            <button class="nc-avatar" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="打开账户菜单">
+                                {{ request.user.get_username|slice:":1"|upper }}
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <div class="dropdown-header">{{ request.user.get_username }}</div>
+                                <form action="{% url 'logout' %}" method="post" data-nc-logout-form>
+                                    {% csrf_token %}
+                                    <button class="dropdown-item" type="submit">退出登录</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {% if messages %}
+                <div class="nc-message-stack" aria-live="polite">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible" role="status">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <main id="main-content" class="nc-main" tabindex="-1">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <div class="nc-live-region" data-nc-live role="status" aria-live="polite" aria-atomic="true"></div>
+    <script src="{% static 'console/vendor/tabler/1.4.0/tabler.min.js' %}"></script>
+    <script src="{% static 'console/lucide.min.js' %}"></script>
+    <script src="{% static 'console/v2/shell.js' %}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

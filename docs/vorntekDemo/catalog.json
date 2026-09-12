@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "demoOnly": true,
+  "brand": {
+    "name": "Vorntek",
+    "wordmark": "VORNTEK",
+    "nameZhDraft": "沃恩泰克",
+    "companyName": "Vorntek Industrial Technologies Co., Ltd.",
+    "companyNameZh": "沃恩泰克工业技术有限公司",
+    "country": "China",
+    "regionFictional": "Jiangsu",
+    "contactPlaceholder": "inquiries@vorntek.example",
+    "allowExternalDelivery": false,
+    "tagline": "Sense. Control. Understand.",
+    "taglineZh": "让工业设备可感知、可控制、可分析。",
+    "logoAsset": "assets/vorntekLogo.png"
+  },
+  "businessGroups": [
+    {"id": "industrialControl", "name": "Industrial Control", "nameZh": "工业控制"},
+    {"id": "industrialSensing", "name": "Industrial Sensing", "nameZh": "工业传感"},
+    {"id": "thermalAndPropulsion", "name": "Thermal & Compact Propulsion", "nameZh": "热能与动力"},
+    {"id": "industrialData", "name": "Industrial Data", "nameZh": "工业软件"}
+  ],
+  "productLines": [
+    {"id": "circulatingWaterControl", "groupId": "industrialControl", "name": "Circulating Water Control Systems", "nameZh": "循环水控制系统", "asset": "assets/vorntekPumpSkid.png", "inquiryTopics": ["application", "existingEquipment", "controlNeeds"], "status": "fictionalConcept"},
+    {"id": "liquidControl", "groupId": "industrialControl", "name": "Liquid Control Systems", "nameZh": "液体控制系统", "asset": "assets/vorntekControlCabinet.png", "inquiryTopics": ["liquidMedium", "processStep", "installationEnvironment"], "status": "fictionalConcept"},
+    {"id": "waterQualitySensors", "groupId": "industrialSensing", "name": "Water Quality Sensors", "nameZh": "水质传感器", "asset": "assets/vorntekSensorFamily.png", "assetRole": "sharedFamilyConcept", "inquiryTopics": ["measurementNeed", "samplingEnvironment", "integration"], "status": "fictionalConcept"},
+    {"id": "gasSensors", "groupId": "industrialSensing", "name": "Gas Sensors", "nameZh": "气体传感器", "asset": "assets/vorntekSensorFamily.png", "assetRole": "sharedFamilyConcept", "inquiryTopics": ["targetGas", "installationEnvironment", "safetyCriticalUse"], "status": "fictionalConcept"},
+    {"id": "propaneMicroHeaters", "groupId": "thermalAndPropulsion", "name": "Compact Propane Heaters", "nameZh": "丙烷微型暖气机", "asset": "assets/vorntekMicroHeater.png", "inquiryTopics": ["intendedUse", "installationEnvironment", "destinationMarket"], "status": "fictionalExteriorConcept"},
+    {"id": "smallTurbojetEngines", "groupId": "thermalAndPropulsion", "name": "Small Turbojet Engines", "nameZh": "小型涡轮喷气式发动机", "asset": "assets/vorntekMicroTurbine.png", "inquiryTopics": ["civilianUse", "testFacilities", "projectStage"], "status": "fictionalExteriorConcept"},
+    {"id": "industrialDataAnalysis", "groupId": "industrialData", "name": "Industrial Data Analysis", "nameZh": "工业数据分析", "asset": null, "assetStatus": "interactiveSyntheticDashboardPlanned", "inquiryTopics": ["dataSources", "userRoles", "analysisQuestions", "deploymentPreference"], "status": "fictionalService"}
+  ],
+  "contentDisclosure": {
+    "zh": "Vorntek为虚构演示企业，图片由AI生成，不构成实物、性能、认证或供货承诺。",
+    "en": "Vorntek is a fictional demonstration company. AI-generated imagery does not establish product availability, performance or certification."
+  }
+}

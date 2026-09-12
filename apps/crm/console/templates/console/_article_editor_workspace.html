@@ -1,0 +1,358 @@
+<section class="editor-shell article-editor-shell">
+    <form method="post" enctype="multipart/form-data" class="editor-layout article-editor-layout">
+        {% csrf_token %}
+
+        <div class="editor-main">
+            {% if editor_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in editor_form.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card article-editor-basics">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>文章基础信息</h2>
+                        <p>先确定标题、路径、摘要、分类和状态，再补正文与 SEO。高频字段放在最前面。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">文章标题</span>
+                        {{ editor_form.title }}
+                        {% for error in editor_form.title.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">路径别名</span>
+                        {{ editor_form.slug }}
+                        <small class="field-help">访问路径：{{ editor_path }}</small>
+                        {% for error in editor_form.slug.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <div class="field-grid cols-3 article-editor-routing-grid">
+                    <div class="field field-block">
+                        <span class="field-label">文章分类</span>
+                        <input
+                            type="hidden"
+                            name="{{ editor_form.category.html_name }}"
+                            id="{{ editor_form.category.id_for_label }}"
+                            value="{% if selected_category_id %}{{ selected_category_id }}{% endif %}"
+                        >
+                        <div class="field-grid cols-3 article-category-picker" id="articleCategoryPicker">
+                            <label class="field field-block">
+                                <span class="field-label">一级分类</span>
+                                <select id="categoryLevel1">
+                                    <option value="">请选择一级分类</option>
+                                </select>
+                            </label>
+                            <label class="field field-block">
+                                <span class="field-label">二级分类</span>
+                                <select id="categoryLevel2">
+                                    <option value="">无</option>
+                                </select>
+                            </label>
+                            <label class="field field-block">
+                                <span class="field-label">三级分类</span>
+                                <select id="categoryLevel3">
+                                    <option value="">无</option>
+                                </select>
+                            </label>
+                        </div>
+                        <small class="field-help">语言是外层范围；文章实际挂到分类树中的一级、二级或三级节点。</small>
+                        {% for error in editor_form.category.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <label class="field field-block">
+                        <span class="field-label">状态</span>
+                        {{ editor_form.status }}
+                        {% for error in editor_form.status.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">发布时间</span>
+                        {{ editor_form.published_at }}
+                        {% for error in editor_form.published_at.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <label class="field field-block article-editor-excerpt">
+                    <span class="field-label">摘要</span>
+                    {{ editor_form.excerpt }}
+                    <small class="field-help">用于文章列表、摘要卡片和页面描述的基础文案。</small>
+                    {% for error in editor_form.excerpt.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+
+            <section class="editor-card article-editor-body">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>正文与导入</h2>
+                        <p>正文统一使用 Markdown。可以直接编辑，也可以导入 <code>.md / .markdown / .txt</code> 文件覆盖正文。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">正文（Markdown）</span>
+                    {{ editor_form.body_markdown }}
+                    {% for error in editor_form.body_markdown.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <label class="field field-block">
+                    <span class="field-label">导入正文文件</span>
+                    {{ editor_form.content_file }}
+                    <small class="field-help">只支持 md、markdown、txt。上传后会覆盖上面的正文。</small>
+                    {% for error in editor_form.content_file.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>封面与展示信息</h2>
+                        {% if canReadAssets %}
+                            <p>优先从资产库选择封面图，保持前端引用路径稳定，避免运营手填临时链接。</p>
+                        {% else %}
+                            <p>当前账号不能浏览资产库；可填写已经确认可公开访问的封面图地址。</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-grid cols-2">
+                    {% if editor_form.cover_asset %}
+                        <label class="field field-block">
+                            <span class="field-label">资产库封面图</span>
+                            {{ editor_form.cover_asset }}
+                            {% for error in editor_form.cover_asset.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </label>
+                    {% endif %}
+                    <label class="field field-block">
+                        <span class="field-label">封面图地址</span>
+                        {{ editor_form.cover_image_url }}
+                        {% if canReadAssets %}<small class="field-help">如果已经从资产库选择，这里会自动写入公开地址。</small>{% endif %}
+                        {% for error in editor_form.cover_image_url.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">作者</span>
+                        {{ editor_form.author_name }}
+                        {% for error in editor_form.author_name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">阅读分钟</span>
+                        {{ editor_form.reading_minutes }}
+                        {% for error in editor_form.reading_minutes.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>SEO 与社媒信息</h2>
+                        <p>页面描述、社媒分享字段和搜索引擎指令都在这里维护，不需要改模板代码。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">页面描述</span>
+                    {{ editor_form.meta_description }}
+                    {% for error in editor_form.meta_description.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">社媒分享标题</span>
+                        {{ editor_form.og_title }}
+                        {% for error in editor_form.og_title.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">社媒分享图片</span>
+                        {{ editor_form.og_image_url }}
+                        {% for error in editor_form.og_image_url.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">社媒分享描述</span>
+                    {{ editor_form.og_description }}
+                    {% for error in editor_form.og_description.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <label class="field field-block">
+                    <span class="field-label">搜索引擎指令</span>
+                    {{ editor_form.robots }}
+                    {% for error in editor_form.robots.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card article-editor-actions">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>操作</h2>
+                        <p>完成编辑后保存；预览会在新窗口打开前台页面。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">保存文章</button>
+                    {% if preview_url %}
+                        <a href="{{ preview_url }}" target="_blank" rel="noreferrer" class="button neutral">预览文章</a>
+                    {% endif %}
+                    <a href="{% url 'console:articles' %}?locale={{ editor_locale.locale_code }}" class="button neutral">返回文章列表</a>
+                </div>
+            </section>
+
+            <details class="editor-card side-card editor-disclosure article-editor-tools">
+                <summary>
+                    <div>
+                        <h2>相关工具</h2>
+                        <p>分类、导入导出{% if canReadAssets %}与资产管理{% endif %}。</p>
+                    </div>
+                </summary>
+                <div class="editor-disclosure-body">
+                    <div class="side-actions article-editor-secondary-actions">
+                        <a href="{% url 'console:article_categories' %}?locale={{ editor_locale.locale_code }}" class="button neutral">管理分类</a>
+                        <a href="{% url 'console:article_import' %}?locale={{ editor_locale.locale_code }}" class="button neutral">批量导入</a>
+                        <a href="{% url 'console:article_export' %}?locale={{ editor_locale.locale_code }}" class="button neutral">批量导出</a>
+                        {% if canReadAssets %}<a href="{% url 'console:assets' %}" class="button neutral">查看资产库</a>{% endif %}
+                        {% if canWriteAssets %}<a href="{% url 'console:asset_upload' %}" class="button neutral">上传新资产</a>{% endif %}
+                    </div>
+                </div>
+            </details>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>当前路径</h2>
+                        <p>发布语言、访问路径和更新时间。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item">
+                        <span>语言</span>
+                        <strong>{{ editor_locale.label }} ({{ editor_locale.locale_code }})</strong>
+                    </div>
+                    <div class="meta-item">
+                        <span>访问路径</span>
+                        <strong class="mono">{{ editor_path }}</strong>
+                    </div>
+                    <div class="meta-item">
+                        <span>编辑模式</span>
+                        <strong>{% if editor_mode == 'create' %}新建文章{% else %}编辑现有文章{% endif %}</strong>
+                    </div>
+                    {% if article %}
+                        <div class="meta-item">
+                            <span>文章 ID</span>
+                            <strong>{{ article.id }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>最后更新</span>
+                            <strong>{{ article.updated_at|date:"Y-m-d H:i" }}</strong>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <details class="editor-card side-card editor-disclosure article-editor-notes">
+                <summary>
+                    <div>
+                        <h2>编辑说明</h2>
+                        <p>正文格式、封面和内容范围。</p>
+                    </div>
+                </summary>
+                <div class="editor-disclosure-body">
+                    <ul class="hint-list">
+                        <li>正文统一使用 Markdown。</li>
+                        {% if canReadAssets %}<li>封面优先选择资产库图片。</li>{% endif %}
+                        <li>保存后先生成预览，再由受控部署流程更新生产前台。</li>
+                    </ul>
+                </div>
+            </details>
+        </aside>
+
+        <div class="editor-mobile-actions">
+            <a href="{% url 'console:articles' %}?locale={{ editor_locale.locale_code }}" class="button neutral">返回</a>
+            <button type="submit" class="button primary">保存文章</button>
+        </div>
+    </form>
+</section>
+
+{{ category_tree|json_script:"article-category-tree" }}
+<script>
+    (function () {
+        const treeNode = document.getElementById('article-category-tree');
+        const hiddenField = document.getElementById('{{ editor_form.category.id_for_label }}');
+        const level1 = document.getElementById('categoryLevel1');
+        const level2 = document.getElementById('categoryLevel2');
+        const level3 = document.getElementById('categoryLevel3');
+        if (!treeNode || !hiddenField || !level1 || !level2 || !level3) {
+            return;
+        }
+
+        const tree = JSON.parse(treeNode.textContent || '[]');
+        const selectedId = hiddenField.value ? Number(hiddenField.value) : null;
+
+        function fillSelect(select, items, placeholder) {
+            select.innerHTML = '';
+            const empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = placeholder;
+            select.appendChild(empty);
+            items.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.name;
+                select.appendChild(option);
+            });
+            select.disabled = items.length === 0;
+        }
+
+        function findPath(items, targetId, path) {
+            for (const item of items) {
+                const next = path.concat(item);
+                if (item.id === targetId) {
+                    return next;
+                }
+                const childPath = findPath(item.children || [], targetId, next);
+                if (childPath.length) {
+                    return childPath;
+                }
+            }
+            return [];
+        }
+
+        function syncHidden() {
+            hiddenField.value = level3.value || level2.value || level1.value || '';
+        }
+
+        function populateLevel3(parentId, childId) {
+            const level1Node = tree.find((item) => String(item.id) === String(level1.value));
+            const level2Node = (level1Node?.children || []).find((item) => String(item.id) === String(parentId));
+            const children = level2Node ? (level2Node.children || []) : [];
+            fillSelect(level3, children, '无');
+            level3.value = childId ? String(childId) : '';
+            syncHidden();
+        }
+
+        function populateLevel2(parentId, childId, grandChildId) {
+            const parent = tree.find((item) => String(item.id) === String(parentId));
+            const children = parent ? (parent.children || []) : [];
+            fillSelect(level2, children, '无');
+            level2.value = childId ? String(childId) : '';
+            populateLevel3(level2.value, grandChildId);
+        }
+
+        fillSelect(level1, tree, '请选择一级分类');
+
+        if (selectedId) {
+            const path = findPath(tree, selectedId, []);
+            if (path[0]) {
+                level1.value = String(path[0].id);
+                populateLevel2(path[0].id, path[1]?.id, path[2]?.id);
+            } else {
+                populateLevel2('', '', '');
+            }
+        } else {
+            populateLevel2('', '', '');
+        }
+
+        level1.addEventListener('change', () => populateLevel2(level1.value, '', ''));
+        level2.addEventListener('change', () => populateLevel3(level2.value, ''));
+        level3.addEventListener('change', syncHidden);
+        syncHidden();
+    })();
+</script>

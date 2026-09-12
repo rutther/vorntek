@@ -1,0 +1,311 @@
+.nc-account-workspace,
+.nc-account-detail {
+    width: 100%;
+    min-width: 0;
+}
+
+.nc-account-detail {
+    padding-inline: .5rem;
+}
+
+.nc-account-hero,
+.nc-account-detail-header {
+    padding: .25rem 0 1rem;
+}
+
+.nc-account-eyebrow {
+    margin: 0 0 .35rem;
+    color: var(--tblr-primary);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.nc-account-filter-card {
+    margin-bottom: 1rem;
+}
+
+.nc-account-filter-grid {
+    display: grid;
+    grid-template-columns: minmax(15rem, 2fr) repeat(4, minmax(8.5rem, 1fr)) minmax(7rem, .7fr) auto;
+    gap: .75rem;
+    align-items: end;
+}
+
+.nc-account-filter-search {
+    min-width: 0;
+}
+
+.nc-account-filter-actions {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    padding-bottom: .02rem;
+}
+
+.nc-account-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-top: .8rem;
+    padding-top: .8rem;
+    border-top: 1px solid var(--tblr-border-color);
+}
+
+.nc-account-filter-chips a {
+    display: inline-flex;
+    gap: .25rem;
+    align-items: center;
+    text-decoration: none;
+}
+
+.nc-account-filter-chips svg {
+    width: .8rem;
+    height: .8rem;
+}
+
+.nc-account-table-card {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.nc-account-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.nc-account-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.nc-account-table th,
+.nc-account-table td {
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+}
+
+.nc-account-table th:first-child,
+.nc-account-table td:first-child {
+    width: 16%;
+}
+
+.nc-account-table th:nth-child(4),
+.nc-account-table td:nth-child(4) {
+    width: 15%;
+}
+
+.nc-account-table th:nth-child(5),
+.nc-account-table td:nth-child(5) {
+    width: 14%;
+}
+
+.nc-account-table th:nth-child(6),
+.nc-account-table td:nth-child(6) {
+    width: 14%;
+}
+
+.nc-account-table th:last-child,
+.nc-account-table td:last-child {
+    width: 9%;
+}
+
+.nc-account-primary-link {
+    display: inline-block;
+    max-width: 100%;
+    color: var(--tblr-body-color);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.nc-account-primary-link:hover {
+    color: var(--tblr-primary);
+}
+
+.nc-account-relation-links,
+.nc-account-channel-stack {
+    display: grid;
+    gap: .25rem;
+}
+
+.nc-account-channel-stack span {
+    display: flex;
+    gap: .35rem;
+    align-items: flex-start;
+    min-width: 0;
+    color: var(--tblr-secondary-color);
+    font-size: .78rem;
+    overflow-wrap: anywhere;
+}
+
+.nc-account-channel-stack svg {
+    width: .85rem;
+    height: .85rem;
+    flex: 0 0 auto;
+    margin-top: .12rem;
+}
+
+.nc-account-pagination {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.nc-account-empty,
+.nc-account-state-card .card-body {
+    display: flex;
+    min-height: 16rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+}
+
+.nc-account-empty h3,
+.nc-account-state-card h1,
+.nc-account-state-card h2 {
+    margin: .9rem 0 .35rem;
+}
+
+.nc-account-empty p,
+.nc-account-state-card p {
+    max-width: 38rem;
+    color: var(--tblr-secondary-color);
+}
+
+.nc-account-facts {
+    display: grid;
+    gap: 0;
+    margin: 0;
+}
+
+.nc-account-facts > div {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, .8fr) minmax(0, 1.5fr);
+    gap: .75rem;
+    padding: .65rem 0;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.nc-account-facts > div:last-child {
+    border-bottom: 0;
+}
+
+.nc-account-facts dt {
+    color: var(--tblr-secondary-color);
+    font-weight: 500;
+}
+
+.nc-account-facts dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.nc-account-notes {
+    margin: 0;
+    color: var(--tblr-secondary-color);
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+
+.nc-account-relation-list {
+    max-height: 23rem;
+    overflow-y: auto;
+}
+
+.nc-account-inline-empty {
+    padding: 1.4rem;
+    color: var(--tblr-secondary-color);
+    text-align: center;
+}
+
+.nc-account-timeline .list-group-item {
+    padding-block: 1rem;
+}
+
+.nc-account-timeline p {
+    max-width: 70ch;
+    white-space: pre-line;
+}
+
+.nc-account-company-results {
+    max-height: 15rem;
+    margin-top: .4rem;
+    overflow-y: auto;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--tblr-border-radius);
+}
+
+.nc-account-company-results .list-group-item {
+    text-align: left;
+}
+
+.nc-account-company-results .list-group-item small {
+    display: block;
+    color: var(--tblr-secondary-color);
+}
+
+[data-nc-account-workspace][aria-busy="true"] [data-nc-account-results] {
+    opacity: .62;
+}
+
+@media (max-width: 1399.98px) {
+    .nc-account-filter-grid {
+        grid-template-columns: minmax(15rem, 2fr) repeat(3, minmax(8rem, 1fr));
+    }
+
+    .nc-account-filter-actions {
+        grid-column: auto / span 1;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .nc-account-filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .nc-account-filter-search {
+        grid-column: 1 / -1;
+    }
+
+    .nc-account-table {
+        min-width: 58rem;
+        table-layout: auto;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .nc-account-filter-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .nc-account-filter-search,
+    .nc-account-filter-actions {
+        grid-column: auto;
+    }
+
+    .nc-account-filter-actions > * {
+        flex: 1;
+    }
+
+    .nc-account-pagination {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .nc-account-facts > div {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .2rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nc-account-table-card,
+    .nc-account-company-results {
+        scroll-behavior: auto;
+    }
+}

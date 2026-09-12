@@ -1,0 +1,134 @@
+<section class="editor-shell system-editor-shell">
+    {% if one_time_credentials %}
+        <section class="credential-receipt" data-credential-receipt aria-labelledby="credential-receipt-title">
+            <div class="credential-receipt-head">
+                <div>
+                    <span class="credential-kicker">ONE-TIME CREDENTIALS</span>
+                    <h2 id="credential-receipt-title">{{ one_time_credentials.action }}</h2>
+                    <p>请现在复制并安全交付。密码只在本次结果页显示，刷新或离开后无法再查看。</p>
+                </div>
+                <button type="button" class="button neutral compact" data-credential-dismiss>我已保存，隐藏</button>
+            </div>
+            <dl class="credential-values">
+                <div>
+                    <dt>登录名</dt>
+                    <dd><code data-credential-username>{{ one_time_credentials.username }}</code><button type="button" class="button neutral compact" data-copy-credential="username">复制</button></dd>
+                </div>
+                <div>
+                    <dt>临时密码</dt>
+                    <dd><code data-credential-password>{{ one_time_credentials.password }}</code><button type="button" class="button neutral compact" data-copy-credential="password">复制</button></dd>
+                </div>
+            </dl>
+            <button type="button" class="button primary" data-copy-credential="all">复制账号和密码</button>
+            <p class="credential-warning">系统只保存不可逆密码哈希；管理员无法恢复旧密码，但可随时在下方重置。
+            </p>
+            <div class="credential-copy-status" data-copy-status role="status" aria-live="polite"></div>
+        </section>
+    {% endif %}
+    <form method="post" action="{{ system_user_form_action }}" class="editor-layout" novalidate>
+        {% csrf_token %}
+        {{ system_user_form.version }}
+
+        <div class="editor-main">
+            {% if system_user_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in system_user_form.non_field_errors %}<div class="field-error system-form-alert">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div><h2>账号信息</h2></div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ system_user_form.username.label }}</span>
+                        {{ system_user_form.username }}
+                        {% if system_user_form.username.help_text %}<small class="field-help">{{ system_user_form.username.help_text }}</small>{% endif %}
+                        {% for error in system_user_form.username.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ system_user_form.email.label }}</span>
+                        {{ system_user_form.email }}
+                        {% for error in system_user_form.email.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ system_user_form.first_name.label }}</span>
+                        {{ system_user_form.first_name }}
+                        {% for error in system_user_form.first_name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ system_user_form.last_name.label }}</span>
+                        {{ system_user_form.last_name }}
+                        {% for error in system_user_form.last_name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <label class="field field-block checkbox-field">
+                    <span class="field-label">{{ system_user_form.is_active.label }}</span>
+                    <span class="checkbox-inline">{{ system_user_form.is_active }} 允许该账号登录后台</span>
+                    {% for error in system_user_form.is_active.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div><h2>访问范围</h2></div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ system_user_form.role.label }}</span>
+                    {{ system_user_form.role }}
+                    {% for error in system_user_form.role.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <div class="field field-block">
+                    <span class="field-label">{{ system_user_form.teams.label }}</span>
+                    <div class="system-team-options">{{ system_user_form.teams }}</div>
+                    {% if system_user_form.teams.help_text %}<small class="field-help">{{ system_user_form.teams.help_text }}</small>{% endif %}
+                    {% for error in system_user_form.teams.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div><h2>{% if editor_mode == 'create' %}初始密码{% else %}重置密码{% endif %}</h2></div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ system_user_form.new_password.label }}</span>
+                        <span class="password-control">{{ system_user_form.new_password }}<button type="button" class="password-toggle" data-password-toggle aria-label="显示新密码">显示</button></span>
+                        {% if system_user_form.new_password.help_text %}<small class="field-help">{{ system_user_form.new_password.help_text }}</small>{% endif %}
+                        {% for error in system_user_form.new_password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ system_user_form.confirm_password.label }}</span>
+                        <span class="password-control">{{ system_user_form.confirm_password }}<button type="button" class="password-toggle" data-password-toggle aria-label="显示确认密码">显示</button></span>
+                        {% for error in system_user_form.confirm_password.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head"><div><h2>操作</h2></div></div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">{% if editor_mode == 'create' %}创建账号{% else %}保存账号{% endif %}</button>
+                    <a href="{% url 'console:system_users' %}" class="button neutral">返回用户列表</a>
+                </div>
+            </section>
+
+            {% if edited_user %}
+                <section class="editor-card side-card">
+                    <div class="editor-card-head"><div><h2>账号状态</h2></div></div>
+                    <div class="meta-list">
+                        <div class="meta-item"><span>主角色</span><strong>{{ edited_user_role_label }}</strong></div>
+                        <div class="meta-item"><span>最近登录</span><strong>{{ edited_user_last_login }}</strong></div>
+                        <div class="meta-item"><span>密码</span><strong>{% if edited_user.has_usable_password %}已设置{% else %}不可用{% endif %}</strong></div>
+                        <div class="meta-item"><span>账号类型</span><strong>{% if edited_user.is_superuser %}Django 超级用户{% else %}控制台用户{% endif %}</strong></div>
+                    </div>
+                </section>
+            {% endif %}
+        </aside>
+    </form>
+</section>

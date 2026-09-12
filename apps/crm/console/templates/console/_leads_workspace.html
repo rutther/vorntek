@@ -1,0 +1,359 @@
+<section class="leadspace">
+    <header class="leadspace-head">
+        <nav class="leadspace-tabs" aria-label="线索模块">
+            {% for tab in leads_workspace.tabs %}
+                <a class="leadspace-tab{% if tab.active %} is-active{% endif %}" href="{{ tab.href }}">
+                    <span>{{ tab.label }}</span>
+                    <strong>{{ tab.count }}</strong>
+                </a>
+            {% endfor %}
+        </nav>
+        <div class="leadspace-actions">
+            {% if leads_workspace.active_tab == 'forms' %}
+                <a class="button primary" href="{{ leads_workspace.panel_links.new_form }}">新建表单</a>
+                <a class="button neutral" href="{{ leads_workspace.panel_links.smtp }}">邮件通知</a>
+            {% elif leads_workspace.active_tab == 'outbox' %}
+                <form method="post" action="{{ leads_workspace.panel_links.retry_pending }}" class="inline-form">
+                    {% csrf_token %}
+                    <button type="submit" class="button primary">重试待处理回传</button>
+                </form>
+                <a class="button neutral" href="{{ leads_workspace.panel_links.marketing }}">营销接入</a>
+                <a class="button neutral" href="{{ leads_workspace.panel_links.smtp }}">邮件通知</a>
+            {% else %}
+                <a class="button primary button-with-icon" href="{{ leads_workspace.export_links.xlsx }}"><i data-lucide="file-spreadsheet"></i><span>导出 XLSX</span></a>
+                <a class="button neutral button-with-icon" href="{{ leads_workspace.export_links.csv }}"><i data-lucide="download"></i><span>CSV</span></a>
+                {% if leads_workspace.panel_links.marketing %}
+                    <a class="button neutral" href="{{ leads_workspace.panel_links.marketing }}">营销接入</a>
+                {% endif %}
+                {% if leads_workspace.panel_links.smtp %}
+                    <a class="button neutral" href="{{ leads_workspace.panel_links.smtp }}">邮件通知</a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </header>
+
+    {% for alert in leads_workspace.alerts %}
+        <section class="leadspace-alert is-{{ alert.tone }}" role="status">{{ alert.text }}</section>
+    {% endfor %}
+
+    <section class="leadspace-summary">
+        {% for item in leads_workspace.summary %}
+            {% if item.href %}<a class="leadspace-metric{% if item.tone %} is-{{ item.tone }}{% endif %}" href="{{ item.href }}">{% else %}<article class="leadspace-metric{% if item.tone %} is-{{ item.tone }}{% endif %}">{% endif %}
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+            {% if item.href %}</a>{% else %}</article>{% endif %}
+        {% endfor %}
+    </section>
+
+    <form method="get" class="leadspace-filters">
+        <input type="hidden" name="tab" value="{{ leads_workspace.active_tab }}">
+        {% if leads_workspace.current_locale %}
+            <input type="hidden" name="locale" value="{{ leads_workspace.current_locale.locale_code }}">
+        {% endif %}
+        <input type="hidden" name="page_size" value="{{ leads_workspace.table.page.page_size }}">
+        {% for field in leads_workspace.filters.fields %}
+            <label class="field field-block">
+                <span class="field-label">{{ field.label }}</span>
+                <select name="{{ field.name }}">
+                    {% for option in field.options %}
+                        <option value="{{ option.value }}"{% if option.value == field.value %} selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        {% endfor %}
+        <label class="field field-block leadspace-search">
+            <span class="field-label">搜索</span>
+            <input type="search" name="q" value="{{ leads_workspace.filters.search }}" placeholder="搜索姓名、邮箱、电话、公司、表单代码或错误信息">
+        </label>
+        <div class="leadspace-filter-actions">
+            <button type="submit" class="button primary button-with-icon"><i data-lucide="filter"></i><span>筛选</span></button>
+            <a class="icon-button" href="{{ leads_workspace.filters.clear_href }}" aria-label="清空筛选" title="清空筛选"><i data-lucide="rotate-ccw"></i></a>
+        </div>
+    </form>
+
+    {% if leads_workspace.active_tab == 'submissions' and leads_workspace.bulk %}
+        <form method="post" action="{{ leads_workspace.bulk.action }}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ leads_workspace.bulk.next_href }}">
+            <section class="leadspace-bulkbar">
+                <span>已选线索将统一推进到指定阶段。</span>
+                <select name="bulk_stage">
+                    {% for option in leads_workspace.bulk.stage_options %}
+                        <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="button primary">批量执行</button>
+            </section>
+            <section class="leadspace-table-shell">
+                <div class="leadspace-table-scroll">
+        {% else %}
+            <section class="leadspace-table-shell">
+                <div class="leadspace-table-scroll">
+        {% endif %}
+            <table class="leadspace-table leadspace-table-{{ leads_workspace.table.kind }}" data-resizable-table="{{ leads_workspace.table.kind }}">
+                <colgroup>
+                    {% if leads_workspace.table.kind == 'submissions' and leads_workspace.can_operate_sales %}<col class="leadspace-check-col">{% endif %}
+                    {% for column in leads_workspace.table.columns %}<col data-column-key="{{ leads_workspace.table.kind }}-{{ forloop.counter0 }}">{% endfor %}
+                </colgroup>
+                <thead>
+                    <tr>
+                        {% if leads_workspace.table.kind == 'submissions' and leads_workspace.can_operate_sales %}
+                            <th class="leadspace-check-col">
+                                <input type="checkbox" id="lead-check-all">
+                            </th>
+                        {% endif %}
+                        {% for column in leads_workspace.table.columns %}
+                            <th class="leadspace-resizable{% if column == '操作' %} is-actions{% endif %}" data-column-key="{{ leads_workspace.table.kind }}-{{ forloop.counter0 }}">
+                                <span>{{ column }}</span>
+                                {% if column != '操作' %}<button class="leadspace-resize-handle" type="button" aria-label="调整{{ column }}列宽" title="拖动调整列宽"></button>{% endif %}
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in leads_workspace.table.rows %}
+                        <tr>
+                            {% if leads_workspace.table.kind == 'submissions' and leads_workspace.can_operate_sales %}
+                                <td class="leadspace-check-col">
+                                    <input type="checkbox" name="submission_ids" value="{{ row.id }}" class="lead-row-check">
+                                </td>
+                            {% endif %}
+                            {% if leads_workspace.table.kind == 'submissions' %}
+                                <td class="leadspace-col-title">
+                                    <div class="leadspace-title">
+                                        <strong>{{ row.title }}</strong>
+                                        <span>{{ row.subtitle }}</span>
+                                        <small>{{ row.locale }} / {{ row.form }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge {{ row.source.tone }}">{{ row.source.label }}</span>
+                                    {% if row.source_detail %}<small class="leadspace-cell-note">{{ row.source_detail }}</small>{% endif %}
+                                </td>
+                                <td>{{ row.assignee }}</td>
+                                <td><span class="badge {{ row.stage.tone }}">{{ row.stage.label }}</span></td>
+                                <td>{{ row.contact }}</td>
+                                <td>
+                                    <span{% if row.overdue %} class="leadspace-overdue"{% endif %}>{{ row.next_follow_up }}</span>
+                                    {% if row.notification.tone == 'red' %}<small class="leadspace-cell-note is-error">邮件通知失败</small>{% endif %}
+                                </td>
+                                <td>{{ row.updated_at }}</td>
+                            {% elif leads_workspace.table.kind == 'forms' %}
+                                <td class="leadspace-col-title">
+                                    <div class="leadspace-title">
+                                        <strong>{{ row.title }}</strong>
+                                        <span>{{ row.subtitle }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ row.locale }}</td>
+                                <td>{{ row.channel }}</td>
+                                <td class="mono">{{ row.scope }}</td>
+                                <td><span class="badge {{ row.capi.tone }}">{{ row.capi.label }}</span></td>
+                                <td><span class="badge {{ row.status.tone }}">{{ row.status.label }}</span></td>
+                                <td>{{ row.updated_at }}</td>
+                            {% else %}
+                                <td class="leadspace-col-title">
+                                    <div class="leadspace-title">
+                                        <strong>{{ row.title }}</strong>
+                                        <span>{{ row.subtitle }}</span>
+                                        {% if row.error %}
+                                            <em>{{ row.error }}</em>
+                                        {% endif %}
+                                        {% if row.note %}
+                                            <small>{{ row.note }}</small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>{{ row.provider }}</td>
+                                <td><span class="badge {{ row.stage.tone }}">{{ row.stage.label }}</span></td>
+                                <td><span class="badge {{ row.status.tone }}">{{ row.status.label }}</span></td>
+                                <td>{{ row.attempts }}</td>
+                                <td>{{ row.updated_at }}</td>
+                            {% endif %}
+                            {% if leads_workspace.table.kind != 'submissions' or leads_workspace.can_operate_sales %}<td class="is-actions">
+                                <div class="leadspace-row-actions">
+                                    {% for action in row.actions %}
+                                        {% if action.post_href %}
+                                            <form method="post" action="{{ action.post_href }}" class="inline-form">
+                                                {% csrf_token %}
+                                                <button type="submit" class="button neutral">{{ action.label }}</button>
+                                            </form>
+                                        {% else %}
+                                            <a class="button neutral" href="{{ action.href }}"{% if action.external %} target="_blank" rel="noreferrer"{% endif %}>{{ action.label }}</a>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>{% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="{% if leads_workspace.table.kind == 'submissions' and leads_workspace.can_operate_sales %}{{ leads_workspace.table.columns|length|add:'1' }}{% else %}{{ leads_workspace.table.columns|length }}{% endif %}" class="leadspace-empty">{{ leads_workspace.table.empty }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="leadspace-mobile-list">
+            {% for row in leads_workspace.table.rows %}
+                <article class="leadspace-mobile-card">
+                    <header class="leadspace-mobile-card-head">
+                        {% if leads_workspace.table.kind == 'submissions' and leads_workspace.can_operate_sales %}
+                            <label class="leadspace-mobile-check" aria-label="选择 {{ row.title }}">
+                                <input type="checkbox" name="submission_ids" value="{{ row.id }}" class="lead-row-check">
+                            </label>
+                        {% endif %}
+                        <div class="leadspace-title">
+                            <strong>{{ row.title }}</strong>
+                            <span>{{ row.subtitle }}</span>
+                            {% if leads_workspace.table.kind == 'submissions' %}
+                                <small>{{ row.locale }} / {{ row.form }}</small>
+                            {% elif leads_workspace.table.kind == 'forms' %}
+                                <small>{{ row.locale }} / {{ row.channel }}</small>
+                            {% else %}
+                                <small>{{ row.provider }} / {{ row.subtitle }}</small>
+                            {% endif %}
+                        </div>
+                        {% if leads_workspace.table.kind == 'submissions' %}
+                            <span class="badge {{ row.stage.tone }}">{{ row.stage.label }}</span>
+                        {% elif leads_workspace.table.kind == 'forms' %}
+                            <span class="badge {{ row.status.tone }}">{{ row.status.label }}</span>
+                        {% else %}
+                            <span class="badge {{ row.status.tone }}">{{ row.status.label }}</span>
+                        {% endif %}
+                    </header>
+
+                    <dl class="leadspace-mobile-facts">
+                        {% if leads_workspace.table.kind == 'submissions' %}
+                            <div><dt>来源</dt><dd><span class="badge {{ row.source.tone }}">{{ row.source.label }}</span>{% if row.source_detail %}<small>{{ row.source_detail }}</small>{% endif %}</dd></div>
+                            <div><dt>负责人</dt><dd>{{ row.assignee }}</dd></div>
+                            <div><dt>联系方式</dt><dd>{{ row.contact }}</dd></div>
+                            <div><dt>下次跟进</dt><dd{% if row.overdue %} class="leadspace-overdue"{% endif %}>{{ row.next_follow_up }}</dd></div>
+                            <div><dt>更新时间</dt><dd>{{ row.updated_at }}</dd></div>
+                            <div><dt>通知</dt><dd><span class="badge {{ row.notification.tone }}">{{ row.notification.label }}</span></dd></div>
+                        {% elif leads_workspace.table.kind == 'forms' %}
+                            <div><dt>适用范围</dt><dd class="mono">{{ row.scope }}</dd></div>
+                            <div><dt>CAPI</dt><dd><span class="badge {{ row.capi.tone }}">{{ row.capi.label }}</span></dd></div>
+                            <div><dt>更新时间</dt><dd>{{ row.updated_at }}</dd></div>
+                        {% else %}
+                            <div><dt>业务阶段</dt><dd><span class="badge {{ row.stage.tone }}">{{ row.stage.label }}</span></dd></div>
+                            <div><dt>发送尝试</dt><dd>{{ row.attempts }}</dd></div>
+                            <div><dt>更新时间</dt><dd>{{ row.updated_at }}</dd></div>
+                            {% if row.error %}<div class="is-wide"><dt>失败原因</dt><dd class="is-error">{{ row.error }}</dd></div>{% endif %}
+                            {% if row.note %}<div class="is-wide"><dt>状态说明</dt><dd>{{ row.note }}</dd></div>{% endif %}
+                        {% endif %}
+                    </dl>
+
+                    {% if leads_workspace.table.kind != 'submissions' or leads_workspace.can_operate_sales %}<div class="leadspace-mobile-actions">
+                        {% for action in row.actions %}
+                            {% if action.post_href %}
+                                <form method="post" action="{{ action.post_href }}" class="inline-form">
+                                    {% csrf_token %}
+                                    <button type="submit" class="button neutral">{{ action.label }}</button>
+                                </form>
+                            {% else %}
+                                <a class="button neutral" href="{{ action.href }}"{% if action.external %} target="_blank" rel="noreferrer"{% endif %}>{{ action.label }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>{% endif %}
+                </article>
+            {% empty %}
+                <div class="leadspace-empty">{{ leads_workspace.table.empty }}</div>
+            {% endfor %}
+        </div>
+        {% if leads_workspace.active_tab == 'submissions' and leads_workspace.bulk %}
+            </section>
+        </form>
+        {% else %}
+            </section>
+        {% endif %}
+
+    <footer class="leadspace-pagination">
+        <div class="leadspace-page-summary">
+            <strong>{{ leads_workspace.table.page.label }}</strong>
+            <span>{{ leads_workspace.table.page.range_label }}</span>
+            <form method="get" class="leadspace-page-size">
+                {% for param in leads_workspace.table.page.preserved_params %}
+                    <input type="hidden" name="{{ param.name }}" value="{{ param.value }}">
+                {% endfor %}
+                <label for="lead-page-size">每页</label>
+                <select id="lead-page-size" name="page_size" onchange="this.form.submit()">
+                    {% for option in leads_workspace.table.page.page_size_options %}
+                        <option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.value }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="leadspace-pagination-actions">
+            {% if leads_workspace.table.page.prev_href %}
+                <a class="icon-button" href="{{ leads_workspace.table.page.prev_href }}" aria-label="上一页" title="上一页"><i data-lucide="chevron-left"></i></a>
+            {% endif %}
+            {% for item in leads_workspace.table.page.pages %}
+                {% if item.ellipsis %}
+                    <span class="leadspace-page-ellipsis">{{ item.label }}</span>
+                {% elif item.active %}
+                    <span class="leadspace-page-number is-active" aria-current="page">{{ item.label }}</span>
+                {% else %}
+                    <a class="leadspace-page-number" href="{{ item.href }}">{{ item.label }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if leads_workspace.table.page.next_href %}
+                <a class="icon-button" href="{{ leads_workspace.table.page.next_href }}" aria-label="下一页" title="下一页"><i data-lucide="chevron-right"></i></a>
+            {% endif %}
+        </div>
+    </footer>
+</section>
+
+<script>
+    (function () {
+        const toggle = document.getElementById('lead-check-all');
+        if (!toggle) return;
+        const checks = Array.from(document.querySelectorAll('.lead-row-check'));
+        toggle.addEventListener('change', function () {
+            checks.forEach(function (node) {
+                node.checked = toggle.checked;
+            });
+        });
+    }());
+
+    (function () {
+        const table = document.querySelector('[data-resizable-table]');
+        if (!table || !window.matchMedia('(min-width: 721px)').matches) return;
+        const storageKey = 'new-crown-column-widths:' + table.dataset.resizableTable;
+        let saved = {};
+        try {
+            saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        } catch (_error) {
+            localStorage.removeItem(storageKey);
+        }
+        const columns = Array.from(table.querySelectorAll('col'));
+        table.querySelectorAll('th[data-column-key]').forEach(function (header) {
+            const key = header.dataset.columnKey;
+            const column = columns[header.cellIndex];
+            if (column && saved[key]) column.style.width = saved[key] + 'px';
+            const handle = header.querySelector('.leadspace-resize-handle');
+            if (!handle || !column) return;
+            handle.addEventListener('pointerdown', function (event) {
+                event.preventDefault();
+                const startX = event.clientX;
+                const startWidth = header.getBoundingClientRect().width;
+                document.body.classList.add('is-resizing-column');
+                handle.setPointerCapture(event.pointerId);
+                const move = function (moveEvent) {
+                    const width = Math.max(92, Math.min(520, startWidth + moveEvent.clientX - startX));
+                    column.style.width = width + 'px';
+                    saved[key] = Math.round(width);
+                };
+                const stop = function () {
+                    handle.removeEventListener('pointermove', move);
+                    handle.removeEventListener('pointerup', stop);
+                    handle.removeEventListener('pointercancel', stop);
+                    document.body.classList.remove('is-resizing-column');
+                    localStorage.setItem(storageKey, JSON.stringify(saved));
+                };
+                handle.addEventListener('pointermove', move);
+                handle.addEventListener('pointerup', stop);
+                handle.addEventListener('pointercancel', stop);
+            });
+        });
+    }());
+</script>

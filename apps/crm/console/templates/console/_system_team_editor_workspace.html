@@ -1,0 +1,60 @@
+<section class="editor-shell system-editor-shell">
+    <form method="post" class="editor-layout" novalidate>
+        {% csrf_token %}
+        {{ sales_team_form.version }}
+        <div class="editor-main">
+            {% if sales_team_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in sales_team_form.non_field_errors %}<div class="field-error system-form-alert">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+            <section class="editor-card">
+                <div class="editor-card-head"><div><h2>团队信息</h2></div></div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ sales_team_form.site.label }}</span>
+                        {{ sales_team_form.site }}
+                        {% for error in sales_team_form.site.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ sales_team_form.code.label }}</span>
+                        {{ sales_team_form.code }}
+                        {% if sales_team_form.code.help_text %}<small class="field-help">{{ sales_team_form.code.help_text }}</small>{% endif %}
+                        {% for error in sales_team_form.code.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ sales_team_form.name.label }}</span>
+                    {{ sales_team_form.name }}
+                    {% for error in sales_team_form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <label class="field field-block checkbox-field">
+                    <span class="field-label">{{ sales_team_form.enabled.label }}</span>
+                    <span class="checkbox-inline">{{ sales_team_form.enabled }} 允许该团队参与分配与团队范围访问</span>
+                    {% for error in sales_team_form.enabled.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+        </div>
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head"><div><h2>操作</h2></div></div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">{% if editor_mode == 'create' %}创建团队{% else %}保存团队{% endif %}</button>
+                    <a href="{% url 'console:system_teams' %}" class="button neutral">返回团队列表</a>
+                </div>
+            </section>
+            {% if edited_team %}
+                <section class="editor-card side-card">
+                    <div class="editor-card-head"><div><h2>使用情况</h2></div></div>
+                    <div class="meta-list">
+                        <div class="meta-item"><span>所属站点</span><strong>{{ edited_team.site.name }}</strong></div>
+                        <div class="meta-item"><span>启用成员</span><strong>{{ team_member_count }} 人</strong></div>
+                        <div class="meta-item"><span>未结束线索</span><strong>{{ team_open_lead_count }} 条</strong></div>
+                        <div class="meta-item"><span>可执行任务</span><strong>{{ team_actionable_task_count }} 条</strong></div>
+                        <div class="meta-item"><span>开放销售机会</span><strong>{{ team_open_opportunity_count }} 条</strong></div>
+                    </div>
+                </section>
+            {% endif %}
+        </aside>
+    </form>
+</section>

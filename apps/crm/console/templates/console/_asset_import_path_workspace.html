@@ -1,0 +1,107 @@
+<section class="editor-shell">
+    <form method="post" class="editor-layout">
+        {% csrf_token %}
+
+        <div class="editor-main">
+            {% if asset_path_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in asset_path_form.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>导入现有文件</h2>
+                        <p>把现有磁盘文件复制进受控资产库。适合导入历史图片、客户交付的 3D 模型和已有 PDF。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ asset_path_form.file_path.label }}</span>
+                    {{ asset_path_form.file_path }}
+                    {% if asset_path_form.file_path.help_text %}<small class="field-help">{{ asset_path_form.file_path.help_text }}</small>{% endif %}
+                    {% for error in asset_path_form.file_path.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+                <div class="field-grid cols-1">
+                    <label class="field field-block">
+                        <span class="field-label">{{ asset_path_form.title.label }}</span>
+                        {{ asset_path_form.title }}
+                        {% for error in asset_path_form.title.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ asset_path_form.alt_text.label }}</span>
+                        {{ asset_path_form.alt_text }}
+                        {% for error in asset_path_form.alt_text.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ asset_path_form.caption.label }}</span>
+                        {{ asset_path_form.caption }}
+                        {% for error in asset_path_form.caption.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+
+            {% if imported_asset %}
+                <section class="editor-card">
+                    <div class="editor-card-head">
+                        <div>
+                            <h2>导入结果</h2>
+                            <p>文件已经进入受控资产库，后续前端和文章都应只引用公开路径。</p>
+                        </div>
+                    </div>
+                    <div class="meta-list">
+                        <div class="meta-item">
+                            <span>资产标题</span>
+                            <strong>{{ imported_asset.title|default:imported_asset.original_name }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>公开路径</span>
+                            <strong class="mono">{{ imported_asset.public_path }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>资产类型</span>
+                            <strong>{{ imported_asset.asset_type }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>扩展名</span>
+                            <strong>{{ imported_asset.file_ext }}</strong>
+                        </div>
+                    </div>
+                </section>
+            {% endif %}
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>操作</h2>
+                        <p>导入完成后，程序员和运营都应使用资产库里的公开路径，不再直接引用原始磁盘路径。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">导入资产</button>
+                    <a href="{% url 'console:assets' %}" class="button neutral">返回资产列表</a>
+                    <a href="{% url 'console:asset_upload' %}" class="button neutral">上传新文件</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>支持范围</h2>
+                        <p>首版重点解决稳定存储、公开路径与引用关系，不在这里做在线 3D 编辑器。</p>
+                    </div>
+                </div>
+                <ul class="hint-list">
+                    <li>图片：jpg、jpeg、png、webp</li>
+                    <li>视频：mp4</li>
+                    <li>三维：glb、ply、sog</li>
+                    <li>文档：pdf</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

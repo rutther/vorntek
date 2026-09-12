@@ -1,0 +1,147 @@
+<section class="editor-shell">
+    <form method="post" class="editor-layout">
+        {% csrf_token %}
+
+        <div class="editor-main">
+            {% if category_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in category_form.non_field_errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>分类基础信息</h2>
+                        <p>先确定分类名称、代码、URL 别名和父子层级。这里是文章系统的业务结构，不是技术变量表。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ category_form.name.label }}</span>
+                        {{ category_form.name }}
+                        {% for error in category_form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ category_form.code.label }}</span>
+                        {{ category_form.code }}
+                        {% if category_form.code.help_text %}<small class="field-help">{{ category_form.code.help_text }}</small>{% endif %}
+                        {% for error in category_form.code.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ category_form.slug.label }}</span>
+                        {{ category_form.slug }}
+                        {% if category_form.slug.help_text %}<small class="field-help">{{ category_form.slug.help_text }}</small>{% endif %}
+                        {% for error in category_form.slug.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ category_form.parent.label }}</span>
+                        {{ category_form.parent }}
+                        {% for error in category_form.parent.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <div class="field-grid cols-2">
+                    <label class="field field-block">
+                        <span class="field-label">{{ category_form.status.label }}</span>
+                        {{ category_form.status }}
+                        {% for error in category_form.status.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ category_form.sort_order.label }}</span>
+                        {{ category_form.sort_order }}
+                        {% for error in category_form.sort_order.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ category_form.description.label }}</span>
+                    {{ category_form.description }}
+                    {% for error in category_form.description.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>SEO 信息</h2>
+                        <p>分类页需要独立 title 和 description，方便文章列表页和筛选页做 SEO。</p>
+                    </div>
+                </div>
+                <div class="field-grid cols-1">
+                    <label class="field field-block">
+                        <span class="field-label">{{ category_form.seo_title.label }}</span>
+                        {{ category_form.seo_title }}
+                        {% for error in category_form.seo_title.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                    <label class="field field-block">
+                        <span class="field-label">{{ category_form.seo_description.label }}</span>
+                        {{ category_form.seo_description }}
+                        {% for error in category_form.seo_description.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                </div>
+            </section>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>操作</h2>
+                        <p>分类保存后，文章编辑器就能直接使用这套树形结构。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">保存分类</button>
+                    <a href="{% url 'console:article_categories' %}?locale={{ editor_locale.locale_code }}" class="button neutral">返回分类管理</a>
+                    <a href="{% url 'console:articles' %}?locale={{ editor_locale.locale_code }}" class="button neutral">返回文章列表</a>
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>当前信息</h2>
+                        <p>这里显示当前编辑对象的语言、层级和系统标识。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item">
+                        <span>语言</span>
+                        <strong>{{ editor_locale.label }} ({{ editor_locale.locale_code }})</strong>
+                    </div>
+                    <div class="meta-item">
+                        <span>编辑模式</span>
+                        <strong>{% if editor_mode == 'create' %}新建分类{% else %}编辑现有分类{% endif %}</strong>
+                    </div>
+                    {% if category %}
+                        <div class="meta-item">
+                            <span>分类 ID</span>
+                            <strong>{{ category.id }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>最后更新</span>
+                            <strong>{{ category.updated_at|date:"Y-m-d H:i" }}</strong>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>使用边界</h2>
+                        <p>分类只表达文章结构。语言是外层维度，不要把英语、阿拉伯语做成分类树第一层。</p>
+                    </div>
+                </div>
+                <ul class="hint-list">
+                    <li>一级分类表达真实业务，如 News、Help、Case Study。</li>
+                    <li>子分类表达业务下钻，如 Company News、Industry News。</li>
+                    <li>程序员依赖 code，运营主要看名称和层级。</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

@@ -1,0 +1,39 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+
+{% block title %}{{ workspace.record.subject }} · 活动证据 · {{ brand_name }} 后台{% endblock %}
+{% block body_class %}nc-activity-detail-page{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/v2/tasks.css' %}?v=20260831-1">{% endblock %}
+{% block breadcrumb %}<span>销售</span><i data-lucide="chevron-right" aria-hidden="true"></i><a href="{% url 'console:task_workspace_v2' %}">任务</a><i data-lucide="chevron-right" aria-hidden="true"></i><strong>活动证据</strong>{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 nc-activity-detail" data-nc-task-page data-nc-reload-url="{{ workspace.canonical_url }}">
+    <header class="nc-activity-hero">
+        <div class="min-w-0"><p class="nc-task-eyebrow">不可改写的业务证据</p><div class="d-flex align-items-center flex-wrap gap-2"><h1 class="page-title">{{ workspace.record.subject }}</h1><span class="badge bg-azure-lt text-azure">{{ workspace.record.activity_type_label }}</span><span class="badge bg-secondary-lt text-secondary">{{ workspace.record.direction_label }}</span></div><p class="text-secondary mt-2 mb-0">由 {{ workspace.record.actor }} 记录 · 业务发生于 {{ workspace.record.occurred_label }}</p></div>
+        {% if workspace.can_correct %}<button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#activity-correction-modal" data-nc-modal-trigger="correction"><i data-lucide="message-square-plus" aria-hidden="true"></i>补充更正</button>{% endif %}
+    </header>
+
+    {% if workspace.record.corrects_url %}<div class="alert alert-info" role="status"><i data-lucide="info" aria-hidden="true"></i>这是一条更正活动。<a class="alert-link" href="{{ workspace.record.corrects_url }}">查看被更正的原活动</a></div>{% endif %}
+
+    <section class="row row-cards mb-3" aria-label="活动内容">
+        <div class="col-12 col-xl-8"><article class="card h-100"><div class="card-header"><h2 class="card-title">记录内容</h2></div><div class="card-body"><div class="nc-activity-body">{{ workspace.record.body|linebreaksbr }}</div></div></article></div>
+        <div class="col-12 col-xl-4"><article class="card h-100"><div class="card-header"><h2 class="card-title">证据属性</h2></div><div class="card-body"><dl class="nc-task-facts nc-task-facts-single"><div><dt>活动类型</dt><dd>{{ workspace.record.activity_type_label }}</dd></div><div><dt>方向</dt><dd>{{ workspace.record.direction_label }}</dd></div><div><dt>记录人</dt><dd>{{ workspace.record.actor }}</dd></div><div><dt>发生时间</dt><dd>{{ workspace.record.occurred_label }}</dd></div><div><dt>系统记录时间</dt><dd>{{ workspace.record.created_label }}</dd></div></dl></div></article></div>
+    </section>
+
+    <section class="card mb-3" aria-labelledby="activity-targets-title"><div class="card-header"><div><h2 class="card-title" id="activity-targets-title">关联对象</h2><p class="card-subtitle mt-1">所有非空对象都必须处于同一授权关系范围。</p></div></div><div class="card-body"><div class="nc-task-target-links">{% for target in workspace.record.targets %}<a href="{{ target.href }}"><span>{{ target.kind }}</span><strong>{{ target.label }}</strong><i data-lucide="arrow-up-right" aria-hidden="true"></i></a>{% endfor %}</div></div></section>
+
+    {% if workspace.record.metadata_rows %}<section class="card mb-3" aria-labelledby="activity-metadata-title"><div class="card-header"><div><h2 class="card-title" id="activity-metadata-title">系统上下文</h2><p class="card-subtitle mt-1">仅展示允许安全呈现的结构化字段。</p></div></div><div class="card-body"><dl class="nc-task-facts">{% for item in workspace.record.metadata_rows %}<div><dt>{{ item.label }}</dt><dd>{{ item.value }}</dd></div>{% endfor %}</dl></div></section>{% endif %}
+
+    <section class="card" aria-labelledby="activity-corrections-title"><div class="card-header"><div><h2 class="card-title" id="activity-corrections-title">补充更正</h2><p class="card-subtitle mt-1">原记录不会被覆盖；每次纠错都追加一条新证据。</p></div><span class="badge bg-secondary-lt text-secondary">{{ workspace.corrections|length }}</span></div><div class="nc-task-timeline">{% for item in workspace.corrections %}<a class="nc-task-timeline-item" href="{{ item.detail_url }}"><span class="avatar avatar-sm bg-orange-lt text-orange"><i data-lucide="message-square-warning" aria-hidden="true"></i></span><span class="min-w-0"><strong>{{ item.subject }}</strong><span>{{ item.body }}</span><small>{{ item.actor }} · {{ item.occurred_label }}</small></span><i data-lucide="chevron-right" aria-hidden="true"></i></a>{% empty %}<div class="nc-task-inline-empty"><i data-lucide="badge-check" aria-hidden="true"></i><span>目前没有补充更正。</span></div>{% endfor %}</div></section>
+</div>
+
+{% if workspace.can_correct %}
+<div class="modal fade" id="activity-correction-modal" tabindex="-1" aria-labelledby="activity-correction-title" aria-describedby="activity-correction-description" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form class="modal-content" action="{% url 'console:activity_correction_v2' workspace.record.id %}" method="post" data-nc-task-form="correction" novalidate>{% csrf_token %}<input type="hidden" name="idempotency_token" value="">
+    <div class="modal-header"><div><h2 class="modal-title" id="activity-correction-title">补充更正</h2><p id="activity-correction-description">说明原记录中不准确或缺失的内容。系统会追加内部备注，不会修改原活动。</p></div><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="关闭"></button></div>
+    <div class="modal-body"><div class="alert alert-danger" data-nc-form-error hidden></div><div class="mb-3"><label class="form-label" for="activity-correction-subject">更正主题</label><input class="form-control" id="activity-correction-subject" name="subject" maxlength="240" required value="更正：{{ workspace.record.subject }}"><div class="invalid-feedback" data-error-for="subject"></div></div><div><label class="form-label" for="activity-correction-body">更正内容</label><textarea class="form-control" id="activity-correction-body" name="body" rows="5" maxlength="8000" required></textarea><div class="invalid-feedback" data-error-for="body"></div></div><div class="alert mt-3 mb-0" data-nc-form-status role="status" aria-live="polite" hidden></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost-secondary" type="button" data-bs-dismiss="modal">取消</button><button class="btn btn-primary" type="submit" data-nc-submit><span>追加更正</span></button></div>
+</form></div></div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'console/v2/tasks.js' %}?v=20260831-2"></script>{% endblock %}

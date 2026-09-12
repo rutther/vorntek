@@ -1,0 +1,12 @@
+{
+  "name": "new-crown-admin-assets",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "vendor:tabler": "node scripts/vendor-tabler.mjs"
+  },
+  "devDependencies": {
+    "@tabler/core": "1.4.0"
+  }
+}
