@@ -5,14 +5,15 @@ inquiry capture, customer management, roles, import/export and recovery tooling.
 
 [中文说明](README.zh-CN.md)
 
-**Release candidate — not yet publicly released.** Vorntek now runs on the
+**Public source candidate — no release version yet.** Vorntek now runs on the
 authorized isolated test instance with 200 seeded fictional customers plus one
 synthetic customer converted during sales acceptance. Initial public
 website/inquiry checks passed; full release acceptance is still in progress.
 See [deployment evidence](docs/VORNTEK_DEPLOYMENT.md) and [current status](docs/IMPLEMENTATION_STATUS.md).
 
-The public [GitHub repository](https://github.com/rutther/vorntek) has been created;
-source upload and release/CI/clean-clone verification are still pending.
+The complete source is on [GitHub](https://github.com/rutther/vorntek). The first
+application CI job passed; PostgreSQL/Compose and clean-install acceptance are
+still in progress. See [CI evidence](docs/CI.md); this is not a production-ready claim.
 
 ## Included
 
@@ -55,6 +56,10 @@ to loopback and restricts application-network egress.
 Use fictional data. Public HTTP does not protect passwords or form data. Before
 real use, configure HTTPS, secure cookies, origins, access controls, retention and
 backups. Do not simply expose the example to the internet.
+
+If Docker's build network cannot resolve package hosts, use the documented,
+build-only [DNS troubleshooting procedure](docs/BUILD_NETWORK.md); do not weaken
+the application network or change unrelated host services.
 
 ## Configuration and upgrades
 
@@ -107,7 +112,8 @@ or styles to update content-hash cache keys.
   [contributing](CONTRIBUTING.md), [CI](docs/CI.md).
 
 `docker compose down -v` destroys persistent volumes; it is **not an upgrade command**.
-Final source/history/image review is still required before publication. No real
+The published source and its initial history have been checked; binary-image
+redistribution and final release acceptance remain open. No real
 customers, credentials, original-company photos or private backups belong in the
 public project.
 

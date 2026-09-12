@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import re
+import shlex
 import unittest
 
 import yaml
@@ -17,6 +18,17 @@ def load_script(name):
 
 
 class CIContractTests(unittest.TestCase):
+    def test_standalone_postgres_uses_its_own_posix_socket_directory(self):
+        runner = load_script('test_postgres_install')
+        directory = Path('/tmp/vorntek test/socket')
+        options = runner.postgres_start_options(directory, 18543, platform='posix')
+        self.assertEqual(shlex.split(options), ['-h', '127.0.0.1', '-p', '18543', '-k', str(directory)])
+
+    def test_standalone_postgres_keeps_windows_tcp_behavior(self):
+        runner = load_script('test_postgres_install')
+        self.assertEqual(runner.postgres_start_options(Path('C:/test'), 18543, platform='nt'),
+                         '-h 127.0.0.1 -p 18543')
+
     def test_read_only_ephemeral_workflows_have_pinned_actions_and_no_publish_steps(self):
         text = (ROOT/'.github/workflows/ci.yml').read_text(encoding='utf-8')
         workflow = yaml.safe_load(text)

@@ -2,6 +2,21 @@
 
 2026-09-13 — development candidate, not a public release.
 
+## Latest: complete source published; first CI finding under correction
+
+- Public commit `a13278a9b55189735415bd60e2ab726b6b864015`, tree
+  `ed7c23eee2e872e20c121a6c0824f9c4f639b7a8`, contains all 443 reviewed files.
+  A fresh anonymous server clone matched both commit and tree; full two-commit
+  history scan returned only the same nine manually reviewed non-secret alerts.
+- GitHub application CI passed: 669 tests, two skips, plus 42 root tests and JS.
+  PostgreSQL CI failed before startup. A reproduced POSIX socket-directory issue
+  is corrected locally; 44 root tests pass. See [CI](CI.md) for exact limits.
+- Fresh-clone generation/configuration leaves tracked sources unchanged. Default
+  Docker build failed on this host's build-network DNS; build-only host-network
+  fallback is being verified. This is not yet successful clean-install acceptance.
+- No release version or registry images published. Live f7 instance and original
+  production remain unchanged. Earlier source-upload-pending notes are history.
+
 ## Latest: deployed sales acceptance and maintenance-layer remediation
 
 - Public repository [rutther/vorntek](https://github.com/rutther/vorntek) now exists

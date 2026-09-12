@@ -1,7 +1,25 @@
 # Continuous integration / 持续集成
 
-2026-09-12 — workflow source prepared locally; **not run on GitHub yet**. No public
-repository, CI badge, successful remote run or published image is claimed.
+2026-09-13 — the first [public workflow run](https://github.com/rutther/vorntek/actions/runs/34711508885)
+tested commit `a13278a9b55189735415bd60e2ab726b6b864015`:
+
+- Application job **passed**: locked dependencies and `pip check`, 42 root tests,
+  browser-script contracts, 669 application tests in 351.453s (667 passed, two
+  skipped), Django system checks clean.
+- PostgreSQL/Compose job **failed** at standalone PostgreSQL startup; no subsequent
+  Compose build/start checks ran in that attempt. APT supplied PG18.6; deployed
+  Compose still uses PG18.3. The original harness did not expose the server log.
+- A restricted Linux reproduction of the same startup arguments failed trying to
+  create the default socket lock under distro-owned `/var/run/postgresql`;
+  explicitly placing the socket in the unique test directory started successfully,
+  then the test cluster stopped. The runner now supplies that private POSIX socket
+  directory and includes redacted startup diagnostics. Windows TCP behavior is
+  unchanged; two new contract tests pass (44 root tests total). The exact first CI
+  error cannot be recovered from its disposed server log; the socket issue is the
+  reproduced portability defect, and the next CI run must validate the correction.
+
+These findings do not claim an all-green workflow or published binary image.
+Older local-only counts below are historical.
 
 `.github/workflows/ci.yml` defines two independent ephemeral Ubuntu24.04 jobs:
 

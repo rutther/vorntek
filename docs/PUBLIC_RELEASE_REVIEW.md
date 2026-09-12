@@ -4,6 +4,13 @@
 
 ## Follow-up source/image review — 2026-09-13
 
+Subsequent publication: all 443 files of checked tree
+`ed7c23eee2e872e20c121a6c0824f9c4f639b7a8` are now public in commit
+`a13278a9b55189735415bd60e2ab726b6b864015`. Fresh anonymous clone matched the tree;
+the complete two-commit Git history scan found only the nine reviewed source
+false positives described below. No original private Git history was copied.
+This is a source candidate, not completed CI/release or binary license approval.
+
 The authorized public repository `rutther/vorntek` now exists with only an initial
 README (`04d9e730c1c54c403b311cfe1b286ada1516973d`). Its complete diff was inspected:
 only the project name and fictional-demo summary. No application code, release

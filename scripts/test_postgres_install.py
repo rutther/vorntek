@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shlex
 import socket
 import subprocess
 import sys
@@ -23,6 +24,15 @@ from psycopg import sql
 
 ROOT = Path(__file__).resolve().parents[1]
 CRM = ROOT / 'apps' / 'crm'
+
+
+def postgres_start_options(runtime, port, platform=None):
+    """Keep the standalone test socket out of distro-owned system directories."""
+    platform = os.name if platform is None else platform
+    options = f'-h 127.0.0.1 -p {port}'
+    if platform != 'nt':
+        options += ' -k ' + shlex.quote(str(runtime))
+    return options
 
 
 def main():
@@ -134,8 +144,16 @@ def main():
         report['postgres_version'] = run([exe('postgres'), '--version']).strip()
         run([exe('initdb'), '-D', runtime / 'data', '-U', 'postgres', '--pwfile', pwfile,
              '--auth-host=scram-sha-256', '--auth-local=scram-sha-256', '--encoding=UTF8', '--locale=C'])
-        run([exe('pg_ctl'), '-D', runtime / 'data', '-l', runtime / 'server.log',
-             '-o', f'-h 127.0.0.1 -p {port}', '-w', '-t', '30', 'start'])
+        try:
+            run([exe('pg_ctl'), '-D', runtime / 'data', '-l', runtime / 'server.log',
+                 '-o', postgres_start_options(runtime, port), '-w', '-t', '30', 'start'])
+        except RuntimeError as exc:
+            # This newly created cluster has no customer data or application
+            # sessions yet. Include its startup diagnostic, redacting the only
+            # database password, so ephemeral CI does not lose the actual cause.
+            startup_log = runtime / 'server.log'
+            diagnostic = startup_log.read_text(encoding='utf-8', errors='replace') if startup_log.exists() else 'No server log was created.'
+            raise RuntimeError(f'{exc}\nPostgreSQL startup log:\n{diagnostic[-4000:].replace(password, "[redacted]")}') from exc
         started = True
         with connect('postgres', 'postgres') as conn:
             conn.execute(sql.SQL('CREATE ROLE newcrown_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD {}')
