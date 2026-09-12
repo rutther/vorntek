@@ -29,6 +29,10 @@ English and Chinese quick-start commands are identical; the independent clone
 installation is one execution of those shared commands, not two independent
 language-specific installation trials.
 
+The subsequent documentation-only commit `772cdd40c18d8a096488e760354150be3c6540ad`
+also completed [both CI jobs successfully](https://github.com/rutther/vorntek/actions/runs/34713383241).
+These are version-specific observations, not a promise that future commits pass.
+
 ## Independent clone installation
 
 A fresh public clone at `a13278a9b55189735415bd60e2ab726b6b864015` was installed
@@ -55,9 +59,15 @@ configuration, users or data was copied into this installation.
 
 Runtime proof and passwords stay private. The clone test is not a production
 restore. Existing deployed instance and unrelated shared-host services were not
-restarted by these clone checks. The running public demo still uses the previously
-recorded f7 image set; its application sources match the release, but its old
-maintenance tag has not yet been replaced. Do not mislabel its whole image set as RC1.
+restarted by these clone checks. The running demo's website/CRM sources match
+the release; its maintenance tools now select the previously verified clean image.
+Only three expanded Compose image fields changed. All 12 existing host containers
+retained their IDs, images and start times; no business database writes occurred.
+The missing release-local backup bind directory first caused an exact configuration
+rollback. Creating only that empty, protected directory allowed the guarded retry
+to pass. Existing checkpoints were not moved. CLI startup was checked; the earlier
+independent 70-table recovery evidence belongs to this same clean image. Do not
+relabel the historical f7 source directory or entire image set as an RC1 rebuild.
 
 ## Limits and next gates
 
@@ -68,6 +78,7 @@ maintenance tag has not yet been replaced. Do not mislabel its whole image set a
 - No container binaries or build caches were published. Source licenses/notices
   are retained; binary redistribution obligations are a separate gate if images
   will be published. Do not publish old maintenance donor layers with the test key.
+  See the [specific native-package and source-material gaps](review/BINARY_REDISTRIBUTION.md).
 - Real Meta browser/server deduplication is unverified; advertising, email,
   WhatsApp and measurement remain disabled. Do not market mock results as live proof.
 - Public HTTP is synthetic-only. Real usage requires HTTPS, secure cookies,

@@ -1,7 +1,8 @@
 # Third-party notices / 第三方组件声明
 
-2026-09-13 — partial provenance/license review, **not** final approval to publish.
-The project code now has an MIT license. Final source/history/image review remains.
+2026-09-13 — reviewed source pre-release published; binary redistribution review remains open.
+Project code is MIT. Source/history evidence is version-bound in the release review;
+it does not approve arbitrary future images or certify all license obligations.
 Third-party components keep their own notices and terms; they do not grant rights
 over website photographs, trademarks, customer material or unrelated content.
 
@@ -73,7 +74,8 @@ those future image contents or a license-compatibility opinion.
 - Historical production and third-party-content seeding helpers remain under
   review. They are not part of Compose installation or permission to copy content.
 
-项目代码已按用户委托选择 MIT。仍需检查最终公开树与历史，确认旧素材全部排除、
-AI 素材哈希一致，并核对实际发布镜像的依赖声明；不要上传客户数据或旧截图。
+项目代码已按用户委托选择 MIT，源码候选版及对应历史已有检查记录。未来修改仍需
+复核；实际预构建镜像的原生库、许可证及源码材料仍未全部闭合，见
+[二进制分发审查](docs/review/BINARY_REDISTRIBUTION.md)。不要上传客户数据或旧截图。
 
 See [public-release gate](docs/PUBLIC_RELEASE_REVIEW.md) before publication.

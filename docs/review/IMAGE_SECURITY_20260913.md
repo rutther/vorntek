@@ -62,9 +62,16 @@ claimed to represent the entire later documentation/test tree.
 - A static regression test protects the donor/final-stage separation; 41 root
   tests passed. The runtime layer/restore checks above are the stronger evidence.
 
-The clean image has not yet replaced the operator's configured maintenance tag
-or been published. Final commit/history scanning, public CI/clean-clone evidence
-and any binary redistribution obligations remain release gates.
+Follow-up: the operator's maintenance/filebackup/filerestore configuration now
+selects this exact clean image. Expanded Compose differed only in those three
+image fields; existing containers were not restarted. The release-local backup
+directory was explicitly created after a refused missing-bind-source attempt and
+exact configuration rollback. Both archive CLI help checks and configured
+maintenance CLI startup passed; these do not constitute a new database restore.
+
+The image has not been published. Source/history and public CI/clone evidence
+subsequently completed for the source pre-release; see [current delivery](../PUBLIC_DELIVERY.md).
+[Binary redistribution](BINARY_REDISTRIBUTION.md) remains a separate gate.
 
 References: [official scanner release](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1),
 [scanner documentation](https://github.com/gitleaks/gitleaks).

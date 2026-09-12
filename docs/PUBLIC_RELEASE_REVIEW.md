@@ -1,125 +1,75 @@
-# Public release review — incomplete
+# Public release review
 
-2026-09-12. This is a release gate, not an approval or a license grant.
+Observed 2026-09-13. **Source pre-release published; binary-image review remains open.**
+This records evidence and publication boundaries, not a legal certification.
 
-## Follow-up source/image review — 2026-09-13
+## Source that was published
 
-Subsequent publication: all 443 files of checked tree
-`ed7c23eee2e872e20c121a6c0824f9c4f639b7a8` are now public in commit
-`a13278a9b55189735415bd60e2ab726b6b864015`. Fresh anonymous clone matched the tree;
-the complete two-commit Git history scan found only the nine reviewed source
-false positives described below. No original private Git history was copied.
-This is a source candidate, not completed CI/release or binary license approval.
+[Repository](https://github.com/rutther/vorntek) and
+[v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1) are public.
+The tag points to `fe353544d6d37d5cbf01ccecbb157cf30edba6fe`, tree
+`459827218ec0b80d287bfaf8aacc864189841bb3`, 444 tracked files.
+It has [successful CI](https://github.com/rutther/vorntek/actions/runs/34712023363).
+See [installation and version mapping](PUBLIC_DELIVERY.md).
 
-The authorized public repository `rutther/vorntek` now exists with only an initial
-README (`04d9e730c1c54c403b311cfe1b286ada1516973d`). Its complete diff was inspected:
-only the project name and fictional-demo summary. No application code, release
-or registry image has been uploaded. Earlier no-repository statements are history.
+- Publication used newly created, inspected source history; the original private
+  repository's history was not copied.
+- The complete three-commit RC1 history scan returned nine reviewed non-secret
+  storage/test identifiers, not zero alerts. The eight-file fix diff returned
+  zero alerts. Later documentation-only changes were reviewed separately; do
+  not apply these scan counts automatically to an arbitrary future commit.
+- Initial source upload was checked against its frozen Git tree and anonymously
+  cloned. Fresh installation needed no copied production config, users, files
+  or database. The documented host-only build-network fallback was tested.
+- Project code is MIT. Dependencies keep their own terms; all code and bundled
+  content are not automatically MIT.
 
-[Layer findings and remediation](review/IMAGE_SECURITY_20260913.md) distinguish
-the nine source false positives from an inherited default private key in the old
-maintenance image. The clean final image's only alert is a Perl documentation
-symbol; real backup/restore works. Do not publish the old image or donor cache.
-The current Linux Python dependency evidence is in
-[python-dependencies-linux.json](review/python-dependencies-linux.json).
-Final Git history and binary redistribution gates remain open; an empty repository
-or source upload alone is not completed release acceptance.
+## Content and dependency disposition
 
-## Latest Vorntek source review — 2026-09-13
+| Input | Disposition / evidence |
+| --- | --- |
+| Former company photographs and logo | Privately retained, excluded from public source and build context; replaced with eight AI originals |
+| Inherited QA screenshots/comparison | Kept privately, excluded from source/build; not assumed to depict synthetic people |
+| Historical host/content/reset helpers | Retired or made refusing; original sources preserved; [exact disposition](LEGACY_TOOLS.md) |
+| Browser libraries | Lucide ISC/Feather MIT, Bootstrap/Popper MIT notices checked against exact packages; Tabler's existing MIT notice retained with the upstream-fetch limitation recorded |
+| Python dependencies | 24 locked installed distributions and actual license-file hashes recorded, including Linux-image observations |
+| Images and fonts | [AI prompts/hashes](vorntekDemo/README.md); no claim of trademark clearance, exclusive AI rights, engineering certification or exhaustive dynamic font inspection |
 
-- Eight original AI images now replace the old website/brand media. Their bytes
-  are copied into the website and CRM and checked against the generation manifest.
-  The 123-image counts below are historical, not the current public input.
-- The legacy reset seeder is privately archived; its public CLI now refuses and
-  only pure test helpers remain. Optional 200-customer initialization is additive,
-  explicit, isolated and synthetic; see [demo data](DEMO_DATA.md).
-- GitHub sign-in was observed as `rutther`; intended repository is `rutther/vorntek`
-  under MIT. The repository has not yet been created or published.
-- A source-pattern screen found old dataset identifiers in mock test fixtures
-  and developer-machine paths in two reports. These were removed from the
-  public input; no production integration is changed. A pattern screen alone is
-  not a comprehensive secret audit or proof of publishability.
-- Final staged history, Linux image layers, actual dependency license inventory,
-  deployed revision and clean public-clone checks remain required. Older local
-  acceptance records below are not evidence for this new revision.
+The old 123/125-raster counts describe superseded private inputs; they are not the
+current published asset count. See [third-party notices](../THIRD_PARTY_NOTICES.md)
+and [vendor evidence](review/vendor-packages.json).
 
-## Follow-up: old-host tools and source independence
+## Images are a separate deliverable
 
-Subsequent local review retired five unused historical content-rewrite/seeding
-scripts, preserving byte-identical private copies and original sources. One
-fetches third-party product pages and another overwrites published articles;
-neither is part of root Compose initialization. See [legacy tools](LEGACY_TOOLS.md)
-for exact scope and evidence. The 35 release/distribution/recovery checks passed.
-No remaining tracked website/CRM literal `newamstar` matches were found, but
-content/media provenance is not established by that search. The 123 raster assets
-and overall publication permission remain unresolved.
+The old maintenance image contained an inherited default test private key.
+The clean final-stage image omits it from its layers and passed actual independent
+backup/restore. It now supplies the demonstration's configured maintenance tools;
+existing application containers were not restarted by that configuration change.
+[Exact image and scan evidence](review/IMAGE_SECURITY_20260913.md).
 
-Six old-host deployment/service/test files were moved into a private ignored
-archive, with original sources retained. Their 13 associated tool contracts were
-retired, not business tests. The independent staged-source copy passed 34 unit
-checks, 14 Node tests and the 643-test application suite (636 passed, seven
-skipped). See [source-only evidence](SOURCE_ONLY_ACCEPTANCE.md) and
-[legacy tools](LEGACY_TOOLS.md). Media/content rights remain unresolved;
-this does not approve publication or container deployment.
+No image binary, donor stage, build cache or private recovery archive was uploaded.
+The [binary redistribution review](review/BINARY_REDISTRIBUTION.md) now includes
+Debian/Alpine package and native-wheel/SBOM observations. Presence of copyright
+files or a software bill of materials does not by itself close component-license
+and corresponding-source requirements.
 
-## Latest review outcome — 2026-09-12
+## Remaining release gates
 
-- Excluded the two inherited QA screenshots and their comparison HTML from the
-  public Git index and added a matching ignore rule. All three remain on local
-  disk, and the original repository was untouched. Reference search found only
-  the comparison page's own image references; business pages were not changed.
-- Added exact upstream Lucide ISC/Feather MIT, Bootstrap MIT and Popper MIT license
-  texts. Verified corresponding package SHA-512 integrity and selected vendored
-  byte hashes without executing packages. Tabler's own existing notice was retained;
-  the unavailable versioned license source is explicitly recorded as a limitation.
-- Inventoried 24 locked Python distributions and their actual installed license
-  files. Versions match the lockfile; this Windows evidence is not a Linux-image
-  license audit. See [third-party notices](../THIRD_PARTY_NOTICES.md) and `review/`.
-- Current staged raster count is **123** (21 JPEG, 37 PNG, 65 WebP), comprising
-  122 website images and one CRM brand mark. Redistribution rights remain unknown.
-  No standalone font files were staged; narrow source font-import searches found
-  no matches. This is not exhaustive dynamic resource inspection.
-- 33 unit/distribution/release-input tests passed. Final source/history, image-layer,
-  legacy production/content-helper and media-rights reviews are not complete.
+- Do not copy real customer data into the fictional public demo. Original private
+  restoration remains unperformed pending explicit scope and safe target.
+- Complete browser save-to-disk confirmation; authenticated XLSX bytes are not
+  proof of a browser download.
+- Before any binary publication, resolve notices/source materials, freeze and
+  scan exact final images, confirm registry permissions, then independently pull
+  and test the published digests. Do not promise future source-delivery services
+  on the user's behalf.
+- Preserve default-disabled external integrations. Do not describe simulated
+  contracts as verified real Meta browser/server deduplication.
+- Real use needs HTTPS/security/retention controls; public HTTP is synthetic-only.
 
-The following initial findings are retained as historical observations; their
-125-image/QA-still-staged counts are superseded by the current outcome above.
+中文：源码、许可证、候选版本和安装证据已公开。未完成的是原真实数据恢复、
+浏览器落盘证明和预构建镜像交付，不是“仓库还没创建”。未验证的外部能力继续明确标注。
 
-## Initial file review
-
-- Selected staged text files were searched for private-key headers, GitHub token
-  prefixes, AWS access-key identifiers and long Meta-token patterns. No matches
-  were returned. This narrow pattern scan cannot prove absence of secrets.
-- No staged `.env` other than `.env.example`, private-key containers, database
-  dumps, spreadsheets or customer CSV files were listed by the initial filename
-  screen. Actual values, history, images and build outputs require further review.
-- The staged candidate contains **125 raster image files**: 21 JPEG, 39 PNG and
-  65 WebP. Of these, 122 belong to the website, one is the CRM brand mark and two
-  are inherited CRM QA screenshots. Their presence on a public website does not
-  establish redistribution rights.
-- A QA screenshot was visually inspected and contains names/company-like labels.
-  These must be traced to verified synthetic fixtures or excluded before release;
-  appearances alone do not prove that they are safe. QA screenshots are already
-  excluded from the image build context, but are still in the source candidate.
-- Inherited `apps/crm/scripts` still contains old production installation helpers,
-  a demo-reset/preparation helper and content-seeding scripts naming external
-  sources. They are not part of the root Compose installation. Review, retire or
-  clearly isolate them before release; do not execute them against any existing
-  system or infer content redistribution rights from their inclusion.
-
-## Required before publication
-
-1. Confirm the publishing account, repository, license and authority over the code.
-2. Review third-party dependencies, scripts, brand assets, photographs, fonts and
-   any remotely loaded resources. Record evidence or substitute authorized assets.
-3. Trace screenshots and fixtures; remove private material from the public
-   candidate without deleting the user's original source or evidence.
-4. Scan the final source tree and all history to be published, including staged
-   changes, generated artifacts, image layers and CI logs. Inspect findings without
-   copying secret values into reports.
-5. Verify no production configuration, fixed administrator credentials, customer
-   data, private backup or developer-machine paths are necessary for installation.
-6. Build and install from the exact reviewed release and document the result.
-
-No GitHub repository has been created or pushed as part of this review. Do not
-run a public push merely because this checklist exists.
+Earlier reviews, failures and remediations remain available in
+[the immutable historical report](https://github.com/rutther/vorntek/blob/772cdd40c18d8a096488e760354150be3c6540ad/docs/PUBLIC_RELEASE_REVIEW.md)
+and the linked stage evidence; they no longer appear as conflicting current status.
