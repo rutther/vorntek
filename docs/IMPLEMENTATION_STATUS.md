@@ -1,6 +1,6 @@
 # Implementation status / 实现状态
 
-2026-09-13 — development candidate, not a public release.
+2026-09-13 — public source pre-release; full goal acceptance remains open.
 
 ## Latest: public RC1, successful CI and independent clone
 

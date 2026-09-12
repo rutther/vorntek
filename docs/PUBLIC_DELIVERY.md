@@ -22,6 +22,13 @@ browser or production-readiness requirements.
   non-secret test/storage identifiers, with no new alert. The eight-file fix
   diff scan returned zero alerts. See [review details](review/IMAGE_SECURITY_20260913.md).
 
+The later documentation-only commit `950a8c80e2603d925743fa933ced9f6da36ab08c`
+also passed both jobs in [its own CI run](https://github.com/rutther/vorntek/actions/runs/34712778834).
+This is a separate completed run, not a change to the immutable RC1 tag. The
+English and Chinese quick-start commands are identical; the independent clone
+installation is one execution of those shared commands, not two independent
+language-specific installation trials.
+
 ## Independent clone installation
 
 A fresh public clone at `a13278a9b55189735415bd60e2ab726b6b864015` was installed

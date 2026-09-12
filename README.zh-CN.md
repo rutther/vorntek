@@ -48,6 +48,9 @@ docker compose exec crm python manage.py createsuperuser
 仅填写虚构资料。公网 HTTP 无法保护密码和表单数据；真实使用前应配置 HTTPS、
 安全 Cookie、准确来源、访问权限、保留政策及备份，不能直接把示例暴露到互联网。
 
+如果 Docker 构建网络无法解析依赖下载主机，请使用已记录的、仅针对构建阶段的
+[DNS 排障流程](docs/BUILD_NETWORK.md)；不要放宽应用网络或改动主机上的无关服务。
+
 ## 配置与升级
 
 可选的 200 家虚构客户数据，可先运行
@@ -91,7 +94,8 @@ Node 仅用于 JS 测试。应用运行器使用合成 SQLite 并阻断非回环
   [贡献说明](CONTRIBUTING.md)、[CI](docs/CI.md)。
 
 `docker compose down -v` 会销毁持久化卷，**不是升级命令**。
-发布前仍须完成源码、历史和镜像检查。公开项目不包含真实客户、凭据、原企业照片或私有备份。
+已发布源码及其初始历史已经检查；容器二进制再分发及最终发布验收仍未完成。
+公开项目不包含真实客户、凭据、原企业照片或私有备份。
 
 项目代码采用 [MIT](LICENSE)，第三方组件保留自己的许可，见[第三方声明](THIRD_PARTY_NOTICES.md)。
 AI 提示词与哈希见[演示素材包](docs/vorntekDemo/README.md)，不作为商标已核准或
