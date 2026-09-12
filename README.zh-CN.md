@@ -5,12 +5,14 @@
 
 [English](README.md)
 
-**源码候选已公开，尚无正式发布版本。** Vorntek 已运行在授权的独立测试实例，含 200 家
+**源码与候选版本已公开，不等于生产安全上线。** Vorntek 已运行在授权的独立测试实例，含 200 家
 初始化虚构客户和销售验收转换的 1 家合成客户；完整发布验收仍在继续。
 请查看[部署证据](docs/VORNTEK_DEPLOYMENT.md)及[当前状态](docs/IMPLEMENTATION_STATUS.md)。
 
-[GitHub 仓库](https://github.com/rutther/vorntek)已包含完整源码；首次应用 CI 作业通过，
-PostgreSQL/Compose 与干净安装验收仍在进行，见[CI 记录](docs/CI.md)，不宣称已达到生产使用标准。
+[GitHub 仓库](https://github.com/rutther/vorntek)和
+[v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1)已公开；
+[该版本的两项 CI](https://github.com/rutther/vorntek/actions/runs/34712023363)均通过，
+独立克隆安装、询盘/登录和重启检查通过。详见[交付证据与剩余限制](docs/PUBLIC_DELIVERY.md)。
 
 ## 包含什么
 

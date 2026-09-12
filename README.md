@@ -5,15 +5,16 @@ inquiry capture, customer management, roles, import/export and recovery tooling.
 
 [中文说明](README.zh-CN.md)
 
-**Public source candidate — no release version yet.** Vorntek now runs on the
+**Public pre-release — not a production-readiness certification.** Vorntek now runs on the
 authorized isolated test instance with 200 seeded fictional customers plus one
 synthetic customer converted during sales acceptance. Initial public
 website/inquiry checks passed; full release acceptance is still in progress.
 See [deployment evidence](docs/VORNTEK_DEPLOYMENT.md) and [current status](docs/IMPLEMENTATION_STATUS.md).
 
-The complete source is on [GitHub](https://github.com/rutther/vorntek). The first
-application CI job passed; PostgreSQL/Compose and clean-install acceptance are
-still in progress. See [CI evidence](docs/CI.md); this is not a production-ready claim.
+The complete source and [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1)
+are public. Both [release CI jobs](https://github.com/rutther/vorntek/actions/runs/34712023363)
+passed; independent clone installation, inquiry/login and restart checks passed.
+See [delivery evidence and remaining limits](docs/PUBLIC_DELIVERY.md).
 
 ## Included
 

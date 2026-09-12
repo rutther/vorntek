@@ -1,5 +1,17 @@
 # Continuous integration / 持续集成
 
+## Latest verified release run — 2026-09-13
+
+[Run 34712023363](https://github.com/rutther/vorntek/actions/runs/34712023363) at
+`fe353544d6d37d5cbf01ccecbb157cf30edba6fe` completed with **both jobs successful**.
+44 root checks, browser-script contracts, 669 application tests (two skipped),
+27 PostgreSQL lifecycle/HTTP checks, Compose image build/startup/maintenance smoke
+and actual export-worker graceful stop passed. This is the `v0.1.0-rc.1` source tag.
+The prior failed startup attempt below is preserved as history, not current status.
+See [full delivery scope](PUBLIC_DELIVERY.md); real-data restoration and all browser
+flows are not established by CI. Documentation-only commits after the tag may have
+their own later runs; the linked successful run applies to this exact release commit.
+
 2026-09-13 — the first [public workflow run](https://github.com/rutther/vorntek/actions/runs/34711508885)
 tested commit `a13278a9b55189735415bd60e2ab726b6b864015`:
 

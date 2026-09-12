@@ -2,6 +2,16 @@
 
 2026-09-13 — development candidate, not a public release.
 
+## Latest: public RC1, successful CI and independent clone
+
+`v0.1.0-rc.1` is now publicly released as a **pre-release**, at commit `fe35354`.
+Both release CI jobs passed (44 root checks, 669 app tests/two skips, 27 PG checks
+and real Compose build/startup/stop checks). A fresh independent GitHub clone
+passed installation, admin/login, inquiry/CRM, 200 demo seed and restart persistence.
+See [precise versions, evidence and limits](PUBLIC_DELIVERY.md). Older headings below
+describe snapshots; they do not override this release state. Original-production
+data restoration, browser disk delivery and final goal closure are still incomplete.
+
 ## Latest: complete source published; first CI finding under correction
 
 - Public commit `a13278a9b55189735415bd60e2ab726b6b864015`, tree
