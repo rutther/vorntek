@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from datetime import timedelta
+from decimal import Decimal
 from io import BytesIO, StringIO
 from pathlib import Path
 import shutil
@@ -46,6 +47,21 @@ from marketing.models import CanonicalEvent
 from sitecore.models import Cta, PageRoute, Site, SiteLocale
 
 from .access import GROUP_BY_ROLE, ROLE_SALES, ROLE_SALES_MANAGER, ROLE_SYSTEM_ADMIN
+from .customer_pool_views import DENSE_COLUMNS
+
+
+def standard21_file(rows: list[list[str]], headers) -> bytes:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator='\r\n')
+    writer.writerow(list(headers))
+    writer.writerows(rows)
+    return '\ufeff'.encode('utf-8') + buffer.getvalue().encode('utf-8')
+
+
+def standard21_row(headers, **overrides) -> list[str]:
+    values = {name: '' for name in headers}
+    values.update(overrides)
+    return [values[name] for name in headers]
 
 
 class CustomerPoolViewTests(TestCase):
@@ -152,10 +168,80 @@ class CustomerPoolViewTests(TestCase):
             team=self.team,
         )
 
+    def import_standard21_fixture(self):
+        from leads.customer_import_services import commit_customer_import
+        from leads.customer_standard21_import import preview_standard21_import
+
+        rows = [
+            standard21_row(
+                STANDARD21_HEADERS,
+                phone='+254700000001',
+                country_name='肯尼亚',
+                country='KE',
+                person_name='Round Trip Person',
+                company='Round Trip Ltd',
+                value='31.0',
+                route_type='公司总机',
+                route_tier='企业总机',
+                account_id='AF-KE-8001',
+                identity_I='I2',
+                evidence_V='V3',
+                priority_P='P2',
+                source_channel='research_public',
+            ),
+            standard21_row(
+                STANDARD21_HEADERS,
+                phone='+254700000002',
+                email='Second@Example.INVALID',
+                country_name='肯尼亚',
+                country='KE',
+                person_name='未公开',
+                company='Round Trip Ltd',
+                value='36.0',
+                email_2='backup@example.invalid',
+                route_type='公司总机',
+                route_tier='企业总机',
+                account_id='AF-KE-8001',
+                identity_I='I2',
+                evidence_V='V3',
+                priority_P='P2',
+                source_channel='research_public',
+            ),
+            standard21_row(
+                STANDARD21_HEADERS,
+                phone='+254700000003',
+                email='direct@example.invalid',
+                country_name='中国',
+                country='CN',
+                person_name='Direct Buyer',
+                company='Round Trip Ltd',
+                value='75.0',
+                phone_2='+254700000004',
+                route_type='直联手机',
+                route_tier='本人直联',
+                account_id='AF-KE-8002',
+                whatsapp_confirmed='已确认',
+                identity_I='I3',
+                evidence_V='V1',
+                priority_P='P1',
+                restriction_note='该号码不导出',
+                source_channel='research_public',
+            ),
+        ]
+        payload = standard21_file(rows, STANDARD21_HEADERS)
+        preview = preview_standard21_import(
+            site=self.site,
+            actor=self.admin,
+            file_bytes=payload,
+            original_name='pool21.csv',
+        )
+        commit_customer_import(batch_id=preview.batch.pk, site=self.site, actor=self.admin)
+        return payload
+
     def test_sales_sees_consistent_pool_page_without_admin_import_controls(self):
         self.client.force_login(self.sales)
 
-        response = self.client.get(reverse('console:customer_pool'))
+        response = self.client.get(reverse('console:customer_pool'), {'view': 'company'})
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Visible Pool Company')
@@ -165,15 +251,21 @@ class CustomerPoolViewTests(TestCase):
     def test_pool_supports_only_the_documented_page_sizes(self):
         self.client.force_login(self.sales)
 
-        response = self.client.get(reverse('console:customer_pool'), {'page_size': '10'})
+        response = self.client.get(
+            reverse('console:customer_pool'),
+            {'view': 'company', 'page_size': '100'},
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['workspace']['page'].paginator.per_page, 10)
-        self.assertContains(response, 'value="10" selected')
-        self.assertContains(response, 'value="25"')
-        self.assertContains(response, 'value="50"')
+        self.assertEqual(response.context['workspace']['page'].paginator.per_page, 100)
+        self.assertContains(response, 'value="100" selected')
+        self.assertContains(response, 'value="500"')
+        self.assertContains(response, 'value="1000"')
 
-        response = self.client.get(reverse('console:customer_pool'), {'page_size': '5000'})
-        self.assertEqual(response.context['workspace']['page'].paginator.per_page, 25)
+        response = self.client.get(
+            reverse('console:customer_pool'),
+            {'view': 'company', 'page_size': '5000'},
+        )
+        self.assertEqual(response.context['workspace']['page'].paginator.per_page, 100)
 
     def test_pool_combines_evidence_team_and_import_batch_filters(self):
         source = self.available.company.customer_sources.get()
@@ -184,6 +276,7 @@ class CustomerPoolViewTests(TestCase):
         response = self.client.get(
             reverse('console:customer_pool'),
             {
+                'view': 'company',
                 'evidence': 'verified',
                 'team': str(self.team.pk),
                 'batch': '42',
@@ -192,7 +285,7 @@ class CustomerPoolViewTests(TestCase):
         self.assertContains(response, 'Visible Pool Company')
         response = self.client.get(
             reverse('console:customer_pool'),
-            {'batch': '43'},
+            {'view': 'company', 'batch': '43'},
         )
         self.assertNotContains(response, 'Visible Pool Company')
 
@@ -204,7 +297,7 @@ class CustomerPoolViewTests(TestCase):
             reverse('console:customer_pool_contact_search'),
             {
                 'contact_query': contact_value,
-                'next': reverse('console:customer_pool'),
+                'next': reverse('console:customer_pool') + '?view=company',
             },
         )
 
@@ -213,10 +306,14 @@ class CustomerPoolViewTests(TestCase):
         self.assertNotIn(contact_value, response['Location'])
         results = self.client.get(response['Location'])
         self.assertContains(results, 'Visible Pool Company')
-        self.assertContains(results, '已应用一项受保护的联系方式条件')
+        self.assertTrue(results.context['workspace']['contact_search_active'])
+        self.assertTrue(results.context['workspace']['clear_contact_search_url'])
         self.assertNotIn(contact_value, results.request['QUERY_STRING'])
 
-        generic_get = self.client.get(reverse('console:customer_pool'), {'q': contact_value})
+        generic_get = self.client.get(
+            reverse('console:customer_pool'),
+            {'view': 'company', 'q': contact_value},
+        )
         self.assertNotContains(generic_get, 'Visible Pool Company')
 
     def test_admin_can_download_real_three_sheet_template(self):
@@ -430,7 +527,10 @@ class CustomerPoolViewTests(TestCase):
         self.assertIsNone(company.owner_user_id)
 
         self.client.force_login(self.admin)
-        review_page = self.client.get(reverse('console:customer_pool'), {'scope': 'review'})
+        review_page = self.client.get(
+            reverse('console:customer_pool'),
+            {'scope': 'review', 'view': 'company'},
+        )
         self.assertContains(review_page, 'Review Queue Company')
         detail = self.client.get(reverse('console:customer_pool_detail', args=[company.pk]))
         self.assertContains(detail, '核验并发布')
@@ -499,6 +599,103 @@ class CustomerPoolViewTests(TestCase):
         self.available.company.refresh_from_db()
         self.assertEqual(self.available.company.owner_user_id, self.sales_two.pk)
 
+    def test_dense_view_defaults_to_value_order_and_exposes_all_standard_columns(self):
+        self.import_standard21_fixture()
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('console:customer_pool'), {'scope': 'all'})
+
+        self.assertEqual(response.status_code, 200)
+        workspace = response.context['workspace']
+        columns = {column['key']: column for column in workspace['dense_columns']}
+        self.assertEqual(workspace['view'], 'dense')
+        self.assertEqual(workspace['sort'], 'value')
+        self.assertEqual(workspace['direction'], 'desc')
+        self.assertEqual(set(columns), {key for key, _sort, _label in DENSE_COLUMNS})
+        self.assertEqual(len(columns), 21)
+        self.assertTrue(columns['value']['active'])
+        self.assertEqual(columns['value']['aria_sort'], 'descending')
+        self.assertIn('sort=value&dir=asc', columns['value']['sort_url'])
+        values = [item['record'].value for item in workspace['records']]
+        self.assertEqual(values, [Decimal('75.0'), Decimal('36.0'), Decimal('31.0')])
+
+    def test_dense_view_filters_value_and_multiple_country_codes(self):
+        self.import_standard21_fixture()
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('console:customer_pool'),
+            {'scope': 'all', 'country': ['ke', 'CN'], 'value_min': '35', 'value_max': '80'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        workspace = response.context['workspace']
+        records = [item['record'] for item in workspace['records']]
+        self.assertEqual([record.phone for record in records], ['+254700000003', '+254700000002'])
+        self.assertEqual(workspace['country_selected'], ['KE', 'CN'])
+        options = {item['code']: item for item in workspace['country_options']}
+        self.assertEqual(set(options), {'CN', 'KE'})
+        self.assertTrue(options['CN']['selected'])
+        self.assertTrue(options['KE']['selected'])
+
+    def test_standard21_export_selects_matching_companies_and_requested_columns(self):
+        self.import_standard21_fixture()
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('console:customer_pool_export_standard21'),
+            {
+                'mode': 'current',
+                'scope': 'all',
+                'country': ['KE'],
+                'value_min': '35',
+                'value_max': '40',
+                'columns': ['phone', 'email', 'value'],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        lines = response.content.decode('utf-8-sig').splitlines()
+        self.assertEqual(lines[0], 'phone,email,value')
+        self.assertEqual(len(lines), 3)
+        body = response.content.decode('utf-8-sig')
+        self.assertIn('+254700000001', body)
+        self.assertIn('+254700000002', body)
+        self.assertNotIn('+254700000003', body)
+
+    def test_dense_phone_sort_is_numeric_inside_country_code(self):
+        self.import_standard21_fixture()
+        CustomerPoolRow.objects.filter(account_id='AF-KE-8001', value=Decimal('31.0')).update(
+            phone='+254700000009'
+        )
+        CustomerPoolRow.objects.filter(account_id='AF-KE-8001', value=Decimal('36.0')).update(
+            phone='+2547000000010'
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('console:customer_pool'),
+            {'scope': 'all', 'sort': 'phone', 'dir': 'asc'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        phones = [item['record'].phone for item in response.context['workspace']['records']]
+        self.assertEqual(phones, ['+254700000003', '+254700000009', '+2547000000010'])
+
+    def test_all_scope_does_not_expose_review_rows_to_sales(self):
+        self.import_standard21_fixture()
+
+        self.client.force_login(self.admin)
+        admin_page = self.client.get(reverse('console:customer_pool'), {'scope': 'all'})
+        self.assertContains(admin_page, '+254700000001')
+        self.assertContains(admin_page, '+254700000003')
+
+        self.client.force_login(self.sales)
+        sales_page = self.client.get(reverse('console:customer_pool'), {'scope': 'all'})
+        self.assertEqual(sales_page.status_code, 200)
+        self.assertNotContains(sales_page, '+254700000001')
+        self.assertNotContains(sales_page, '+254700000003')
+
     def test_sales_can_bulk_claim_explicit_rows_and_see_per_company_results(self):
         second = create_manual_customer(
             site=self.site,
@@ -560,8 +757,11 @@ class CustomerPoolViewTests(TestCase):
         restricted_point.save(update_fields=['usage_status', 'updated_at'])
 
         self.client.force_login(self.admin)
-        review_page = self.client.get(reverse('console:customer_pool'), {'scope': 'review'})
-        self.assertContains(review_page, '核验发布已选')
+        review_page = self.client.get(
+            reverse('console:customer_pool'),
+            {'scope': 'review', 'view': 'company'},
+        )
+        self.assertContains(review_page, '核验并发布已选')
         self.assertContains(review_page, 'pool-bulk-review-form')
         response = self.client.post(
             reverse('console:customer_pool_bulk_review'),

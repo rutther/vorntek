@@ -25,7 +25,22 @@ from leads.customer_standard21_import import STANDARD21_HEADERS, pool_row_standa
 from leads.models import Company, CustomerExportJob, CustomerPoolRow
 
 from .access import crm_owned_queryset_for_user
-from .capabilities import SalesCapability, can_sales, require_sales
+from .capabilities import (
+    DataScope,
+    SalesCapability,
+    can_sales,
+    require_sales,
+    sales_capability_scope,
+)
+from .customer_pool_queries import (
+    all_customers_queryset,
+    country_condition,
+    filter_import_batch,
+    filter_pool_state,
+    normalize_source_filters,
+    parse_country_filter,
+    parse_value_bound,
+)
 from .customer_pool_search import resolve_sensitive_search
 from .payloads import default_site_locale
 
@@ -45,6 +60,29 @@ MAX_STANDARD21_ROWS = 50000
 STANDARD21_FILE_NAME = 'vorntek-customer-pool-standard21.csv'
 STANDARD21_CONTENT_TYPE = 'text/csv; charset=utf-8'
 STANDARD21_REQUIRED_COLUMNS = ('phone', 'email')
+STANDARD21_COLUMN_LABELS = {
+    'phone': '电话',
+    'email': '邮箱',
+    'country_name': '国家',
+    'country': '国家代码',
+    'person_name': '姓名',
+    'company': '企业',
+    'value': '价值分',
+    'email_2': '邮箱2',
+    'email_3': '邮箱3',
+    'phone_2': '电话2',
+    'phone_3': '电话3',
+    'route_type': '路线类型',
+    'route_tier': '路线层级',
+    'account_id': '账户ID',
+    'whatsapp_confirmed': 'WhatsApp',
+    'evidence_V': '证据V',
+    'identity_I': '身份I',
+    'tech_T': '技术T',
+    'priority_P': '优先级P',
+    'restriction_note': '限制注记',
+    'source_channel': '来源渠道',
+}
 
 
 def _excel_text(value) -> str:
@@ -87,6 +125,8 @@ def _filtered_queryset(request, *, site):
     scope = str(request.POST.get('scope') or '')
     if scope == 'mine':
         queryset = queryset.filter(pool_state__state='owned', owner_user=request.user)
+    elif scope == 'all' and sales_capability_scope(request.user, SalesCapability.POOL_EXPORT) is DataScope.ALL:
+        queryset = queryset.filter(pk__in=all_customers_queryset(site=site, user=request.user).values('pk'))
     elif scope == 'team':
         queryset = queryset.filter(pool_state__state='owned')
     elif scope in {'review', 'archived'} and can_sales(
@@ -100,11 +140,18 @@ def _filtered_queryset(request, *, site):
     contact_search = resolve_sensitive_search(request, contact_search_token)
     source_type = str(request.POST.get('source') or 'all')
     intake_method = str(request.POST.get('intake') or 'all')
-    country = ' '.join(str(request.POST.get('country') or '').split())[:120]
+    source_type, intake_method = normalize_source_filters(source_type, intake_method)
+    country_codes, country_terms = parse_country_filter(request.POST.getlist('country'))
     evidence_status = str(request.POST.get('evidence') or 'all')
     owner_id = int(request.POST.get('owner')) if str(request.POST.get('owner') or '').isdigit() else 0
     team_id = int(request.POST.get('team')) if str(request.POST.get('team') or '').isdigit() else 0
     batch_id = int(request.POST.get('batch')) if str(request.POST.get('batch') or '').isdigit() else 0
+    value_min = parse_value_bound(request.POST.get('value_min'))
+    value_max = parse_value_bound(request.POST.get('value_max'))
+    if value_min is not None and value_max is not None and value_min > value_max:
+        value_min, value_max = value_max, value_min
+    state_filter = str(request.POST.get('state') or 'all')
+    queryset = filter_pool_state(queryset, state_filter)
     if query:
         queryset = queryset.filter(
             Q(name__icontains=query)
@@ -118,8 +165,13 @@ def _filtered_queryset(request, *, site):
         queryset = queryset.filter(customer_sources__source_type=source_type)
     if intake_method != 'all':
         queryset = queryset.filter(customer_sources__intake_method=intake_method)
-    if country:
-        queryset = queryset.filter(country__icontains=country)
+    if country_codes or country_terms:
+        queryset = queryset.filter(
+            country_condition(
+                codes=country_codes, terms=country_terms,
+                code_field='country_code', name_field='country',
+            )
+        )
     if evidence_status in {'pending', 'declared', 'verified', 'rejected'}:
         queryset = queryset.filter(pool_state__evidence_status=evidence_status)
     if owner_id:
@@ -127,19 +179,27 @@ def _filtered_queryset(request, *, site):
     if team_id:
         queryset = queryset.filter(team_id=team_id)
     if batch_id:
-        queryset = queryset.filter(customer_sources__evidence_json__batch_id=batch_id)
+        queryset = filter_import_batch(queryset, batch_id)
+    if value_min is not None:
+        queryset = queryset.filter(value__gte=value_min)
+    if value_max is not None:
+        queryset = queryset.filter(value__lte=value_max)
     return queryset.distinct(), {
         'mode': 'current_filter',
         'scope': scope,
+        'state': state_filter,
         'query': query,
         'source': source_type,
         'intake': intake_method,
-        'country': country,
+        'country_codes': country_codes,
+        'country_terms': country_terms,
         'contact_search_applied': bool(contact_search),
         'evidence': evidence_status,
         'owner_id': owner_id,
         'team_id': team_id,
         'batch_id': batch_id,
+        'value_min': value_min,
+        'value_max': value_max,
     }
 
 

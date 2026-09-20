@@ -31,21 +31,21 @@ host paths or regional research records may enter this repository.
 ## PORT / PARTIAL — customer-pool product capability (29)
 
 - `console/access.py` — partial: bulk-review route is ported; re-check remaining mixed access additions.
-- `console/customer_pool_exports.py` — partial: standard-21 export is ported; dense/filter export parity remains.
-- `console/customer_pool_queries.py` — port next as the neutral read/query boundary after independent query review.
-- `console/customer_pool_views.py` — partial: standard import/export and bulk review are ported; filters/dense view remain.
+- `console/customer_pool_exports.py` — ported neutral standard-21 column and active-filter handling; public filenames remain Vorntek-specific.
+- `console/customer_pool_queries.py` — ported as the role-bounded neutral read/query boundary.
+- `console/customer_pool_views.py` — partial: list filtering, dense/company views, standard import/export and bulk review are ported; neutral detail-route presentation remains.
 - `console/forms.py` — review and port only neutral article/customer validation changes.
 - `console/navigation.py` — partial shared file; exclude guided-loop navigation until semantics are corrected.
-- `console/static/console/v2/customer-pool-dense.css` — port with the dense-view slice.
-- `console/static/console/v2/customer-pool.css` — partial shared presentation; port only with tested UI behavior.
-- `console/static/console/v2/customer-pool.js` — partial: safe selection/bulk review is ported; dense controls remain.
+- `console/static/console/v2/customer-pool-dense.css` — ported with the dense-view slice.
+- `console/static/console/v2/customer-pool.css` — ported generic list-page presentation; no private evidence UI.
+- `console/static/console/v2/customer-pool.js` — ported generic dense controls, column sizing and safe selection/bulk review behavior.
 - `console/static/console/v2/new-crown-theme.css` — review visual changes separately; no production-brand coupling.
 - `console/templates/console/v2/base.html` — mixed shell change; do not expose blocked guided-loop navigation.
 - `console/templates/console/v2/pages/_contact_evidence.html` — port only as neutral contact provenance display.
-- `console/templates/console/v2/pages/customer_pool.html` — partial: standard export and bulk review are ported.
+- `console/templates/console/v2/pages/customer_pool.html` — ported generic list-page filters, dense/company switch, export controls and bulk review; branding remains configurable.
 - `console/templates/console/v2/pages/customer_pool_detail.html` — port neutral 21-column route display.
 - `console/templates/console/v2/pages/customer_pool_import.html` — partial: bounded standard CSV import is ported.
-- `console/test_customer_pool_views.py` — partial: port tests alongside each accepted view slice.
+- `console/test_customer_pool_views.py` — partial: accepted list/query/export and bulk-review slices have regression coverage; neutral detail-route coverage remains.
 - `console/test_navigation.py` — mixed; keep blocked destinations out of public expectations.
 - `console/urls.py` — partial shared router; add only accepted public endpoints.
 - `db/migrations/0028_customer_pool_standard21.sql` — ported byte-for-byte; append-only 0029 adds reference integrity.
@@ -173,7 +173,7 @@ The lists above are mechanically compared with `git diff --name-only
 d44dfdb..7ed9c56`; no changed path may be unclassified or appear twice. The
 next implementation slices are:
 
-1. neutral customer-pool query/filter/dense-view behavior;
+1. neutral customer-pool detail-route presentation without private research evidence;
 2. independent security and lifecycle review of the article-delivery candidate;
 3. a new guided-loop state model, if retained, rather than copying current
    production semantics;

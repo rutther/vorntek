@@ -19,6 +19,9 @@ certifications.
   reconciliation, preview/commit, row-level persistence and authorized CSV export.
 - Controlled bulk review/publish for customer-pool records, with deterministic
   route selection, per-company transactions, permission checks and itemized results.
+- A role-bounded customer-pool query layer plus dense standard-21 and company
+  views, multi-country/value/state filters, sortable columns and numeric phone
+  ordering.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be
@@ -31,6 +34,8 @@ certifications.
 - The customer import page accepts the standard CSV format with bounded reads.
 - The review queue can publish explicit selections without bypassing the existing
   single-record review gate; restricted routes stay in review for manual handling.
+- Customer-pool exports now preserve the active neutral filters and offer an
+  explicit standard-21 column picker while keeping phone and email as required keys.
 
 ## [0.1.0-rc.1] - 2026-09-13
 

@@ -62,7 +62,7 @@ the classifications above; unknown files are not silently shipped.
 - [x] Add authorized deterministic CSV export and round-trip tests.
 - [x] Add safe bulk review/publish with deterministic route selection,
   per-company transactions, itemized failures and role-denial coverage.
-- [ ] Complete customer-pool filtering, dense view and controlled column
+- [x] Complete customer-pool filtering, dense view and controlled column
   selection without importing private research adapters.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
   public abstractions; port only independently useful behavior.
