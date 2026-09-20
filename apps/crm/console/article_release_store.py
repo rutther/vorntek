@@ -261,15 +261,24 @@ class ArticleReleaseStore:
                 return version
             stage = self.root / ('stage-' + secrets.token_hex(12))
             stage.mkdir(mode=0o700)
-            for name, raw in documents.items():
-                target = stage.joinpath(*PurePosixPath(name).parts)
-                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-                with target.open('xb') as handle:
-                    handle.write(raw)
-            (stage / 'manifest.json').write_bytes(_json(payload))
-            destination.parent.mkdir(mode=0o700, exist_ok=True)
-            _no_links(destination.parent)
-            os.replace(stage, destination)
+            try:
+                for name, raw in documents.items():
+                    target = stage.joinpath(*PurePosixPath(name).parts)
+                    target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                    with target.open('xb') as handle:
+                        handle.write(raw)
+                (stage / 'manifest.json').write_bytes(_json(payload))
+                destination.parent.mkdir(mode=0o700, exist_ok=True)
+                _no_links(destination.parent)
+                os.replace(stage, destination)
+            finally:
+                if stage.exists():
+                    for item in sorted(stage.rglob('*'), reverse=True):
+                        if item.is_file():
+                            item.unlink()
+                        elif item.is_dir():
+                            item.rmdir()
+                    stage.rmdir()
             self.verify(version)
         return version
 
@@ -291,6 +300,8 @@ class ArticleReleaseStore:
         for file in root.rglob('*'):
             _no_links(file)
             if file.is_file():
+                if file.stat().st_nlink != 1:
+                    raise ArticleDeliveryError('unsafe_artifact_link')
                 actual.add(file.relative_to(root).as_posix())
         if actual != set(files) | {'manifest.json'}:
             raise ArticleDeliveryError('artifact_file_set_mismatch')

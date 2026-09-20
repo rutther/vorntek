@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -157,6 +158,25 @@ class ArticleReleaseStoreTests(unittest.TestCase):
         (self.root / 'releases' / clean / 'unexpected.txt').write_text('extra')
         with self.assertRaisesRegex(ArticleDeliveryError, 'artifact_file_set_mismatch'):
             self.store.activate(clean, expected='')
+
+    def test_hardlinked_artifact_and_failed_stage_are_rejected_cleanly(self):
+        version = self.store.stage(self.snapshot())
+        article = self.root / 'releases' / version / 'zh/articles/guide/index.html'
+        outside = Path(self.temporary.name) / 'outside.html'
+        outside.write_bytes(article.read_bytes())
+        article.unlink()
+        os.link(outside, article)
+
+        with self.assertRaisesRegex(ArticleDeliveryError, 'unsafe_artifact_link'):
+            self.store.verify(version)
+
+        with patch(
+            'console.article_release_store.os.replace',
+            side_effect=OSError('simulated stage rename failure'),
+        ):
+            with self.assertRaises(OSError):
+                self.store.stage(self.snapshot('Failed stage'))
+        self.assertEqual(list(self.root.glob('stage-*')), [])
 
     def test_lock_store_ownership_and_root_boundaries_fail_closed(self):
         class BusyFcntl:
