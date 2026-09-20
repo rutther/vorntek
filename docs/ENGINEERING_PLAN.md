@@ -181,10 +181,14 @@ repository and documented prerequisites.
 
 - [x] Add repeatable candidate-history review from the trusted RC1 tag. The
   scanner covers deleted blobs, blocked private/secret inputs, runtime production
-  identifiers and oversized objects without echoing matched content; the exact
-  `0bd48fc` run found zero findings across 30 commits and 350 blobs. See the
+  identifiers and oversized objects without echoing matched content; it binds
+  reused content to every changed path. The exact `e971f9c` run found zero
+  findings across 32 commits and 359 blob/path bindings. See the
   [source-history review](review/SOURCE_HISTORY_REVIEW_20260921.md).
 - [ ] Review `git diff`, provenance, licenses, secrets/privacy and generated files.
+- [ ] Configure and verify a real private vulnerability-reporting channel and
+  supported-version policy. GitHub private vulnerability reporting was observed
+  disabled on 2026-09-21; do not document its advisory form until it is enabled.
 - [ ] Create small, auditable commits and select a release-candidate version.
 - [ ] Push the reviewed source to the existing GitHub repository without force.
 - [ ] Confirm the remote commit and required CI jobs; repeat clean-clone checks

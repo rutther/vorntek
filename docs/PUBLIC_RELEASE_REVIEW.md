@@ -6,10 +6,11 @@ records evidence and publication boundaries, not a legal certification.
 
 ## Current unpushed candidate
 
-- Candidate source commit `0bd48fc808a422d20be06b8e95b762cbc6b5e9d6`
-  passed a clean history audit from immutable tag `v0.1.0-rc.1`: 30 commits,
-  592 introduced objects, 350 blobs, largest 142,197 bytes and zero findings.
-  The scanner includes blobs later deleted and never prints matched material.
+- Candidate source commit `e971f9c226a966eb564b473e9f4c4dedaa5d7418`
+  passed a clean history audit from immutable tag `v0.1.0-rc.1`: 32 commits,
+  609 introduced objects, 359 blobs/path bindings, largest 142,197 bytes and
+  zero findings. The scanner includes blobs later deleted, binds reused content
+  to every candidate-changed path and never prints matched material.
   See the [exact source-history review](review/SOURCE_HISTORY_REVIEW_20260921.md).
 - Current-tree guards separately reject private/backup/key inputs, token shapes,
   credential URLs, known production identifiers and all 45 excluded private
@@ -21,6 +22,10 @@ records evidence and publication boundaries, not a legal certification.
   remain open. See the [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
 - This candidate has not passed its remote Ubuntu/PostgreSQL 18/Compose/Nginx
   workflow and has not been pushed or tagged. Do not describe it as released.
+- The public repository's read-only API reported private vulnerability reporting
+  as disabled on 2026-09-21. Enable it with repository-owner authority or publish
+  another real private contact before selecting a supported candidate release;
+  the current policy deliberately does not point reporters to a disabled form.
 
 ## Source that was published
 
@@ -84,6 +89,8 @@ and corresponding-source requirements.
   on the user's behalf.
 - Preserve default-disabled external integrations. Do not describe simulated
   contracts as verified real Meta browser/server deduplication.
+- Configure and verify a real private vulnerability-reporting channel and define
+  the supported-version policy; GitHub private reporting was disabled when checked.
 - Real use needs HTTPS/security/retention controls; public HTTP is synthetic-only.
 
 中文：已公开的是 RC1；当前 0.2 候选及其历史审查尚未推送。标准 21 列即时 CSV

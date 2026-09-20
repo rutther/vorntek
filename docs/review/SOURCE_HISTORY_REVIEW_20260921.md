@@ -2,10 +2,10 @@
 
 This review covers the unpushed candidate history from trusted public tag
 `v0.1.0-rc.1` (`fe353544d6d37d5cbf01ccecbb157cf30edba6fe`) through source
-commit `0bd48fc808a422d20be06b8e95b762cbc6b5e9d6`. It is a secret/privacy
+commit `e971f9c226a966eb564b473e9f4c4dedaa5d7418`. It is a secret/privacy
 and distribution-input guard, not a legal certification or runtime acceptance.
 
-本审查覆盖已公开可信标签 `v0.1.0-rc.1` 至尚未推送的源码提交 `0bd48fc`。它检查
+本审查覆盖已公开可信标签 `v0.1.0-rc.1` 至尚未推送的源码提交 `e971f9c`。它检查
 秘密、隐私和公开分发输入边界，不是法律认证，也不等于运行环境验收。
 
 ## Exact result / 精确结果
@@ -18,15 +18,18 @@ python3 scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean
 
 reported:
 
-- 30 candidate commits;
-- 592 unique introduced Git objects;
-- 350 unique blobs, all treated as text by the scanner;
+- 32 candidate commits;
+- 609 unique introduced Git objects;
+- 359 unique blobs and 359 changed blob/path bindings, all treated as text by
+  the scanner;
 - largest blob: `apps/crm/console/views.py`, 142,197 bytes;
 - one-megabyte maximum newly introduced blob policy;
 - **zero findings**.
 
 The scanner inspects objects introduced anywhere in the range, including a blob
-that was committed and later deleted. It refuses private-key markers, common AWS,
+that was committed and later deleted. It binds every candidate blob version to
+every path changed to that version, so reusing test content under a runtime path
+cannot hide a path-specific rule. It refuses private-key markers, common AWS,
 GitHub and Meta live-token shapes, credential-bearing database/cache URLs outside
 test fixtures, tracked environment/private/runtime/backup/key/archive paths,
 known production identifiers inside deployable inputs and oversized blobs. A

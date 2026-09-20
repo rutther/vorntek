@@ -97,9 +97,10 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   UI evidence and still requires packaged Linux repetition; see the
   [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
 - Candidate history now has a repeatable fail-closed audit from the trusted RC1
-  tag. The clean `0bd48fc` run covered 30 commits, 592 introduced objects and 350
-  blobs (including later-deleted objects), found zero blocked secret/privacy or
-  distribution inputs, and is repeated by full-history CI. Pattern scanning is
+  tag. The clean `e971f9c` run covered 32 commits, 609 introduced objects and 359
+  blob/path bindings (including later-deleted objects and reused content under
+  every changed path), found zero blocked secret/privacy or distribution inputs,
+  and is repeated by full-history CI. Pattern scanning is
   not a substitute for final human provenance/license review; see the
   [source-history record](review/SOURCE_HISTORY_REVIEW_20260921.md).
 - Read-only production comparison uses the Hong Kong `filline.com` stack as the
@@ -167,6 +168,8 @@ release directory was not rewritten or relabeled as an entire RC1 image set.
 5. Real Meta deduplication is not verified. Advertising, email and WhatsApp stay
    disabled. Historical CMS/preview capability is not an accepted one-click
    production publishing workflow.
+6. GitHub private vulnerability reporting was observed disabled on 2026-09-21.
+   A real private contact and supported-version policy remain release gates.
 
 中文：源码候选版、实际部署、关键业务、隔离恢复及干净克隆安装已有证据。
 真实客户迁移、浏览器文件落盘及预构建镜像交付仍未完成，不能把“软件可运行”
