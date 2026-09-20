@@ -159,9 +159,19 @@ class ArticleReleaseStoreTests(unittest.TestCase):
             self.store.activate(clean, expected='')
 
     def test_lock_store_ownership_and_root_boundaries_fail_closed(self):
+        class BusyFcntl:
+            LOCK_EX = 1
+            LOCK_NB = 2
+            LOCK_UN = 4
+
+            @staticmethod
+            def flock(descriptor, operation):
+                raise BlockingIOError
+
         (self.root / 'publish.lock').write_text('another process', encoding='ascii')
-        with self.assertRaisesRegex(ArticleDeliveryError, 'publication_in_progress'):
-            self.store.stage(self.snapshot())
+        with patch('console.article_release_store._fcntl', BusyFcntl()):
+            with self.assertRaisesRegex(ArticleDeliveryError, 'publication_in_progress'):
+                self.store.stage(self.snapshot())
         (self.root / 'publish.lock').unlink()
 
         arbitrary = Path(self.temporary.name) / 'user-files'

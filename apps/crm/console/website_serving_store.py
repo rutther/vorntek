@@ -13,15 +13,9 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import secrets
-import stat
-
-try:  # POSIX production path; Windows keeps the test-compatible fallback below.
-    import fcntl as _fcntl
-except ImportError:  # pragma: no cover - exercised on Windows
-    _fcntl = None
 
 from .article_delivery import ArticleDeliveryError, content_digest
-from .article_release_store import _no_links
+from .article_release_store import _no_links, _process_lock
 from .website_release_store import (
     _MAX_FILE_BYTES,
     _MAX_FILES,
@@ -81,48 +75,12 @@ class WebsiteServingStore:
     @contextmanager
     def _lock(self):
         _no_links(self.root)
-        path = self.root / 'deploy.lock'
-        _no_links(path)
-        if _fcntl is not None:
-            flags = os.O_CREAT | os.O_RDWR
-            flags |= getattr(os, 'O_NOFOLLOW', 0)
-            try:
-                descriptor = os.open(path, flags, 0o600)
-            except OSError as error:
-                raise ArticleDeliveryError('website_deployment_lock_unavailable') from error
-            locked = False
-            try:
-                info = os.fstat(descriptor)
-                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-                    raise ArticleDeliveryError('unsafe_website_deployment_link')
-                try:
-                    _fcntl.flock(descriptor, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
-                    locked = True
-                except BlockingIOError:
-                    raise ArticleDeliveryError('website_deployment_in_progress') from None
-                os.ftruncate(descriptor, 0)
-                os.write(descriptor, str(os.getpid()).encode('ascii'))
-                yield
-            finally:
-                try:
-                    if locked:
-                        _fcntl.flock(descriptor, _fcntl.LOCK_UN)
-                finally:
-                    os.close(descriptor)
-            return
-
-        # Windows cannot serve the POSIX symlink tree in production. Keep the
-        # prior exclusive-file behavior for local memory-pointer tests only.
-        try:
-            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-        except FileExistsError:
-            raise ArticleDeliveryError('website_deployment_in_progress') from None
-        try:
-            os.write(descriptor, str(os.getpid()).encode('ascii'))
+        with _process_lock(
+            self.root / 'deploy.lock',
+            busy_code='website_deployment_in_progress',
+            unavailable_code='website_deployment_lock_unavailable',
+        ):
             yield
-        finally:
-            os.close(descriptor)
-            path.unlink(missing_ok=True)
 
     @staticmethod
     def _release_target(version: str) -> str:

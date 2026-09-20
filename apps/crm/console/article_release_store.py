@@ -15,6 +15,11 @@ import re
 import secrets
 import stat
 
+try:  # POSIX production path; Windows uses the local-test fallback below.
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover - exercised on Windows
+    _fcntl = None
+
 from .article_delivery import ArticleDeliveryError, content_digest
 from .article_rendering import render_article_documents, render_article_sitemap
 
@@ -48,6 +53,60 @@ def _no_links(path: Path) -> None:
             & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0)
         ):
             raise ArticleDeliveryError('unsafe_store_link')
+
+
+@contextmanager
+def _process_lock(
+    path: Path,
+    *,
+    busy_code: str,
+    unavailable_code: str,
+):
+    """Hold a crash-released POSIX lock or a Windows test-only lock file."""
+
+    path = Path(path)
+    _no_links(path)
+    if _fcntl is not None:
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0)
+        try:
+            descriptor = os.open(path, flags, 0o600)
+        except OSError as error:
+            raise ArticleDeliveryError(unavailable_code) from error
+        locked = False
+        try:
+            info = os.fstat(descriptor)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                raise ArticleDeliveryError('unsafe_store_link')
+            try:
+                _fcntl.flock(descriptor, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+                locked = True
+            except BlockingIOError:
+                raise ArticleDeliveryError(busy_code) from None
+            os.ftruncate(descriptor, 0)
+            os.write(descriptor, str(os.getpid()).encode('ascii'))
+            yield
+        finally:
+            try:
+                if locked:
+                    _fcntl.flock(descriptor, _fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+        return
+
+    # Windows cannot serve the POSIX symlink tree in production. Retain an
+    # exclusive-file fallback for local memory-pointer and artifact tests.
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        raise ArticleDeliveryError(busy_code) from None
+    except OSError as error:
+        raise ArticleDeliveryError(unavailable_code) from error
+    try:
+        os.write(descriptor, str(os.getpid()).encode('ascii'))
+        yield
+    finally:
+        os.close(descriptor)
+        path.unlink(missing_ok=True)
 
 
 def _valid_artifact_name(name: object) -> bool:
@@ -160,17 +219,12 @@ class ArticleReleaseStore:
     @contextmanager
     def _lock(self):
         _no_links(self.root)
-        lock = self.root / 'publish.lock'
-        try:
-            handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-        except FileExistsError:
-            raise ArticleDeliveryError('publication_in_progress') from None
-        try:
-            os.write(handle, str(os.getpid()).encode('ascii'))
+        with _process_lock(
+            self.root / 'publish.lock',
+            busy_code='publication_in_progress',
+            unavailable_code='publication_lock_unavailable',
+        ):
             yield
-        finally:
-            os.close(handle)
-            lock.unlink()
 
     def _version(self, version: str) -> Path:
         if not isinstance(version, str) or not _ID.fullmatch(version):

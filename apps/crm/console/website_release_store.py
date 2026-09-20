@@ -17,7 +17,7 @@ import secrets
 from urllib.parse import urlsplit
 
 from .article_delivery import ArticleDeliveryError, content_digest
-from .article_release_store import _no_links
+from .article_release_store import _no_links, _process_lock
 
 
 _ID = re.compile(r'^[a-f0-9]{64}$')
@@ -316,17 +316,12 @@ class WebsiteReleaseStore:
     @contextmanager
     def _lock(self):
         _no_links(self.root)
-        lock = self.root / 'compose.lock'
-        try:
-            descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-        except FileExistsError:
-            raise ArticleDeliveryError('website_composition_in_progress') from None
-        try:
-            os.write(descriptor, str(os.getpid()).encode('ascii'))
+        with _process_lock(
+            self.root / 'compose.lock',
+            busy_code='website_composition_in_progress',
+            unavailable_code='website_composition_lock_unavailable',
+        ):
             yield
-        finally:
-            os.close(descriptor)
-            lock.unlink()
 
     def _version(self, version: str) -> Path:
         if not isinstance(version, str) or not _ID.fullmatch(version):

@@ -148,7 +148,7 @@ class WebsiteServingStoreTests(unittest.TestCase):
         lock_path.write_text('terminated-process', encoding='ascii')
         candidate = FakeCandidateStore()
 
-        with patch('console.website_serving_store._fcntl', lock_api):
+        with patch('console.article_release_store._fcntl', lock_api):
             self.deploy(candidate)
 
         self.assertEqual(self.store.current(), candidate.version)
@@ -166,7 +166,7 @@ class WebsiteServingStoreTests(unittest.TestCase):
                 raise BlockingIOError
 
         candidate = FakeCandidateStore()
-        with patch('console.website_serving_store._fcntl', BusyFcntl()):
+        with patch('console.article_release_store._fcntl', BusyFcntl()):
             with self.assertRaisesRegex(
                 ArticleDeliveryError,
                 'website_deployment_in_progress',
