@@ -37,6 +37,8 @@ certifications.
 - An append-only whole-site candidate selection ledger with an independent
   `releases.candidate_select` capability, expected-version CAS, idempotent request
   receipts, verified update/rollback chains and no artifact activation or deploy.
+- A site-scoped operator confirmation page that re-verifies candidate evidence,
+  requires an audit reason, rejects stale forms and labels selection as not deployed.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be

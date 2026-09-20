@@ -74,7 +74,7 @@ def current_website_selection(*, site) -> WebsiteReleaseSelection | None:
     )
 
 
-def _verified_candidate(*, site, record_id: int) -> tuple[Release, dict]:
+def review_website_candidate(*, site, record_id: int) -> tuple[Release, dict]:
     record, manifest = website_candidate_for_selection(site=site, record_id=record_id)
     store = website_release_store(site, initialize=False)
     before = store.current()
@@ -120,7 +120,7 @@ def select_website_candidate(
         minimum=8,
         maximum=500,
     )
-    record, manifest = _verified_candidate(site=site, record_id=record_id)
+    record, manifest = review_website_candidate(site=site, record_id=record_id)
 
     with transaction.atomic():
         Site.objects.select_for_update().get(pk=site.pk)

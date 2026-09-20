@@ -71,8 +71,12 @@ update/delete rejection trigger. Selection verifies the complete stored candidat
 uses the previously selected version as a compare-and-swap precondition, and uses
 a UUID request receipt for replay safety. Updates and rollbacks append new events;
 they do not rewrite history, set a release to `live`, change `active.json`, copy
-files or touch a web-server root. The service core is tested but intentionally has
-no operator route yet; UI authorization and confirmation remain the next slice.
+files or touch a web-server root. The authenticated, site-scoped confirmation
+page requires the same content/release reads plus `releases.candidate_select`,
+re-verifies the artifact before display and again on submission, shows the exact
+website/article/base versions and file count, requires a reason, and rejects a
+stale expected version without exposing the internal error code. The release list
+marks the current choice as `已选择（未部署）` and hides a redundant select action.
 
 Brand name, locale labels and logo URL come from the site record/configuration.
 The public implementation deliberately does not carry the Hong Kong company's
@@ -88,7 +92,6 @@ The current accepted slice stops at an audited, immutable whole-site candidate
 plus a non-deploying selection ledger.
 It does **not** yet provide:
 
-- an authenticated operator confirmation route for the selection service;
 - a verified serving adapter that atomically switches Nginx to the selected bundle;
 - background scheduling or external publication;
 - a claim that CMS edits are live merely because rendering succeeded.
@@ -147,6 +150,6 @@ activation tests remain later gates.
 
 中文：当前完成的是可审计快照、安全渲染、私有不可变存储、固定版本构建输入、经过权限
 控制且阻断外部网络请求的后台私有预览，以及把官网 HTML/CSS/JS/图片与正式模式文章
-一起固化的整站候选，以及不产生部署副作用的候选选择审计链；候选构建与选择是两项独立高风险权限，但仍不是“一键发布”。后续须补操作员确认页面、Nginx 原子切换
+一起固化的整站候选，以及不产生部署副作用的候选选择审计链和操作员确认页面；候选构建与选择是两项独立高风险权限，但仍不是“一键发布”。后续须补 Nginx 原子切换
 和整站回滚分别实现并验收；在此之前不得将 artifact、私有预览或候选构建描述为生产网站
 已经更新。

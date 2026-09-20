@@ -22,6 +22,7 @@ from .content_access import (
     ASSETS_WRITE,
     CONTENT_READ,
     RELEASES_CANDIDATE_BUILD,
+    RELEASES_CANDIDATE_SELECT,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
@@ -1004,6 +1005,7 @@ def releases_payload(
     site: Site | None = None,
     capabilities: frozenset[str] = frozenset(),
     include_diagnostics: bool = False,
+    current_selection_version: str = '',
 ) -> dict:
     if RELEASES_READ not in capabilities:
         raise PermissionDenied('当前账号没有查看预览与快照记录的权限。')
@@ -1034,6 +1036,11 @@ def releases_payload(
         CONTENT_READ,
         RELEASES_READ,
         RELEASES_CANDIDATE_BUILD,
+    }.issubset(capabilities)
+    can_candidate_select = {
+        CONTENT_READ,
+        RELEASES_READ,
+        RELEASES_CANDIDATE_SELECT,
     }.issubset(capabilities)
 
     build_rows = []
@@ -1080,6 +1087,11 @@ def releases_payload(
             if snapshot.get('kind') == 'articlePreview' and item.status == 'built'
             else ''
         )
+        candidate_version = (
+            snapshot.get('version')
+            if snapshot.get('kind') == 'websiteCandidate' and item.status == 'built'
+            else ''
+        )
         preview_actions = []
         if can_article_preview and article_preview_version:
             preview_actions.append(
@@ -1110,6 +1122,30 @@ def releases_payload(
                     tone='secondary',
                 )
             )
+        if (
+            can_candidate_select
+            and candidate_version
+            and candidate_version != current_selection_version
+        ):
+            preview_actions.append(
+                link_action(
+                    '审查并选择候选',
+                    reverse(
+                        'console:website_candidate_select',
+                        kwargs={'candidate_record_id': item.id},
+                    ),
+                )
+            )
+        release_type = (
+            '整站候选'
+            if candidate_version
+            else ('文章预览' if article_preview_version else 'snapshot')
+        )
+        release_status = (
+            badge('已选择（未部署）', 'blue')
+            if candidate_version and candidate_version == current_selection_version
+            else badge(status_label(item.status), status_tone(item.status))
+        )
         release_rows.append(
             build_row(
                 row_id=f'release-{item.id}',
@@ -1122,8 +1158,8 @@ def releases_payload(
                 title=item.release_key,
                 subtitle=item.notes or '内容快照',
                 cells={
-                    'buildType': 'snapshot',
-                    'status': badge(status_label(item.status), status_tone(item.status)),
+                    'buildType': release_type,
+                    'status': release_status,
                     'operator': item.created_by or 'system',
                     'updatedAt': format_admin_datetime(item.created_at),
                 },

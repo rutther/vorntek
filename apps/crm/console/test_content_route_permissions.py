@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import uuid4
 import zipfile
 
 from django.contrib.auth import get_user_model
@@ -31,10 +32,11 @@ from console.content_access import (
     CONTENT_SET_PUBLISHED,
     CONTENT_WRITE,
     RELEASES_CANDIDATE_BUILD,
+    RELEASES_CANDIDATE_SELECT,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
-from console.models import ContentAccessGrant
+from console.models import ContentAccessGrant, WebsiteReleaseSelection
 from sitecore.models import (
     Article,
     Category,
@@ -83,6 +85,9 @@ EXPECTED_CONTENT_ROUTE_CAPABILITIES = {
     'website_candidate_build': frozenset(
         {CONTENT_READ, RELEASES_READ, RELEASES_CANDIDATE_BUILD}
     ),
+    'website_candidate_select': frozenset(
+        {CONTENT_READ, RELEASES_READ, RELEASES_CANDIDATE_SELECT}
+    ),
 }
 
 
@@ -115,6 +120,7 @@ CONTENT_ROUTE_CASES = (
     ('article_release_preview', (), 'post'),
     ('article_preview_file', ('0' * 64, 'articles/index.html'), 'get'),
     ('website_candidate_build', (999_990,), 'post'),
+    ('website_candidate_select', (999_989,), 'get'),
 )
 
 
@@ -132,7 +138,7 @@ class ContentRoutePolicyContractTests(SimpleTestCase):
         }
         self.assertEqual(normalized, EXPECTED_CONTENT_ROUTE_CAPABILITIES)
         self.assertEqual(set(normalized), set(CONTENT_VIEW_NAMES))
-        self.assertEqual(len(normalized), 28)
+        self.assertEqual(len(normalized), 29)
 
     def test_every_policy_entry_resolves_to_the_named_console_route(self):
         route_cases = {name: args for name, args, _method in CONTENT_ROUTE_CASES}
@@ -158,6 +164,7 @@ class ContentRouteCapabilityTests(TestCase):
         MediaAssetBinding,
         Release,
         ReleaseBuild,
+        WebsiteReleaseSelection,
     )
 
     @classmethod
@@ -286,6 +293,8 @@ class ContentRouteCapabilityTests(TestCase):
             patch('console.views.run_preview_build') as preview_build,
             patch('console.views.build_private_article_preview') as article_preview,
             patch('console.views.build_website_candidate') as website_candidate,
+            patch('console.views.review_website_candidate') as review_candidate,
+            patch('console.views.select_website_candidate') as select_candidate,
         ):
             for route_name, args, method in CONTENT_ROUTE_CASES:
                 with self.subTest(route_name=route_name):
@@ -300,6 +309,8 @@ class ContentRouteCapabilityTests(TestCase):
         preview_build.assert_not_called()
         article_preview.assert_not_called()
         website_candidate.assert_not_called()
+        review_candidate.assert_not_called()
+        select_candidate.assert_not_called()
         self.assertEqual(
             list(
                 SiteLocale.objects.filter(site=self.site)
@@ -981,6 +992,131 @@ class ContentRouteCapabilityTests(TestCase):
         self.assertIn('32 个文件', str(messages[0]))
         self.assertIn('未选择、未部署', str(messages[0]))
 
+    def test_candidate_selection_confirmation_requires_exact_capability_and_reason(self):
+        self.grant(CONTENT_READ)
+        self.grant(RELEASES_READ)
+        self.client.force_login(self.content_user)
+        candidate = SimpleNamespace(pk=81)
+        manifest = {
+            'kind': 'websiteCandidate',
+            'scope': 'wholeSite',
+            'version': '7' * 64,
+            'articleVersion': '8' * 64,
+            'baseSourceVersion': '9' * 64,
+            'fileCount': 32,
+        }
+        url = reverse('console:website_candidate_select', args=[candidate.pk])
+        rendered = []
+
+        def capture(_request, **kwargs):
+            rendered.append(kwargs)
+            return HttpResponse('selection form')
+
+        with (
+            patch(
+                'console.views.review_website_candidate',
+                return_value=(candidate, manifest),
+            ) as reviewer,
+            patch('console.views.current_website_selection', return_value=None),
+            patch('console.views.render_form_console', side_effect=capture),
+            patch(
+                'console.views.select_website_candidate',
+                return_value={
+                    'selectionId': 3,
+                    'version': manifest['version'],
+                    'previous': '',
+                    'changed': True,
+                    'replayed': False,
+                },
+            ) as selector,
+        ):
+            denied = self.client.get(url)
+            self.assertEqual(denied.status_code, 403)
+            reviewer.assert_not_called()
+
+            self.grant(RELEASES_CANDIDATE_SELECT)
+            allowed = self.client.get(url)
+            self.assertEqual(allowed.status_code, 200)
+            self.assertEqual(
+                rendered[-1]['extra_context']['candidate_manifest'],
+                manifest,
+            )
+            self.assertEqual(
+                rendered[-1]['workspace_template'],
+                'console/_website_candidate_selection_workspace.html',
+            )
+
+            invalid = self.client.post(url, {
+                'expected_version': '',
+                'request_token': str(uuid4()),
+                'reason': 'short',
+            })
+            self.assertEqual(invalid.status_code, 200)
+            selector.assert_not_called()
+
+            selected = self.client.post(url, {
+                'expected_version': '',
+                'request_token': str(uuid4()),
+                'reason': 'Reviewed immutable candidate for controlled rollout.',
+            })
+
+        self.assertEqual(selected.status_code, 302)
+        self.assertEqual(selected.url, reverse('console:releases'))
+        selector.assert_called_once()
+        self.assertEqual(selector.call_args.kwargs['site'], self.site)
+        self.assertEqual(selector.call_args.kwargs['record_id'], candidate.pk)
+        self.assertEqual(selector.call_args.kwargs['expected_version'], '')
+        self.assertIn('尚未部署', str(list(selected.wsgi_request._messages)[0]))
+
+    def test_candidate_selection_stale_form_is_rendered_without_internal_error(self):
+        for capability in (
+            CONTENT_READ,
+            RELEASES_READ,
+            RELEASES_CANDIDATE_SELECT,
+        ):
+            self.grant(capability)
+        self.client.force_login(self.content_user)
+        candidate = SimpleNamespace(pk=82)
+        manifest = {
+            'kind': 'websiteCandidate',
+            'scope': 'wholeSite',
+            'version': 'a' * 64,
+            'articleVersion': 'b' * 64,
+            'baseSourceVersion': 'c' * 64,
+            'fileCount': 32,
+        }
+        rendered = []
+
+        def capture(_request, **kwargs):
+            rendered.append(kwargs)
+            return HttpResponse('stale selection form')
+
+        with (
+            patch(
+                'console.views.review_website_candidate',
+                return_value=(candidate, manifest),
+            ),
+            patch('console.views.current_website_selection', return_value=None),
+            patch('console.views.render_form_console', side_effect=capture),
+            patch(
+                'console.views.select_website_candidate',
+                side_effect=ArticleDeliveryError('website_selection_changed'),
+            ),
+        ):
+            response = self.client.post(
+                reverse('console:website_candidate_select', args=[candidate.pk]),
+                {
+                    'expected_version': '',
+                    'request_token': str(uuid4()),
+                    'reason': 'Reviewed immutable candidate for controlled rollout.',
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        form = rendered[-1]['extra_context']['selection_form']
+        self.assertIn('当前选择已被其他操作更新', str(form.non_field_errors()))
+        self.assertNotIn('website_selection_changed', str(form.non_field_errors()))
+
     def test_system_admin_keeps_representative_read_write_and_high_risk_routes_without_grants(self):
         self.client.force_login(self.admin_user)
         workspace = {'locale': {'code': 'en'}}
@@ -1025,6 +1161,7 @@ class ContentRouteCapabilityTests(TestCase):
             patch('console.views.run_preview_build') as preview_build,
             patch('console.views.build_private_article_preview') as article_preview,
             patch('console.views.build_website_candidate') as website_candidate,
+            patch('console.views.review_website_candidate') as review_candidate,
             patch('console.views.read_private_preview') as preview_reader,
             patch('console.views.disable_locale') as disable_locale,
         ):
@@ -1033,6 +1170,10 @@ class ContentRouteCapabilityTests(TestCase):
             article_preview_get = self.client.get(reverse('console:article_release_preview'))
             candidate_get = self.client.get(
                 reverse('console:website_candidate_build', args=[1])
+            )
+            candidate_select_put = self.client.put(
+                reverse('console:website_candidate_select', args=[1]),
+                {},
             )
             article_file_post = self.client.post(
                 reverse(
@@ -1048,11 +1189,13 @@ class ContentRouteCapabilityTests(TestCase):
         self.assertEqual(preview_get.status_code, 405)
         self.assertEqual(article_preview_get.status_code, 405)
         self.assertEqual(candidate_get.status_code, 405)
+        self.assertEqual(candidate_select_put.status_code, 405)
         self.assertEqual(article_file_post.status_code, 405)
         self.assertEqual(locale_get.status_code, 405)
         articles.assert_not_called()
         preview_build.assert_not_called()
         article_preview.assert_not_called()
         website_candidate.assert_not_called()
+        review_candidate.assert_not_called()
         preview_reader.assert_not_called()
         disable_locale.assert_not_called()

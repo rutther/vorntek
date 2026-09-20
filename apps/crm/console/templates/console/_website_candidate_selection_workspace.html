@@ -1,0 +1,66 @@
+<section class="editor-shell">
+    <form method="post" action="{{ selection_form_action }}" class="editor-layout">
+        {% csrf_token %}
+        {{ selection_form.expected_version }}
+        {{ selection_form.request_token }}
+
+        <div class="editor-main">
+            {% if selection_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in selection_form.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>候选证据</h2>
+                        <p>以下信息已由服务器从不可变候选重新核验，不依赖页面提交值。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item"><span>整站候选版本</span><strong class="mono">{{ candidate_manifest.version }}</strong></div>
+                    <div class="meta-item"><span>文章版本</span><strong class="mono">{{ candidate_manifest.articleVersion }}</strong></div>
+                    <div class="meta-item"><span>基础站点版本</span><strong class="mono">{{ candidate_manifest.baseSourceVersion }}</strong></div>
+                    <div class="meta-item"><span>冻结文件数</span><strong>{{ candidate_manifest.fileCount }}</strong></div>
+                    <div class="meta-item"><span>当前已选择版本</span><strong class="mono">{{ current_selection_version|default:'尚未选择' }}</strong></div>
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>审批说明</h2>
+                        <p>选择旧候选会形成一条新的回滚事件；历史选择记录不会被覆盖。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ selection_form.reason.label }}</span>
+                    {{ selection_form.reason }}
+                    <small class="field-help">{{ selection_form.reason.help_text }}</small>
+                    {% for error in selection_form.reason.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div><h2>确认选择</h2><p>该动作只写入选择审计，不会部署文件或切换公开网站。</p></div>
+                </div>
+                <div class="side-actions">
+                    <button type="submit" class="button primary">确认选择此候选</button>
+                    <a href="{% url 'console:releases' %}" class="button neutral">返回发布中心</a>
+                </div>
+            </section>
+            <section class="editor-card side-card">
+                <div class="editor-card-head"><div><h2>发布边界</h2></div></div>
+                <ul class="hint-list">
+                    <li>选择不等于上线，Release 状态不会变成 live。</li>
+                    <li>不会修改 artifact active 指针。</li>
+                    <li>Nginx 切换与回滚必须由后续受控 serving adapter 完成。</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

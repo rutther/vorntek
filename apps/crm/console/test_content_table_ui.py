@@ -12,6 +12,7 @@ from console.content_access import (
     ASSETS_READ,
     CONTENT_READ,
     RELEASES_CANDIDATE_BUILD,
+    RELEASES_CANDIDATE_SELECT,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
@@ -253,8 +254,84 @@ class GenericTablePayloadContractTests(SimpleTestCase):
             reverse('console:website_candidate_build', args=[release.id]),
         )
 
+    def test_candidate_selection_action_is_separate_and_hides_for_current_version(self):
+        site = SimpleNamespace(pk=1, id=1, code='siteos_demo', name='Vorntek')
+        version = '4' * 64
+        release = SimpleNamespace(
+            id=23,
+            release_key='website-candidate:1:v4',
+            status='built',
+            created_by='builder',
+            notes='Whole-site candidate',
+            artifact_path='',
+            exported_at=None,
+            built_at=None,
+            published_at=None,
+            created_at=None,
+            snapshot_manifest={
+                'kind': 'websiteCandidate',
+                'scope': 'wholeSite',
+                'version': version,
+                'articleVersion': '5' * 64,
+                'baseSourceVersion': '6' * 64,
+                'fileCount': 32,
+            },
+        )
+
+        def payload_for(capabilities, current=''):
+            build_rows = MagicMock()
+            build_rows.filter.return_value.order_by.return_value.__getitem__.return_value = []
+            release_rows = MagicMock()
+            release_rows.order_by.return_value.__getitem__.return_value = [release]
+            with (
+                patch('console.payloads.ReleaseBuild.objects.select_related', return_value=build_rows),
+                patch('console.payloads.Release.objects.filter', return_value=release_rows),
+            ):
+                return releases_payload(
+                    site=site,
+                    capabilities=frozenset(capabilities),
+                    current_selection_version=current,
+                )
+
+        incomplete = payload_for({CONTENT_READ, RELEASES_READ})
+        selectable = payload_for({
+            CONTENT_READ,
+            RELEASES_READ,
+            RELEASES_CANDIDATE_SELECT,
+        })
+        current = payload_for({
+            CONTENT_READ,
+            RELEASES_READ,
+            RELEASES_CANDIDATE_SELECT,
+        }, current=version)
+
+        self.assertEqual(incomplete['views']['releases']['table']['rows'][0]['actions'], [])
+        action = selectable['views']['releases']['table']['rows'][0]['actions'][0]
+        self.assertEqual(action['kind'], 'link')
+        self.assertEqual(action['label'], '审查并选择候选')
+        self.assertEqual(
+            action['href'],
+            reverse('console:website_candidate_select', args=[release.id]),
+        )
+        current_row = current['views']['releases']['table']['rows'][0]
+        self.assertEqual(current_row['actions'], [])
+        self.assertEqual(current_row['cells']['status']['label'], '已选择（未部署）')
+
 
 class ContentAccessibilityDomContractTests(SimpleTestCase):
+    def test_candidate_selection_template_states_non_deploying_boundary(self):
+        template = (
+            TEMPLATE_ROOT / '_website_candidate_selection_workspace.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('{% csrf_token %}', template)
+        self.assertIn('{{ selection_form.expected_version }}', template)
+        self.assertIn('{{ selection_form.request_token }}', template)
+        self.assertIn('{{ selection_form.reason }}', template)
+        self.assertIn('选择不等于上线', template)
+        self.assertIn('不会修改 artifact active 指针', template)
+        self.assertIn('Nginx 切换与回滚', template)
+
     def test_detail_drawer_has_modal_name_description_and_focus_contract(self):
         template = (TEMPLATE_ROOT / 'app_shell.html').read_text(encoding='utf-8')
         recorder = _ElementRecorder()

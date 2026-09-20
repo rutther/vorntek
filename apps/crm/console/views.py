@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from uuid import uuid4
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from django import forms
@@ -85,6 +86,7 @@ from .content_access import (
     CONTENT_SET_PUBLISHED,
     CONTENT_WRITE,
     RELEASES_CANDIDATE_BUILD,
+    RELEASES_CANDIDATE_SELECT,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
     effective_content_capabilities,
@@ -114,7 +116,7 @@ from .marketing_services import (
     transition_privacy_request,
 )
 from .navigation import build_navigation
-from .payloads import PUBLIC_PREVIEW_BASE_URL, admin_locale_label, assets_payload, default_site_locale, marketing_payload, releases_payload
+from .payloads import PUBLIC_PREVIEW_BASE_URL, admin_locale_label, assets_payload, default_site_locale, make_page, marketing_payload, releases_payload
 from .privacy_forms import (
     PRIVACY_TYPE_CHOICES,
     PrivacyRequestRegistrationForm,
@@ -149,6 +151,12 @@ from .three_d_payloads import three_d_asset_detail_context, three_d_asset_page_p
 from .system_forms import ConsoleUserForm, SalesTeamForm
 from .system_versions import sales_team_version_matches, system_user_version_matches
 from .website_candidate import build_website_candidate
+from .website_selection import (
+    current_website_selection,
+    review_website_candidate,
+    select_website_candidate,
+)
+from .website_selection_forms import WebsiteCandidateSelectionForm
 
 
 User = get_user_model()
@@ -192,6 +200,9 @@ CONTENT_ROUTE_CAPABILITIES: dict[str, frozenset[str]] = {
     ),
     'website_candidate_build': frozenset(
         {CONTENT_READ, RELEASES_READ, RELEASES_CANDIDATE_BUILD}
+    ),
+    'website_candidate_select': frozenset(
+        {CONTENT_READ, RELEASES_READ, RELEASES_CANDIDATE_SELECT}
     ),
 }
 
@@ -2873,6 +2884,7 @@ def public_marketing_measurement_config(request):
 @require_GET
 def releases(request):
     site, _locale, capabilities = content_site_scope(request, 'releases')
+    current_selection = current_website_selection(site=site)
     return render_console(
         request,
         section_key='releases',
@@ -2880,6 +2892,9 @@ def releases(request):
             site=site,
             capabilities=capabilities,
             include_diagnostics=ROLE_SYSTEM_ADMIN in user_role_keys(request.user),
+            current_selection_version=(
+                current_selection.version if current_selection is not None else ''
+            ),
         ),
     )
 
@@ -3308,6 +3323,88 @@ def website_candidate_build(request, preview_record_id: int):
             f'整站候选已固化：{result["fileCount"]} 个文件；未选择、未部署。',
         )
     return redirect('console:releases')
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def website_candidate_select(request, candidate_record_id: int):
+    site, _locale, _capabilities = content_site_scope(request, 'website_candidate_select')
+    try:
+        candidate, manifest = review_website_candidate(
+            site=site,
+            record_id=candidate_record_id,
+        )
+    except (ArticleDeliveryError, OSError):
+        messages.error(request, '整站候选无法通过完整性核验，不能选择。')
+        return redirect('console:releases')
+
+    current = current_website_selection(site=site)
+    current_version = current.version if current is not None else ''
+    if request.method == 'POST':
+        form = WebsiteCandidateSelectionForm(request.POST)
+        if form.is_valid():
+            try:
+                result = select_website_candidate(
+                    site=site,
+                    record_id=candidate.pk,
+                    expected_version=form.cleaned_data['expected_version'],
+                    request_token=form.cleaned_data['request_token'],
+                    actor=request.user.get_username() or 'django-console',
+                    reason=form.cleaned_data['reason'],
+                )
+            except (ArticleDeliveryError, OSError) as exc:
+                if (
+                    isinstance(exc, ArticleDeliveryError)
+                    and exc.code == 'website_selection_changed'
+                ):
+                    form.add_error(
+                        None,
+                        '当前选择已被其他操作更新；请返回发布中心后重新打开候选。',
+                    )
+                elif (
+                    isinstance(exc, ArticleDeliveryError)
+                    and exc.code == 'website_candidate_already_selected'
+                ):
+                    messages.info(request, '该候选已经是当前选择；未执行部署。')
+                    return redirect('console:releases')
+                else:
+                    form.add_error(None, '候选选择未完成；请重新核验后再试。')
+            else:
+                suffix = '（重复请求已安全复用）' if result['replayed'] else ''
+                messages.success(request, f'整站候选已选择{suffix}；尚未部署到公开网站。')
+                return redirect('console:releases')
+    else:
+        if current_version == manifest['version']:
+            messages.info(request, '该候选已经是当前选择；未执行部署。')
+            return redirect('console:releases')
+        form = WebsiteCandidateSelectionForm(initial={
+            'expected_version': current_version,
+            'request_token': uuid4(),
+        })
+
+    return render_form_console(
+        request,
+        section_key='releases',
+        page_payload=make_page(
+            section_key='releases',
+            title='选择整站候选',
+            description='核对不可变候选证据并记录审批选择；该动作不会部署或切换公开网站。',
+            page_type='form',
+            workspace_label='候选选择',
+            workspace_meta='选择记录使用版本前置条件与一次性请求令牌，陈旧页面会被拒绝。',
+            search_placeholder='',
+        ),
+        workspace_template='console/_website_candidate_selection_workspace.html',
+        extra_context={
+            'hide_toolrows': True,
+            'selection_form': form,
+            'selection_form_action': reverse(
+                'console:website_candidate_select', args=[candidate.pk]
+            ),
+            'candidate_manifest': manifest,
+            'current_selection_version': current_version,
+        },
+    )
 
 
 def _private_preview_response(raw: bytes, content_type: str) -> HttpResponse:

@@ -160,6 +160,11 @@ urlpatterns = [
         name='website_candidate_build',
     ),
     path(
+        'releases/website-candidates/<int:candidate_record_id>/select/',
+        views.website_candidate_select,
+        name='website_candidate_select',
+    ),
+    path(
         'releases/articles/preview/<str:version>/<path:artifact>',
         views.article_preview_file,
         name='article_preview_file',

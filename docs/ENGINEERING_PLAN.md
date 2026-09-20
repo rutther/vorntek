@@ -82,10 +82,10 @@ the classifications above; unknown files are not silently shipped.
 - [x] Add append-only migration 0031 and an immutable candidate-selection ledger
   with a separate capability, CAS precondition, idempotent receipt and append-only
   update/rollback chain; selection cannot activate artifacts or deploy files.
-- [ ] Add the authenticated operator confirmation page for that selection core,
+- [x] Add the authenticated operator confirmation page for that selection core,
   with explicit candidate evidence, reason capture and stale-form handling.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next implement the selection UI and a verified
+  public abstractions; next implement a verified
   Nginx serving switch/rollback as separate lifecycle layers.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 
