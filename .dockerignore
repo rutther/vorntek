@@ -18,6 +18,14 @@ private
 **/*.dump
 **/*.pem
 **/*.key
+**/*.bak
+**/*.p12
+**/*.pfx
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/*.zip
+**/*.7z
 **/console/static/console/v2/qa
 apps/crm/scripts/build-production-release.ps1
 apps/crm/scripts/install-production-release.sh

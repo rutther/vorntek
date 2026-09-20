@@ -65,7 +65,9 @@ the unpushed Linux job has already succeeded.
   zero failures. Django system checks reported no issues. The existing Windows
   virtual environment was used, not the CI job's declared Python3.12.12/Linux
   environment.
-- Unit/distribution/CI configuration checks: 49 passed. Node VM tests: 23 passed.
+- Unit/distribution/CI configuration checks: 53 passed. Four new distribution
+  checks bind the 45-path private-exclusion ledger and reject tracked secret,
+  backup/key and known production-identifier inputs. Node VM tests: 23 passed.
 - PG17.11 `test_postgres_install.py --http`: 23 aggregate checks passed, including
   the actual smoke script. The HTTP server and unique cluster stopped. Private
   synthetic evidence is retained outside Git in the operator's private test directory.

@@ -30,6 +30,14 @@ apps/crm/scripts/upgrade_demo_content_v2.py
 *.dump
 *.pem
 *.key
+*.bak
+*.p12
+*.pfx
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
 .coverage
 .pytest_cache/
 .DS_Store

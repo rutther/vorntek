@@ -58,8 +58,11 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   The gate has not yet run for this unpushed commit, so
   Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
-- Post-change local validation passes 49 repository checks, 23 JavaScript
-  contracts and 805 Django tests with eight explicit skips. Three command-guard
+- Post-change local validation passes 53 repository checks, 23 JavaScript
+  contracts and 805 Django tests with eight explicit skips. The four new public
+  input guards bind the 45-path private-exclusion ledger and reject tracked
+  secret/token shapes, credential URLs outside test fixtures, key/backup artifacts
+  and known production identifiers. Three command-guard
   tests ensure the destructive lifecycle acceptance fails closed before database
   or filesystem writes when its safety preconditions are absent. The migration-chain
   packaging assertion now verifies all 32 canonical migrations. PostgreSQL 18,

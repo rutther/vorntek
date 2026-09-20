@@ -1,6 +1,7 @@
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import re
 import subprocess
 import unittest
 
@@ -10,6 +11,18 @@ STATIC = ROOT/'apps/crm/console/static/console'
 
 
 class PublicReleaseInputTests(unittest.TestCase):
+    @staticmethod
+    def tracked_paths():
+        result = subprocess.run(
+            ['git', 'ls-files', '-z'],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
+        return tuple(
+            item.decode('utf-8') for item in result.stdout.split(b'\0') if item
+        )
+
     def test_historical_content_rewriters_are_not_release_inputs(self):
         names = [
             'enrich_product_page_sources.py', 'refresh_benchmark_free_pages.py',
@@ -62,6 +75,92 @@ class PublicReleaseInputTests(unittest.TestCase):
         result = subprocess.run(['git', 'ls-files', '--', prefix], cwd=ROOT,
                                 check=True, capture_output=True, text=True)
         self.assertEqual(result.stdout.strip(), '')
+
+    def test_private_exclude_ledger_cannot_reenter_public_crm_source(self):
+        ledger = (ROOT/'docs/PRODUCTION_PARITY.md').read_text(encoding='utf-8')
+        section = ledger.split('## PRIVATE EXCLUDE', 1)[1].split('\n## ', 1)[0]
+        excluded = re.findall(r'^- `([^`]+)`$', section, flags=re.MULTILINE)
+        self.assertEqual(len(excluded), 45)
+        tracked = set(self.tracked_paths())
+
+        for relative in excluded:
+            public_path = f'apps/crm/{relative}'
+            with self.subTest(path=public_path):
+                self.assertFalse((ROOT/public_path).exists())
+                self.assertNotIn(public_path, tracked)
+
+    def test_secret_backup_and_private_artifacts_are_not_tracked(self):
+        blocked_parts = {'.secrets', '.runtime', 'backups', 'private'}
+        blocked_suffixes = (
+            '.bak', '.dump', '.key', '.p12', '.pem', '.pfx', '.sqlite',
+            '.sqlite3', '.tar', '.tar.gz', '.tgz', '.zip', '.7z',
+        )
+
+        for name in self.tracked_paths():
+            path = PurePosixPath(name)
+            lower_name = name.lower()
+            with self.subTest(path=name):
+                self.assertFalse(blocked_parts.intersection(path.parts))
+                self.assertFalse(
+                    path.name.startswith('.env') and path.name != '.env.example'
+                )
+                self.assertFalse(lower_name.endswith(blocked_suffixes))
+
+    def test_tracked_text_has_no_private_keys_or_live_token_shapes(self):
+        literal_markers = (
+            b'-----BEGIN ' + b'PRIVATE KEY-----',
+            b'-----BEGIN RSA ' + b'PRIVATE KEY-----',
+            b'-----BEGIN EC ' + b'PRIVATE KEY-----',
+            b'-----BEGIN OPENSSH ' + b'PRIVATE KEY-----',
+        )
+        shaped_markers = {
+            'AWS access key': re.compile(rb'\bAKIA[0-9A-Z]{16}\b'),
+            'GitHub token': re.compile(rb'\bgh[pousr]_[A-Za-z0-9]{30,}\b'),
+            'Meta token': re.compile(rb'\bEAA[A-Za-z0-9]{30,}\b'),
+        }
+        credential_url = re.compile(
+            rb'\b(?:postgres(?:ql)?|mysql|redis)://[^/\s:@]+:[^@{}\s]+@'
+        )
+
+        for name in self.tracked_paths():
+            path = PurePosixPath(name)
+            payload = (ROOT/name).read_bytes()
+            if b'\0' in payload[:8192]:
+                continue
+            with self.subTest(path=name):
+                for marker in literal_markers:
+                    self.assertNotIn(marker, payload)
+                for label, pattern in shaped_markers.items():
+                    self.assertIsNone(pattern.search(payload), label)
+                is_test_fixture = path.name.startswith('test_') or path.parts[0] == 'tests'
+                if not is_test_fixture:
+                    self.assertIsNone(
+                        credential_url.search(payload),
+                        'credential-bearing service URL',
+                    )
+
+    def test_deployable_source_has_no_known_production_identifiers(self):
+        runtime_prefixes = ('apps/', 'deploy/', 'scripts/')
+        runtime_root_files = {'compose.yaml', '.env.example'}
+        markers = {
+            'production domain': 'filline' + '.com',
+            'production project path': '/opt/web/' + 'site-stack-v2',
+            'production IPv4 address': '43.242.' + '200.69',
+            'private workspace path': 'F:' + '\\WorkSpace1',
+            'retired workstation path': 'E:' + '\\Qoder',
+        }
+
+        for name in self.tracked_paths():
+            if not name.startswith(runtime_prefixes) and name not in runtime_root_files:
+                continue
+            path = ROOT/name
+            payload = path.read_bytes()
+            if b'\0' in payload[:8192]:
+                continue
+            source = payload.decode('utf-8-sig')
+            with self.subTest(path=name):
+                for label, marker in markers.items():
+                    self.assertNotIn(marker, source, label)
 
     def test_added_license_notices_match_verified_upstream_package_bytes(self):
         expected = {

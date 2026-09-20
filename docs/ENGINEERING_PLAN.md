@@ -138,8 +138,10 @@ completes consistently or stops without concealing partial state.
   defaults with actual containers.
 - [ ] Review permissions, input limits, audit/log redaction, secret mounts and
   dependency advisories for the release commit.
-- [ ] Add static checks that reject private research manifests, real identifiers,
-  secrets, backups and retired-host scripts from public release inputs.
+- [x] Add static distribution checks that bind the 45-path private-exclusion
+  ledger and reject its re-entry, secret/token shapes, credential URLs, key or
+  backup artifacts, known production identifiers and retired-host scripts from
+  tracked public release inputs.
 
 Exit condition: recovery is demonstrated, not inferred from backup creation; no
 external sending is enabled by default.

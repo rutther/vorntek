@@ -90,9 +90,12 @@ host paths or regional research records may enter this repository.
 
 The snapshot/rendering, private immutable store, pinned build-input,
 authenticated network-silent preview and exact whole-site candidate paths form
-the accepted delivery sub-slice. Operator approval/selection, a verified Nginx
-serving switch/rollback, workspace and remaining shared view/router changes remain
-under review. Internal artifact pointers are not a production deployment.
+the accepted delivery sub-slice. Operator approval/selection, permission-gated
+deployment, crash-resumable Nginx serving switch/rollback and receipt-bound
+serving-cache reconstruction are now ported with tests. Their current-commit
+Linux/PostgreSQL/Compose runtime acceptance, workspace and remaining shared
+view/router changes remain under review. Internal artifact pointers are not a
+production deployment.
 See [`ARTICLE_DELIVERY.md`](ARTICLE_DELIVERY.md). The Markdown dependency is
 accepted only with the renderer and its security tests, never as unexplained
 lock-file drift.
