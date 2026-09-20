@@ -23,6 +23,12 @@ CAPABILITY_MIGRATION_PATH = (
     / 'migrations'
     / '0030_website_candidate_capability.sql'
 )
+SELECTION_MIGRATION_PATH = (
+    Path(__file__).resolve().parents[1]
+    / 'db'
+    / 'migrations'
+    / '0031_website_candidate_selection.sql'
+)
 
 
 class ContentAccessGrantModelContractTests(SimpleTestCase):
@@ -58,6 +64,7 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
                 'releases.read',
                 'releases.preview_build',
                 'releases.candidate_build',
+                'releases.candidate_select',
             },
         )
         self.assertEqual(
@@ -86,7 +93,8 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
         self.assertIn('FOREIGN KEY (site_id, locale_id)', sql)
         self.assertIn('REFERENCES site_locale(site_id, id)', sql)
         original_capabilities = set(CONTENT_ACCESS_CAPABILITIES) - {
-            'releases.candidate_build'
+            'releases.candidate_build',
+            'releases.candidate_select',
         }
         for capability in original_capabilities:
             self.assertIn(f"'{capability}'", sql)
@@ -109,8 +117,23 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
             'DROP CONSTRAINT IF EXISTS content_access_grant_capability_check',
             upgrade,
         )
-        for capability in CONTENT_ACCESS_CAPABILITIES:
+        self.assertNotIn("'releases.candidate_select'", upgrade)
+        for capability in set(CONTENT_ACCESS_CAPABILITIES) - {
+            'releases.candidate_select'
+        }:
             self.assertIn(f"'{capability}'", upgrade)
+
+    def test_candidate_selection_is_a_separate_append_only_upgrade(self):
+        build_upgrade = CAPABILITY_MIGRATION_PATH.read_text(encoding='utf-8')
+        selection_upgrade = SELECTION_MIGRATION_PATH.read_text(encoding='utf-8')
+
+        self.assertNotIn("'releases.candidate_select'", build_upgrade)
+        for capability in CONTENT_ACCESS_CAPABILITIES:
+            self.assertIn(f"'{capability}'", selection_upgrade)
+        self.assertIn('website_release_selection_scope_fk', selection_upgrade)
+        self.assertIn('REFERENCES release(site_id, id)', selection_upgrade)
+        self.assertIn('website_release_selection_prevent_update_delete', selection_upgrade)
+        self.assertIn('website_release_selection is append-only', selection_upgrade)
 
 
 class ContentAccessGrantSQLiteConstraintTests(TestCase):

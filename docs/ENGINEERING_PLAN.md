@@ -1,6 +1,6 @@
 # Engineering plan and acceptance ledger
 
-Updated: 2026-09-20. This is the active implementation plan for turning the
+Updated: 2026-09-21. This is the active implementation plan for turning the
 current Vorntek source into a maintainable, independently deployable release.
 `IMPLEMENTATION_STATUS.md` records observed evidence; this file records the work
 sequence and acceptance gates.
@@ -79,8 +79,13 @@ the classifications above; unknown files are not silently shipped.
 - [x] Add append-only migration 0030 and an explicit high-risk capability plus
   site-scoped POST action for building a candidate from one reviewed preview;
   the action cannot select, serve or deploy the result.
+- [x] Add append-only migration 0031 and an immutable candidate-selection ledger
+  with a separate capability, CAS precondition, idempotent receipt and append-only
+  update/rollback chain; selection cannot activate artifacts or deploy files.
+- [ ] Add the authenticated operator confirmation page for that selection core,
+  with explicit candidate evidence, reason capture and stale-form handling.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next implement operator approval/selection and a verified
+  public abstractions; next implement the selection UI and a verified
   Nginx serving switch/rollback as separate lifecycle layers.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 

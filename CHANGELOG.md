@@ -34,12 +34,17 @@ certifications.
 - An authenticated, site-scoped release-center action that requires the separate
   `releases.candidate_build` capability and builds only from an explicit reviewed
   article preview; it cannot select or deploy the result.
+- An append-only whole-site candidate selection ledger with an independent
+  `releases.candidate_select` capability, expected-version CAS, idempotent request
+  receipts, verified update/rollback chains and no artifact activation or deploy.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be
   paired and site-consistent.
 - Append-only migration 0030, which extends the content-grant database constraint
   with the high-risk whole-site candidate-build capability.
+- Append-only migration 0031, which adds the separate candidate-selection
+  capability and immutable site/candidate selection ledger.
 
 ### Changed
 
@@ -55,7 +60,7 @@ certifications.
 - Python dependency evidence is bound to the exact lock-file hash; the earlier
   Linux image inventory is retained as historical evidence instead of being
   relabeled after Markdown dependencies were added.
-- The packaging regression now verifies the complete 30-migration chain.
+- The packaging regression now verifies the complete 31-migration chain.
 
 ## [0.1.0-rc.1] - 2026-09-13
 

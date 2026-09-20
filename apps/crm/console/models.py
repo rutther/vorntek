@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib.auth.models import Group
 from django.db import models
 
-from sitecore.models import Site, SiteLocale
+from sitecore.models import Release, Site, SiteLocale
 
 
 CONTENT_ACCESS_CAPABILITIES = (
@@ -16,6 +16,7 @@ CONTENT_ACCESS_CAPABILITIES = (
     'releases.read',
     'releases.preview_build',
     'releases.candidate_build',
+    'releases.candidate_select',
 )
 
 
@@ -139,6 +140,49 @@ class ContentAccessGrant(models.Model):
         subject_type = 'user' if self.user_id is not None else 'group'
         locale = self.locale_id if self.locale_id is not None else '*'
         return f'{subject_type}:{subject}:{self.site_id}:{locale}:{self.capability}'
+
+
+class WebsiteReleaseSelection(models.Model):
+    request_token = models.UUIDField('请求令牌', unique=True)
+    site = models.ForeignKey(
+        Site,
+        verbose_name='站点',
+        on_delete=models.PROTECT,
+        related_name='website_release_selections',
+    )
+    release = models.ForeignKey(
+        Release,
+        verbose_name='整站候选',
+        on_delete=models.PROTECT,
+        related_name='website_selections',
+    )
+    version = models.CharField('候选版本', max_length=64)
+    previous_version = models.CharField('前一选择版本', max_length=64, blank=True, default='')
+    selected_by = models.TextField('选择人')
+    reason = models.TextField('选择原因')
+    created_at = models.DateTimeField('选择时间', auto_now_add=True, editable=False)
+
+    class Meta:
+        managed = False
+        db_table = 'website_release_selection'
+        ordering = ['-id']
+        indexes = (
+            models.Index(
+                fields=('site', '-id'),
+                name='idx_website_select_site',
+            ),
+        )
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValueError('WebsiteReleaseSelection is append-only.')
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError('WebsiteReleaseSelection is append-only.')
+
+    def __str__(self) -> str:
+        return f'{self.site_id}:{self.version}'
 
 
 class AuditLog(models.Model):

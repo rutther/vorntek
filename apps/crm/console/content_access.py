@@ -34,6 +34,7 @@ ASSETS_IMPORT_LOCAL = 'assets.import_local'
 RELEASES_READ = 'releases.read'
 RELEASES_PREVIEW_BUILD = 'releases.preview_build'
 RELEASES_CANDIDATE_BUILD = 'releases.candidate_build'
+RELEASES_CANDIDATE_SELECT = 'releases.candidate_select'
 
 ALL_CONTENT_CAPABILITIES = frozenset({
     CONTENT_READ,
@@ -46,6 +47,7 @@ ALL_CONTENT_CAPABILITIES = frozenset({
     RELEASES_READ,
     RELEASES_PREVIEW_BUILD,
     RELEASES_CANDIDATE_BUILD,
+    RELEASES_CANDIDATE_SELECT,
 })
 
 # These capabilities are deliberately named as a separate policy fact.  They
@@ -55,6 +57,7 @@ HIGH_RISK_CONTENT_CAPABILITIES = frozenset({
     ASSETS_IMPORT_LOCAL,
     RELEASES_PREVIEW_BUILD,
     RELEASES_CANDIDATE_BUILD,
+    RELEASES_CANDIDATE_SELECT,
 })
 
 _NO_CONTENT_CAPABILITIES: frozenset[str] = frozenset()

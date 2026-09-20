@@ -1,6 +1,6 @@
 # Article delivery architecture / 文章交付架构
 
-Updated 2026-09-20. This document describes the accepted product-neutral core,
+Updated 2026-09-21. This document describes the accepted product-neutral core,
 not a production publishing authorization.
 
 ## Accepted core
@@ -63,6 +63,17 @@ replacing the database CHECK constraint in an append-only migration; it does not
 rewrite the original access-control migration. Failures expose a generic operator
 message while the immutable release audit records retain only a stable error code.
 
+`console/website_selection.py` adds the next lifecycle fact without deploying it:
+an immutable, site-scoped candidate-selection event. Migration 0031 keeps
+`releases.candidate_select` separate from candidate construction and creates a
+database ledger protected by a same-site composite foreign key and an
+update/delete rejection trigger. Selection verifies the complete stored candidate,
+uses the previously selected version as a compare-and-swap precondition, and uses
+a UUID request receipt for replay safety. Updates and rollbacks append new events;
+they do not rewrite history, set a release to `live`, change `active.json`, copy
+files or touch a web-server root. The service core is tested but intentionally has
+no operator route yet; UI authorization and confirmation remain the next slice.
+
 Brand name, locale labels and logo URL come from the site record/configuration.
 The public implementation deliberately does not carry the Hong Kong company's
 name, fixed language set, host paths, Meta Pixel injection or production-only
@@ -73,10 +84,11 @@ loads so opening it does not contact their hosts.
 
 ## Lifecycle boundary
 
-The current accepted slice stops at an audited, immutable whole-site candidate.
+The current accepted slice stops at an audited, immutable whole-site candidate
+plus a non-deploying selection ledger.
 It does **not** yet provide:
 
-- an authorized operator approval/selection transaction after candidate build;
+- an authenticated operator confirmation route for the selection service;
 - a verified serving adapter that atomically switches Nginx to the selected bundle;
 - background scheduling or external publication;
 - a claim that CMS edits are live merely because rendering succeeded.
@@ -127,12 +139,14 @@ records, traversal rejection, network-silent rewriting, shared/localized base
 routes, full Vorntek composition, asset freezing, withdrawal, missing-link
 rejection, candidate source-drift refusal, site scoping and tamper detection.
 Route-policy tests separately cover the exact three-capability gate, HTTP methods
-for both private preview and candidate build, plus private security headers.
+for both private preview and candidate build, plus private security headers;
+selection service tests cover CAS, replay, rollback, site isolation, immutable
+history and artifact/record mismatch refusal.
 PostgreSQL/Compose and end-to-end whole-site
 activation tests remain later gates.
 
 中文：当前完成的是可审计快照、安全渲染、私有不可变存储、固定版本构建输入、经过权限
 控制且阻断外部网络请求的后台私有预览，以及把官网 HTML/CSS/JS/图片与正式模式文章
-一起固化的整站候选；候选构建已有独立高风险权限，但仍不是“一键发布”。后续须把操作员审批与候选选择、Nginx 原子切换
+一起固化的整站候选，以及不产生部署副作用的候选选择审计链；候选构建与选择是两项独立高风险权限，但仍不是“一键发布”。后续须补操作员确认页面、Nginx 原子切换
 和整站回滚分别实现并验收；在此之前不得将 artifact、私有预览或候选构建描述为生产网站
 已经更新。
