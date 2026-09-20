@@ -96,6 +96,12 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   makes the path reproducible without a product default password. This is SQLite
   UI evidence and still requires packaged Linux repetition; see the
   [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
+- Candidate history now has a repeatable fail-closed audit from the trusted RC1
+  tag. The clean `0bd48fc` run covered 30 commits, 592 introduced objects and 350
+  blobs (including later-deleted objects), found zero blocked secret/privacy or
+  distribution inputs, and is repeated by full-history CI. Pattern scanning is
+  not a substitute for final human provenance/license review; see the
+  [source-history record](review/SOURCE_HISTORY_REVIEW_20260921.md).
 - Read-only production comparison uses the Hong Kong `filline.com` stack as the
   business reference. The [106-path parity ledger](PRODUCTION_PARITY.md)
   classifies every post-baseline production change as generic, pending article

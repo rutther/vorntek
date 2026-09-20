@@ -65,6 +65,9 @@ certifications.
   external delivery or persistent credentials.
 - A clean source-clone acceptance record proving a fresh locked install and the
   complete source, JavaScript and Django suites without untracked workspace inputs.
+- A candidate Git-history audit that checks all post-RC1 objects, including blobs
+  later deleted, for blocked secret/privacy inputs and oversized files without
+  echoing matched material; full-history CI repeats the gate.
 
 ### Changed
 

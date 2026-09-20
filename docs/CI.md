@@ -72,6 +72,11 @@ the unpushed Linux job has already succeeded.
   pip could use its download cache, and the source was local rather than an
   anonymous GitHub clone. See the
   [clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md).
+- A clean history audit from `v0.1.0-rc.1` through `0bd48fc` inspected 30 commits,
+  592 introduced objects and 350 blobs, including objects later deleted. It found
+  zero blocked secret/privacy/distribution inputs; the largest introduced blob was
+  142,197 bytes. CI now fetches full history and repeats this gate. See the
+  [source-history review](review/SOURCE_HISTORY_REVIEW_20260921.md).
 - Unit/distribution/CI/documentation checks: 63 passed. Four distribution
   checks bind the 45-path private-exclusion ledger and reject tracked secret,
   backup/key and known production-identifier inputs; another binds Nginx route

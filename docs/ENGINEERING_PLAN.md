@@ -179,6 +179,11 @@ repository and documented prerequisites.
 
 ### 6. Release and GitHub delivery
 
+- [x] Add repeatable candidate-history review from the trusted RC1 tag. The
+  scanner covers deleted blobs, blocked private/secret inputs, runtime production
+  identifiers and oversized objects without echoing matched content; the exact
+  `0bd48fc` run found zero findings across 30 commits and 350 blobs. See the
+  [source-history review](review/SOURCE_HISTORY_REVIEW_20260921.md).
 - [ ] Review `git diff`, provenance, licenses, secrets/privacy and generated files.
 - [ ] Create small, auditable commits and select a release-candidate version.
 - [ ] Push the reviewed source to the existing GitHub repository without force.

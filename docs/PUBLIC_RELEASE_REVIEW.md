@@ -1,7 +1,26 @@
 # Public release review
 
-Observed 2026-09-13. **Source pre-release published; binary-image review remains open.**
-This records evidence and publication boundaries, not a legal certification.
+Observed 2026-09-21. **RC1 source is public; the 0.2 candidate is unpushed and its
+runtime release gates remain open. Binary-image review also remains open.** This
+records evidence and publication boundaries, not a legal certification.
+
+## Current unpushed candidate
+
+- Candidate source commit `0bd48fc808a422d20be06b8e95b762cbc6b5e9d6`
+  passed a clean history audit from immutable tag `v0.1.0-rc.1`: 30 commits,
+  592 introduced objects, 350 blobs, largest 142,197 bytes and zero findings.
+  The scanner includes blobs later deleted and never prints matched material.
+  See the [exact source-history review](review/SOURCE_HISTORY_REVIEW_20260921.md).
+- Current-tree guards separately reject private/backup/key inputs, token shapes,
+  credential URLs, known production identifiers and all 45 excluded private
+  production paths. Root checks are 66/66; locked Python dependency audit reports
+  no known vulnerability at the observed time.
+- Actual loopback browser evidence now includes a standard-21 CSV download saved
+  and byte-inspected on disk. The earlier browser-save gap is closed for that
+  immediate CSV path; queued XLSX and equivalent packaged Linux browser paths
+  remain open. See the [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
+- This candidate has not passed its remote Ubuntu/PostgreSQL 18/Compose/Nginx
+  workflow and has not been pushed or tagged. Do not describe it as released.
 
 ## Source that was published
 
@@ -57,8 +76,8 @@ and corresponding-source requirements.
 
 - Do not copy real customer data into the fictional public demo. Original private
   restoration remains unperformed pending explicit scope and safe target.
-- Complete browser save-to-disk confirmation; authenticated XLSX bytes are not
-  proof of a browser download.
+- Repeat the browser flows in the packaged Linux stack and verify an actual queued
+  XLSX worker download; the immediate standard-21 CSV save is already evidenced.
 - Before any binary publication, resolve notices/source materials, freeze and
   scan exact final images, confirm registry permissions, then independently pull
   and test the published digests. Do not promise future source-delivery services
@@ -67,8 +86,9 @@ and corresponding-source requirements.
   contracts as verified real Meta browser/server deduplication.
 - Real use needs HTTPS/security/retention controls; public HTTP is synthetic-only.
 
-中文：源码、许可证、候选版本和安装证据已公开。未完成的是原真实数据恢复、
-浏览器落盘证明和预构建镜像交付，不是“仓库还没创建”。未验证的外部能力继续明确标注。
+中文：已公开的是 RC1；当前 0.2 候选及其历史审查尚未推送。标准 21 列即时 CSV
+已经有真实浏览器落盘证据，仍未完成的是打包 Linux 环境复验、排队 XLSX 落盘、
+原真实数据恢复和预构建镜像交付。未验证的外部能力继续明确标注。
 
 Earlier reviews, failures and remediations remain available in
 [the immutable historical report](https://github.com/rutther/vorntek/blob/772cdd40c18d8a096488e760354150be3c6540ad/docs/PUBLIC_RELEASE_REVIEW.md)
