@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from .article_build_input import read_article_build_input
 from .article_delivery import (
@@ -222,6 +223,17 @@ class WebsiteReleaseStoreTests(unittest.TestCase):
         )
 
         self.website_store.activate(first, expected='')
+        with patch(
+            'console.website_release_store.os.replace',
+            side_effect=OSError('simulated pointer rename failure'),
+        ):
+            with self.assertRaises(OSError):
+                self.website_store.activate(second, expected=first)
+        self.assertEqual(self.website_store.current(), first)
+        self.assertEqual(
+            list(self.website_store.root.glob('active-*.tmp')),
+            [],
+        )
         with self.assertRaisesRegex(
             ArticleDeliveryError, 'website_active_version_changed'
         ):

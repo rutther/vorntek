@@ -143,6 +143,7 @@ class ArticleReleaseStoreTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 self.store.activate(new, expected=old)
         self.assertEqual(self.store.current(), old)
+        self.assertEqual(list(self.root.glob('active-*.tmp')), [])
         with self.assertRaisesRegex(ArticleDeliveryError, 'active_version_changed'):
             self.store.activate(new, expected='')
         self.assertEqual(self.store.current(), old)

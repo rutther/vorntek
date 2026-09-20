@@ -435,11 +435,14 @@ class WebsiteReleaseStore:
                 return {'version': version, 'previous': current, 'changed': False}
             pointer = {'version': version, 'previous': current}
             temporary = self.root / ('active-' + secrets.token_hex(12) + '.tmp')
-            with temporary.open('xb') as handle:
-                handle.write(_json(pointer))
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, self.root / 'active.json')
+            try:
+                with temporary.open('xb') as handle:
+                    handle.write(_json(pointer))
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(temporary, self.root / 'active.json')
+            finally:
+                temporary.unlink(missing_ok=True)
             return {**pointer, 'changed': True}
 
     def read_version_file(self, version: str, name: str) -> bytes:
