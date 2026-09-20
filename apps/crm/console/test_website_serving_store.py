@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from .article_delivery import ArticleDeliveryError
 from .website_serving_store import WebsiteServingStore
@@ -129,6 +130,51 @@ class WebsiteServingStoreTests(unittest.TestCase):
             ArticleDeliveryError, 'website_deployment_file_set_mismatch'
         ):
             self.store.verify(candidate.version)
+
+    def test_posix_lock_reuses_stale_file_and_releases_advisory_lock(self):
+        class FakeFcntl:
+            LOCK_EX = 1
+            LOCK_NB = 2
+            LOCK_UN = 4
+
+            def __init__(self):
+                self.operations = []
+
+            def flock(self, descriptor, operation):
+                self.operations.append(operation)
+
+        lock_api = FakeFcntl()
+        lock_path = self.root / 'deploy.lock'
+        lock_path.write_text('terminated-process', encoding='ascii')
+        candidate = FakeCandidateStore()
+
+        with patch('console.website_serving_store._fcntl', lock_api):
+            self.deploy(candidate)
+
+        self.assertEqual(self.store.current(), candidate.version)
+        self.assertTrue(lock_path.is_file())
+        self.assertEqual(lock_api.operations, [3, lock_api.LOCK_UN])
+
+    def test_posix_lock_reports_live_contention_without_switching(self):
+        class BusyFcntl:
+            LOCK_EX = 1
+            LOCK_NB = 2
+            LOCK_UN = 4
+
+            @staticmethod
+            def flock(descriptor, operation):
+                raise BlockingIOError
+
+        candidate = FakeCandidateStore()
+        with patch('console.website_serving_store._fcntl', BusyFcntl()):
+            with self.assertRaisesRegex(
+                ArticleDeliveryError,
+                'website_deployment_in_progress',
+            ):
+                self.deploy(candidate)
+
+        self.assertEqual(self.store.current(), '')
+        self.assertFalse((self.root / 'releases' / candidate.version).exists())
 
     @unittest.skipIf(os.name == 'nt', 'POSIX symlink integration runs in CI/container acceptance.')
     def test_real_pointer_is_relative_and_atomically_replaceable(self):
