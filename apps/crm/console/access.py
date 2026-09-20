@@ -136,7 +136,7 @@ SALES_VIEW_NAMES = frozenset({
     'whatsapp_state_v2', 'whatsapp_mark_read_v2', 'whatsapp_retry_v2',
     'whatsapp_media_download_v2',
     'customer_pool', 'customer_pool_detail', 'customer_pool_manual_create',
-    'customer_pool_claim', 'customer_pool_bulk_claim', 'customer_pool_assign',
+    'customer_pool_claim', 'customer_pool_bulk_claim', 'customer_pool_bulk_review', 'customer_pool_assign',
     'customer_pool_release', 'customer_pool_template',
     'customer_pool_import', 'customer_pool_review', 'customer_pool_archive',
     'customer_pool_restore', 'customer_pool_contact_search',

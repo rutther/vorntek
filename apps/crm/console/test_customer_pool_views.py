@@ -538,6 +538,91 @@ class CustomerPoolViewTests(TestCase):
         self.assertEqual(self.available.company.owner_user_id, self.sales.pk)
         self.assertEqual(second.company.owner_user_id, self.sales.pk)
 
+    def test_admin_can_bulk_review_selected_companies_and_sales_is_denied(self):
+        publishable = create_manual_customer(
+            site=self.site,
+            actor=self.sales,
+            idempotency_token='view-bulk-review-create-0001',
+            company_name='Bulk Review Publishable',
+            email='bulk-review-publishable@example.invalid',
+            assignment_mode='review',
+        )
+        restricted = create_manual_customer(
+            site=self.site,
+            actor=self.sales,
+            idempotency_token='view-bulk-review-create-0002',
+            company_name='Bulk Review Restricted',
+            email='bulk-review-restricted@example.invalid',
+            assignment_mode='review',
+        )
+        restricted_point = restricted.company.contact_points.get()
+        restricted_point.usage_status = 'restricted'
+        restricted_point.save(update_fields=['usage_status', 'updated_at'])
+
+        self.client.force_login(self.admin)
+        review_page = self.client.get(reverse('console:customer_pool'), {'scope': 'review'})
+        self.assertContains(review_page, '核验发布已选')
+        self.assertContains(review_page, 'pool-bulk-review-form')
+        response = self.client.post(
+            reverse('console:customer_pool_bulk_review'),
+            {
+                'company_ids': [str(publishable.company.pk), str(restricted.company.pk)],
+                'team_id': str(self.team.pk),
+                'idempotency_token': 'bulk-review-view-0001',
+                'next': reverse('console:customer_pool') + '?scope=review',
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '批量核验发布结果')
+        self.assertContains(response, '1 家已发布，1 家未发布')
+        self.assertContains(
+            response,
+            '没有可核验的联系方式：源表要求不导出或联系方式已失效，请人工处理。',
+        )
+        publishable.company.refresh_from_db()
+        restricted.company.refresh_from_db()
+        self.assertEqual(
+            CompanyPoolState.objects.get(company=publishable.company).state,
+            'available',
+        )
+        self.assertEqual(publishable.company.team_id, self.team.pk)
+        self.assertEqual(
+            CompanyPoolState.objects.get(company=restricted.company).state,
+            'review',
+        )
+        self.assertEqual(
+            Activity.objects.filter(
+                company=publishable.company,
+                subject='核验并发布到客户公海',
+            ).count(),
+            1,
+        )
+        self.assertFalse(
+            Activity.objects.filter(
+                company=restricted.company,
+                subject='核验并发布到客户公海',
+            ).exists()
+        )
+
+        self.client.force_login(self.sales)
+        denied = self.client.post(
+            reverse('console:customer_pool_bulk_review'),
+            {
+                'company_ids': [str(restricted.company.pk)],
+                'team_id': str(self.team.pk),
+                'idempotency_token': 'bulk-review-view-0002',
+            },
+            follow=True,
+        )
+        self.assertEqual(denied.status_code, 200)
+        self.assertContains(denied, '当前账号没有执行该销售操作或访问该数据范围的权限。')
+        restricted.company.refresh_from_db()
+        self.assertEqual(
+            CompanyPoolState.objects.get(company=restricted.company).state,
+            'review',
+        )
+
     def test_admin_can_archive_a_review_record_and_restore_it(self):
         review = create_manual_customer(
             site=self.site,

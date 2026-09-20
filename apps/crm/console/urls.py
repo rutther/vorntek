@@ -38,6 +38,7 @@ urlpatterns = [
     path('sales/customer-pool/<int:company_id>/', customer_pool_views.customer_pool_detail, name='customer_pool_detail'),
     path('sales/customer-pool/<int:company_id>/claim/', customer_pool_views.customer_pool_claim, name='customer_pool_claim'),
     path('sales/customer-pool/bulk-claim/', customer_pool_views.customer_pool_bulk_claim, name='customer_pool_bulk_claim'),
+    path('sales/customer-pool/bulk-review/', customer_pool_views.customer_pool_bulk_review, name='customer_pool_bulk_review'),
     path('sales/customer-pool/<int:company_id>/assign/', customer_pool_views.customer_pool_assign, name='customer_pool_assign'),
     path('sales/customer-pool/<int:company_id>/review/', customer_pool_views.customer_pool_review, name='customer_pool_review'),
     path('sales/customer-pool/<int:company_id>/archive/', customer_pool_views.customer_pool_archive, name='customer_pool_archive'),

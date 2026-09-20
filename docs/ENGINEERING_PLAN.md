@@ -58,8 +58,10 @@ the classifications above; unknown files are not silently shipped.
 - [x] Add strict CSV parsing, deterministic value reconciliation, bounded upload,
   idempotent preview/commit and persisted source rows.
 - [x] Add authorized deterministic CSV export and round-trip tests.
-- [ ] Complete customer-pool filtering, dense view, controlled column selection
-  and safe bulk review/publish without importing private research adapters.
+- [x] Add safe bulk review/publish with deterministic route selection,
+  per-company transactions, itemized failures and role-denial coverage.
+- [ ] Complete customer-pool filtering, dense view and controlled column
+  selection without importing private research adapters.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
   public abstractions; port only independently useful behavior.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.

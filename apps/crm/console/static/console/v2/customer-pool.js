@@ -57,6 +57,42 @@
     refreshSelection();
   }
 
+  const selectedCompanies = () => {
+    const ids = new Set();
+    rows.filter((row) => row.checked).forEach((row) => {
+      if (row.dataset.companyId) ids.add(row.dataset.companyId);
+    });
+    return [...ids];
+  };
+
+  const bulkReviewModal = document.querySelector('#pool-bulk-review-modal');
+  const bulkReviewForm = document.querySelector('#pool-bulk-review-form');
+  const bulkReviewSummary = document.querySelector('[data-pool-bulk-review-summary]');
+  const bulkReviewOpeners = [...document.querySelectorAll('[data-pool-bulk-review-open]')];
+  if (bulkReviewModal && bulkReviewForm && bulkReviewSummary) {
+    let bulkReviewReturnFocus = null;
+    bulkReviewOpeners.forEach((opener) => opener.addEventListener('click', () => {
+      bulkReviewReturnFocus = opener;
+      const companyIds = selectedCompanies();
+      bulkReviewForm
+        .querySelectorAll('[data-pool-bulk-review-selection]')
+        .forEach((input) => input.remove());
+      companyIds.forEach((companyId) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'company_ids';
+        input.value = companyId;
+        input.dataset.poolBulkReviewSelection = '1';
+        bulkReviewForm.append(input);
+      });
+      bulkReviewSummary.textContent = `将核验 ${companyIds.length} 家企业：每家独立执行同一门禁，通过后立即进入所选团队公海。`;
+    }));
+    bulkReviewModal.addEventListener('shown.bs.modal', () => {
+      bulkReviewModal.querySelector('select, button[type="submit"]')?.focus();
+    });
+    bulkReviewModal.addEventListener('hidden.bs.modal', () => bulkReviewReturnFocus?.focus());
+  }
+
   const exportModal = document.querySelector('#pool-export-modal');
   const exportMode = document.querySelector('#pool-export-mode');
   const exportSummary = document.querySelector('[data-pool-export-summary]');

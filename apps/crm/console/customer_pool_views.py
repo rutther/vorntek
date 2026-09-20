@@ -39,6 +39,7 @@ from leads.customer_import_services import (
     preview_customer_import,
     preview_research_snapshot_import,
 )
+from leads.customer_pool_publish import publish_reviewed_customers_bulk
 from leads.models import (
     Company,
     CompanyPoolState,
@@ -187,6 +188,7 @@ def customer_pool(request):
     site, locale = default_site_locale(None)
     create_draft = request.session.pop('customer_pool_create_draft', {})
     bulk_claim_result = request.session.pop('customer_pool_bulk_claim_result', None)
+    bulk_publish_result = request.session.pop('customer_pool_bulk_publish_result', None)
     scope = str(request.GET.get('scope') or 'available')
     can_review = can_sales(request.user, SalesCapability.POOL_REVIEW)
     if scope not in {'available', 'mine', 'team', 'review', 'archived'}:
@@ -350,6 +352,13 @@ def customer_pool(request):
             ),
             'can_assign_self': claim_team is not None,
             'can_review': can_review,
+            'can_bulk_review': scope == 'review' and can_review,
+            'review_team_options': _review_teams_for_actor(
+                actor=request.user, site=site
+            ) if can_review else [],
+            'bulk_review_url': reverse('console:customer_pool_bulk_review'),
+            'bulk_review_token': f'bulk-review-{uuid.uuid4().hex}',
+            'bulk_publish_result': bulk_publish_result,
             'can_import': can_sales(request.user, SalesCapability.POOL_IMPORT),
             'can_export': scope != 'available' and can_export_capability,
             'can_view_export_history': can_export_capability,
@@ -566,6 +575,52 @@ def customer_pool_bulk_claim(request):
             )
         else:
             messages.success(request, f'已领取 {result.succeeded} 家客户。')
+    return redirect(_safe_next(request))
+
+
+@login_required
+@require_POST
+def customer_pool_bulk_review(request):
+    site, _locale = default_site_locale(None)
+    try:
+        company_ids = [int(value) for value in request.POST.getlist('company_ids')]
+        team = SalesTeam.objects.filter(
+            pk=int(request.POST.get('team_id') or 0),
+            site=site,
+            enabled=True,
+        ).first()
+        result = publish_reviewed_customers_bulk(
+            site=site,
+            actor=request.user,
+            team=team,
+            company_ids=company_ids,
+            idempotency_token=str(request.POST.get('idempotency_token') or ''),
+        )
+    except (ValueError, ValidationError, PermissionDenied) as error:
+        messages.error(request, _error_text(error))
+    else:
+        request.session['customer_pool_bulk_publish_result'] = {
+            'succeeded': result.succeeded,
+            'failed': result.failed,
+            'items': [
+                {
+                    'position': index,
+                    'company_id': item.company_id,
+                    'company_name': item.company_name,
+                    'status': item.status,
+                    'route_label': item.route_label,
+                    'message': item.message,
+                }
+                for index, item in enumerate(result.items, start=1)
+            ],
+        }
+        if result.failed:
+            messages.warning(
+                request,
+                f'批量核验发布完成：{result.succeeded} 家已发布，{result.failed} 家未发布。',
+            )
+        else:
+            messages.success(request, f'已核验并发布 {result.succeeded} 家客户到公海。')
     return redirect(_safe_next(request))
 
 

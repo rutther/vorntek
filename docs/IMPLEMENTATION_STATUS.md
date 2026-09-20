@@ -12,8 +12,10 @@ Observed 2026-09-20. **Public source pre-release; full goal acceptance remains o
   [upgrade runbook](UPGRADE.md) keeps backup, stop-writers, migration and recovery
   steps in one sequence.
 - Migrations 0028–0029 and the generic standard 21-column customer-pool import/export
-  workflow are under active verification. Eleven focused tests and 42 existing
-  customer-pool/navigation tests pass locally.
+  workflow are under active verification. Controlled bulk review/publish now uses
+  the same single-record gate with deterministic route choice and independent
+  per-company results. Its eight service tests, one end-to-end view test and the
+  complete 29-test customer-pool view suite pass locally.
 - The pre-change baseline remains 44 repository checks, 23 JavaScript contracts
   and 669 Django tests with seven explicit skips. Full post-change, PostgreSQL 18,
   Compose and clean-clone acceptance are still required.
