@@ -156,6 +156,9 @@ SITEOS_WEBSITE_SOURCE_ROOT = Path(
 SITEOS_WEBSITE_RELEASE_ROOT = Path(
     os.getenv('SITEOS_WEBSITE_RELEASE_ROOT', BASE_DIR / '.runtime' / 'website-releases')
 )
+SITEOS_WEBSITE_SERVING_ROOT = Path(
+    os.getenv('SITEOS_WEBSITE_SERVING_ROOT', BASE_DIR / '.runtime' / 'website-serving')
+)
 SITEOS_ARTICLE_PUBLIC_ORIGIN = os.getenv(
     'SITEOS_ARTICLE_PUBLIC_ORIGIN', 'https://vorntek.example'
 )

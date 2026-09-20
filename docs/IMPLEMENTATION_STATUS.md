@@ -40,10 +40,13 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   has its own high-risk capability and immutable CAS/idempotency ledger; its service core
   verifies the artifact but cannot activate or deploy it. The operator confirmation page
   re-verifies exact candidate evidence, requires an audit reason, handles stale forms and
-  labels the current choice as selected but not deployed. The Nginx serving switch/rollback remains open; see
+  labels the current choice as selected but not deployed. A dedicated serving
+  volume and unreachable adapter now provide immutable copy verification, stale
+  CAS and a relative-symlink atomic Nginx switch/rollback; database deployment
+  authorization/receipt and Linux container acceptance remain open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
-- Post-change local validation passes 48 repository checks, 23 JavaScript
-  contracts and 777 Django tests with seven explicit skips. The migration-chain
+- Post-change local validation passes 49 repository checks, 23 JavaScript
+  contracts and 782 Django tests with eight explicit skips. The migration-chain
   packaging assertion now verifies all 31 canonical migrations. PostgreSQL 18,
   Compose and clean-clone acceptance remain required because Docker/PostgreSQL
   are unavailable on this Windows host.
@@ -82,7 +85,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
 | Export | Authenticated XLSX bytes, hash, sheets and expected records checked | Actual browser save-to-disk remains unconfirmed |
 | Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
-| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection ledger and stale-safe operator confirmation; 55 focused delivery tests plus route/policy/selection coverage | [Architecture](ARTICLE_DELIVERY.md); an atomic Nginx serving switch/rollback is not accepted |
+| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection ledger, stale-safe operator confirmation and unreachable atomic serving-store primitive; 59 focused delivery/store tests plus route/policy/selection coverage | [Architecture](ARTICLE_DELIVERY.md); database-gated deployment receipt and Linux end-to-end serving acceptance remain open |
 
 The running demonstration has 200 seeded fictional companies plus one converted
 synthetic customer and eight inquiries. The independent clone has 200 companies

@@ -25,6 +25,7 @@ x-crm: &crm
     SITEOS_ARTICLE_RELEASE_ROOT: /app/.runtime/article-releases
     SITEOS_WEBSITE_SOURCE_ROOT: /app/website-source
     SITEOS_WEBSITE_RELEASE_ROOT: /app/.runtime/website-releases
+    SITEOS_WEBSITE_SERVING_ROOT: /srv/website
     SITEOS_ARTICLE_PUBLIC_ORIGIN: ${NEWCROWN_ARTICLE_PUBLIC_ORIGIN:-https://vorntek.example}
     SITEOS_ASSET_STORAGE_ROOTS: /data/assets
     SITEOS_CRM_ATTACHMENT_STORAGE_ROOT: /data/crm-attachments
@@ -144,6 +145,11 @@ services:
 
   crm:
     <<: *crm
+    volumes:
+      - crm_static:/app/staticfiles
+      - crm_runtime:/app/.runtime
+      - crm_files:/data
+      - website_runtime:/srv/website
     depends_on:
       initialize:
         condition: service_completed_successfully
@@ -187,6 +193,7 @@ services:
       - "127.0.0.1:${NEWCROWN_HTTP_PORT:-8088}:8080"
     volumes:
       - crm_static:/srv/crm-static:ro
+      - website_runtime:/srv/website:ro
     networks: [private, entry]
     depends_on:
       crm:
@@ -203,6 +210,7 @@ volumes:
   crm_static: {}
   crm_runtime: {}
   crm_files: {}
+  website_runtime: {}
 
 secrets:
   db_admin_password:

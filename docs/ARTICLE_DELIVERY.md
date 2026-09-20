@@ -78,6 +78,24 @@ website/article/base versions and file count, requires a reason, and rejects a
 stale expected version without exposing the internal error code. The release list
 marks the current choice as `已选择（未部署）` and hides a redundant select action.
 
+`console/website_serving_store.py` now provides the filesystem boundary needed
+by the eventual deployment service. Compose gives CRM read/write access to a
+dedicated `website_runtime` volume and mounts that same volume read-only in the
+Nginx container. The checked-in website is copied into an installation-only
+`releases/bundled` baseline when the volume is first created. Verified candidates
+are copied byte-for-byte into immutable digest-named directories; a second source
+verification closes the copy/switch race, and Nginx reads only the controlled
+relative `current` symlink. Switching and rollback replace that symlink with one
+same-filesystem rename. Unknown owners, stale expected versions, changed/extra
+files, unsafe pointers, links and source drift fail closed. The deployment
+manifest is dot-prefixed and the existing Nginx hidden-path rule denies it.
+
+This adapter is not yet callable from a route or background task. In particular,
+it does not decide whether a candidate was selected in the database and does not
+write the independent deployment receipt. Keeping it unreachable until those
+two checks exist prevents a filesystem primitive from becoming an authorization
+bypass.
+
 Brand name, locale labels and logo URL come from the site record/configuration.
 The public implementation deliberately does not carry the Hong Kong company's
 name, fixed language set, host paths, Meta Pixel injection or production-only
@@ -88,15 +106,17 @@ loads so opening it does not contact their hosts.
 
 ## Lifecycle boundary
 
-The current accepted slice stops at an audited, immutable whole-site candidate
-plus a non-deploying selection ledger.
+The current accepted slice stops at an audited, immutable whole-site candidate,
+a non-deploying selection ledger and an unreachable verified serving-store
+primitive.
 It does **not** yet provide:
 
-- a verified serving adapter that atomically switches Nginx to the selected bundle;
+- the database-gated deployment operation/receipt that is allowed to invoke the
+  atomic serving-store switch;
 - background scheduling or external publication;
 - a claim that CMS edits are live merely because rendering succeeded.
 
-Those concerns must be added as independently tested layers. Both storage
+Those concerns must be added as independently tested layers. Both private storage
 pointers are internal artifact-selection primitives, not authorization to publish
 a website. The future serving adapter must switch only to an operator-selected,
 verified whole-site version and retain the previous website release for rollback.
@@ -107,7 +127,10 @@ No production path or domain may be used as a default.
 Compose stores previews, live-mode article artifacts and whole-site candidates
 under `crm_runtime`, which is included in the existing file-backup workflow. The
 CRM image copies the complete checked-in Vorntek website into a read-only source
-root for deterministic composition. The private preview reader still exposes
+root for deterministic composition. The separate `website_runtime` volume is a
+derived serving cache: Nginx mounts it read-only, and it must be reconstructed
+from the restored database ledger plus the backed-up verified candidate store
+rather than treated as original business data. The private preview reader still exposes
 only referenced CSS/bitmaps and strips executable or external behavior; candidate
 composition, by contrast, hashes the exact JS/CSS/image source intended for a
 future serving adapter. A real installation must set
@@ -144,12 +167,17 @@ rejection, candidate source-drift refusal, site scoping and tamper detection.
 Route-policy tests separately cover the exact three-capability gate, HTTP methods
 for both private preview and candidate build, plus private security headers;
 selection service tests cover CAS, replay, rollback, site isolation, immutable
-history and artifact/record mismatch refusal.
-PostgreSQL/Compose and end-to-end whole-site
+history and artifact/record mismatch refusal. Four cross-platform serving-store
+tests cover materialization, stale CAS, tamper/extra-file refusal and rollback;
+the actual POSIX relative-symlink case is explicitly left for Linux CI/container
+acceptance because this Windows host cannot create it.
+PostgreSQL/Compose, database-gated deployment receipts and end-to-end whole-site
 activation tests remain later gates.
 
 中文：当前完成的是可审计快照、安全渲染、私有不可变存储、固定版本构建输入、经过权限
 控制且阻断外部网络请求的后台私有预览，以及把官网 HTML/CSS/JS/图片与正式模式文章
-一起固化的整站候选，以及不产生部署副作用的候选选择审计链和操作员确认页面；候选构建与选择是两项独立高风险权限，但仍不是“一键发布”。后续须补 Nginx 原子切换
-和整站回滚分别实现并验收；在此之前不得将 artifact、私有预览或候选构建描述为生产网站
+一起固化的整站候选、不产生部署副作用的候选选择审计链和操作员确认页面，以及尚未接入
+路由的只读挂载/不可变复制/原子指针 serving-store 基础；候选构建与选择是两项独立高风险
+权限，但仍不是“一键发布”。后续须补数据库门禁、独立部署收据并做 Linux 容器端到端验收；
+在此之前不得将 artifact、私有预览、候选构建或底层原子指针描述为生产网站
 已经更新。

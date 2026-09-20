@@ -8,9 +8,13 @@ RUN pip install --no-cache-dir -r /tmp/requirements.lock \
     && useradd --uid 10001 --gid 10001 --no-create-home newcrown
 COPY apps/crm/ /app/
 COPY apps/website/ /app/website-source/
+COPY apps/website/ /srv/website/releases/bundled/
 COPY VERSION /app/VERSION
 RUN mkdir -p /app/staticfiles /app/.runtime/customer-exports /data/assets /data/crm-attachments /data/whatsapp-media \
-    && chown -R 10001:10001 /app/staticfiles /app/.runtime /data
+    && printf '%s\n' '{"kind":"websiteServingStore","schemaVersion":1}' > /srv/website/owner.json \
+    && ln -s releases/bundled /srv/website/current \
+    && chown -R 10001:10001 /app/staticfiles /app/.runtime /data /srv/website \
+    && chown -h 10001:10001 /srv/website/current
 USER 10001:10001
 EXPOSE 8000
 CMD ["gunicorn", "siteos_admin.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "60", "--access-logfile", "-", "--error-logfile", "-"]

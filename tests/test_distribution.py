@@ -30,6 +30,18 @@ class DistributionTests(unittest.TestCase):
         sql = (ROOT/'deploy/initdb/10-app-role.sql').read_text(encoding='utf-8')
         self.assertIn("btrim(pg_read_file('/run/secrets/db_password'), E' \\t\\r\\n')", sql)
 
+    def test_website_images_seed_the_same_owned_atomic_serving_root(self):
+        owner = '{"kind":"websiteServingStore","schemaVersion":1}'
+        for name in ('Dockerfile.crm', 'Dockerfile.website'):
+            dockerfile = (ROOT/'deploy'/name).read_text(encoding='utf-8')
+            self.assertIn('COPY apps/website/ /srv/website/releases/bundled/', dockerfile)
+            self.assertIn(owner, dockerfile)
+            self.assertIn('ln -s releases/bundled /srv/website/current', dockerfile)
+        nginx = (ROOT/'deploy/nginx.conf').read_text(encoding='utf-8')
+        self.assertIn('root /srv/website/current;', nginx)
+        self.assertIn('location ~ /\\.', nginx)
+        self.assertNotIn('root /usr/share/nginx/html;', nginx)
+
     def setUp(self):
         self.compose = yaml.safe_load((ROOT/'compose.yaml').read_text(encoding='utf-8'))
 
@@ -82,7 +94,13 @@ class DistributionTests(unittest.TestCase):
         self.assertIn('postgres_data:/var/lib/postgresql', services['db']['volumes'])
         self.assertIn('crm_files:/data', services['crm']['volumes'])
         self.assertIn('crm_runtime:/app/.runtime', services['exports']['volumes'])
-        self.assertEqual(services['website']['volumes'], ['crm_static:/srv/crm-static:ro'])
+        self.assertIn('website_runtime:/srv/website', services['crm']['volumes'])
+        for name in ('initialize', 'exports', 'scheduler'):
+            self.assertNotIn('website_runtime:/srv/website', services[name]['volumes'])
+        self.assertEqual(
+            services['website']['volumes'],
+            ['crm_static:/srv/crm-static:ro', 'website_runtime:/srv/website:ro'],
+        )
 
     def test_new_configuration_is_unique_private_and_not_logged(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -84,9 +84,13 @@ the classifications above; unknown files are not silently shipped.
   update/rollback chain; selection cannot activate artifacts or deploy files.
 - [x] Add the authenticated operator confirmation page for that selection core,
   with explicit candidate evidence, reason capture and stale-form handling.
+- [x] Add the unreachable serving-store foundation: a dedicated shared volume,
+  read-only Nginx mount, immutable verified materialization, stale-pointer CAS
+  and relative-symlink atomic switch/rollback. It is intentionally not exposed
+  until the database deployment permission and receipt layer is complete.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next implement a verified
-  Nginx serving switch/rollback as separate lifecycle layers.
+  public abstractions; next add the database-gated deployment operation/receipt,
+  operator confirmation and Linux end-to-end serving acceptance.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 
 Exit condition: generic Hong Kong capabilities selected for the public product
