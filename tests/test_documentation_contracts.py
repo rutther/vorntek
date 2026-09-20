@@ -25,6 +25,7 @@ GUIDES = {
         'scripts/run_application_tests.py',
         'pip_audit',
         'scripts/test_postgres_install.py',
+        'scripts/run_browser_acceptance_fixture.py',
         'scripts/release_manifest.py --require-clean',
     ),
     'docs/TROUBLESHOOTING.md': (

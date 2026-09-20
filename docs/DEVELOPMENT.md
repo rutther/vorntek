@@ -39,6 +39,21 @@ or external-platform acceptance. With isolated PostgreSQL binaries, run:
 python3 scripts/test_postgres_install.py --pg-bin /path/to/postgresql/18/bin --http
 ```
 
+For actual browser layout and synthetic inquiry/import/export interaction when
+PostgreSQL is unavailable, run the loopback-only ephemeral fixture:
+
+```sh
+python3 scripts/run_browser_acceptance_fixture.py --port 8765 --review-seconds 900
+```
+
+It prints paths for a generated upload and temporary credentials, then removes
+the credential file at shutdown. This SQLite fixture is UI evidence only and
+never replaces the PostgreSQL/Compose/Nginx release gates. See the latest
+[browser acceptance record](review/BROWSER_ACCEPTANCE_20260921.md).
+
+在缺少 PostgreSQL 时，可用上述回环临时夹具执行真实浏览器布局、合成询盘和导入导出；
+它只提供 UI 证据，不能替代 PostgreSQL、Compose 或 Nginx 发布门槛。
+
 ## Source and migrations / 源码与迁移
 
 - Change source generators/catalogue first, then run

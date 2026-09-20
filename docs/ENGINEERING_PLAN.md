@@ -158,8 +158,12 @@ external sending is enabled by default.
   [upgrade](UPGRADE.md), [backup/restore](BACKUP_RESTORE.md),
   [development](DEVELOPMENT.md) and [troubleshooting](TROUBLESHOOTING.md) guides;
   root contracts verify their commands, management-command targets and local links.
-- [ ] Validate desktop/mobile browser paths including inquiry, login, customer
-  import/export and an actual browser file save.
+- [x] Validate desktop/mobile browser paths including inquiry, login, customer
+  import/export and an actual browser file save. The loopback synthetic run
+  proved a responsive website, inquiry-to-CRM visibility, preview/commit import
+  and a byte-inspected 21-column disk download; exact packaged Linux repetition
+  remains under the separate runtime gate. See
+  [`review/BROWSER_ACCEPTANCE_20260921.md`](review/BROWSER_ACCEPTANCE_20260921.md).
 - [ ] Run all local suites, PostgreSQL lifecycle/HTTP acceptance and Compose
   build/start/health/stop in disposable environments.
 - [ ] Clone the candidate commit anonymously into a clean directory and repeat

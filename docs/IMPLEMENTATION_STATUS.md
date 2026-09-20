@@ -58,7 +58,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   The gate has not yet run for this unpushed commit, so
   Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
-- Post-change local validation passes 60 repository checks, 23 JavaScript
+- Post-change local validation passes 63 repository checks, 23 JavaScript
   contracts and 806 Django tests with eight explicit skips. The four public
   input guards bind the 45-path private-exclusion ledger and reject tracked
   secret/token shapes, credential URLs outside test fixtures, key/backup artifacts
@@ -83,6 +83,13 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   points, referenced commands, configuration inputs and local links. The guides
   explicitly preserve the distinction between source contracts and pending Linux
   container acceptance.
+- An actual-browser loopback run now covers desktop and 375×812 website layout,
+  a fictional inquiry visible in the authenticated CRM, login/session handling,
+  standard-21 CSV upload/preview/commit and an actual browser download verified
+  on disk as UTF-8 BOM, one row and 21 columns. A dedicated ephemeral fixture
+  makes the path reproducible without a product default password. This is SQLite
+  UI evidence and still requires packaged Linux repetition; see the
+  [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
 - Read-only production comparison uses the Hong Kong `filline.com` stack as the
   business reference. The [106-path parity ledger](PRODUCTION_PARITY.md)
   classifies every post-baseline production change as generic, pending article
@@ -116,7 +123,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
 | Database lifecycle | 32 canonical SQL migrations in the working source; guarded initialization, upgrade, locks, failure rollback, independent restore | Migrations 0028–0032 are locally checked but still need PostgreSQL/Compose upgrade acceptance; prior evidence: [PostgreSQL acceptance](POSTGRES_ACCEPTANCE.md), [container acceptance](CONTAINER_ACCEPTANCE.md) |
 | Recovery | Actual prior synthetic 70-table restore, schema/sequence checks, vault decryption and independent file-volume recovery; current source adds a combined new-database/new-runtime-root receipt-bound serving-cache reconstruction gate without fake deployment rows | [Recovery guide](BACKUP_RESTORE.md), [image/recovery evidence](review/IMAGE_SECURITY_20260913.md); the new combined path still needs current-commit Linux execution and this is not original-company data migration |
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
-| Export | Authenticated XLSX bytes, hash, sheets and expected records checked | Actual browser save-to-disk remains unconfirmed |
+| Export | Authenticated XLSX bytes, hash, sheets and expected records checked; actual browser standard-21 CSV saved and independently inspected on disk | Queued XLSX browser save and equivalent packaged Linux browser path remain open |
 | Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
 | Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection/deployment ledgers, stale-safe operator confirmations, atomic serving store, crash-resumable deployment and receipt-bound cache reconstruction; 78 focused delivery/store/deployment/recovery/command tests and guarded Linux/PostgreSQL/Compose lifecycle acceptance encoded in CI | [Architecture](ARTICLE_DELIVERY.md); the new current-commit PostgreSQL/Nginx gate has not yet run, so end-to-end serving acceptance remains open |
 
@@ -135,8 +142,9 @@ release directory was not rewritten or relabeled as an entire RC1 image set.
 1. Original-company private-data restoration has not been performed. The user's
    later fictional Vorntek requirement needs an explicit scope decision; do not
    import real customer data into the public demonstration.
-2. Browser download-to-disk evidence is still missing. Backend file validation
-   and clicking a link do not prove a saved file.
+2. Browser download-to-disk evidence now exists for the immediate standard-21
+   CSV path. The queued XLSX worker/download and equivalent packaged Linux path
+   remain open.
 3. No prebuilt container images or build caches have been published.
    [Binary redistribution review](review/BINARY_REDISTRIBUTION.md) identifies
    missing component notices/source-provenance work. Do not publish the old

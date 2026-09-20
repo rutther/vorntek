@@ -65,12 +65,14 @@ the unpushed Linux job has already succeeded.
   zero failures. Django system checks reported no issues. The existing Windows
   virtual environment was used, not the CI job's declared Python3.12.12/Linux
   environment.
-- Unit/distribution/CI/documentation checks: 60 passed. Four distribution
+- Unit/distribution/CI/documentation checks: 63 passed. Four distribution
   checks bind the 45-path private-exclusion ledger and reject tracked secret,
   backup/key and known production-identifier inputs; another binds Nginx route
   and privacy-minimal access-log contracts. Five documentation checks bind the
   bilingual operator guides, commands, management-command targets, configuration
-  inputs and local links. Node VM tests: 23 passed.
+  inputs and local links. Three browser-fixture contracts bind loopback-only
+  operation, bounded review time, synthetic standard-21 input, random temporary
+  credentials and explicit non-runtime-acceptance limits. Node VM tests: 23 passed.
 - `pip check` passed after upgrading the locked Django patch to 5.2.17. A local
   `pip-audit 2.10.1` run against the exact lock returned no known vulnerabilities;
   CI now repeats the same audit. This result is time-bound and does not scan OS
