@@ -65,10 +65,11 @@ the unpushed Linux job has already succeeded.
   zero failures. Django system checks reported no issues. The existing Windows
   virtual environment was used, not the CI job's declared Python3.12.12/Linux
   environment.
-- A separate `--no-local --no-hardlinks` clone of commit `ac83ca4` used a newly
+- A separate `--no-local --no-hardlinks` clone of commit `37f6e1f` used a newly
   created virtual environment and only tracked dependency inputs. `pip check`,
-  the clean release manifest, 63 repository checks, 23 Node contracts and all
-  806 Django tests passed (520.232s, eight skipped); the clone remained Git-clean.
+  the dependency audit, clean release manifest, 66 repository checks, 23 Node
+  contracts and all 811 Django tests passed (539.892s, eight skipped); the clone
+  remained Git-clean.
   pip could use its download cache, and the source was local rather than an
   anonymous GitHub clone. See the
   [clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md).

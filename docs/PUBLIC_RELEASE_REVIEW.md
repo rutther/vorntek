@@ -31,6 +31,11 @@ records evidence and publication boundaries, not a legal certification.
   and byte-inspected on disk. The earlier browser-save gap is closed for that
   immediate CSV path; queued XLSX and equivalent packaged Linux browser paths
   remain open. See the [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
+- A new `--no-local --no-hardlinks` clone of exact commit `37f6e1f` created a
+  fresh virtual environment from tracked dependency inputs, passed `pip check`,
+  dependency audit, the clean manifest, 66 + 23 + 811 tests and remained
+  Git-clean. It is current Windows source-reconstruction evidence, not an
+  anonymous GitHub or Linux runtime clone.
 - This candidate has not passed its remote Ubuntu/PostgreSQL 18/Compose/Nginx
   workflow and has not been pushed or tagged. Do not describe it as released.
 - The public repository's read-only API reported private vulnerability reporting

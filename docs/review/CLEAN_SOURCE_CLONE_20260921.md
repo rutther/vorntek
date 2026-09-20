@@ -1,12 +1,12 @@
 # Clean source-clone acceptance — 2026-09-21 / 纯净源码克隆验收
 
 This record proves that the candidate source at commit
-`ac83ca404812ee059e952826ed56b0ef3d303878` can be reconstructed and tested from
+`37f6e1fef37ce8ab63e36f1fdde656ecba581a9a` can be reconstructed and tested from
 a separate Git clone without untracked workspace inputs. It is **source-only
 Windows evidence**, not anonymous GitHub, Linux, PostgreSQL, Compose, Nginx or
 production acceptance.
 
-本记录证明候选源码提交 `ac83ca404812ee059e952826ed56b0ef3d303878` 可从独立 Git
+本记录证明候选源码提交 `37f6e1fef37ce8ab63e36f1fdde656ecba581a9a` 可从独立 Git
 克隆重新安装并测试，不依赖原工作区的未跟踪文件。它仅属于 **Windows 源码证据**，不是
 匿名 GitHub、Linux、PostgreSQL、Compose、Nginx 或生产验收。
 
@@ -14,7 +14,7 @@ production acceptance.
 
 - The repository was cloned with `git clone --no-local --no-hardlinks` into a
   newly generated directory under the Windows user temporary directory, then
-  checked out detached at the exact commit above.
+  checked to ensure its HEAD exactly matched the source commit above.
 - A new `.venv` was created inside the clone. Dependencies were installed only
   from the tracked `apps/crm/requirements.lock` and `requirements-dev.txt`.
 - Environment: Windows 11 AMD64, Python 3.13.15, pip 26.2.1 and Node 24.19.0.
@@ -26,15 +26,17 @@ production acceptance.
 ## Observed results / 实测结果
 
 1. `python -m pip check` reported no broken requirements.
-2. `python scripts/release_manifest.py --require-clean` passed at the exact
-   commit. The manifest reported 517 tracked files and source-tree SHA-256
-   `6ec0ea0a2a31d10ca5a8b8efbe6d971d544fdc17d9270e519c2ef78c48417930`.
-3. Repository unit/distribution/CI/documentation tests: **63 passed**.
-4. Node browser-script contracts: **23 passed**.
-5. `scripts/run_application_tests.py`: **806 tests in 520.232 seconds**, eight
+2. `python -m pip_audit -r apps/crm/requirements.lock --progress-spinner off`
+   reported no known vulnerabilities at the observed time.
+3. `python scripts/release_manifest.py --require-clean` passed at the exact
+   commit. The manifest reported 521 tracked files and source-tree SHA-256
+   `4ef183d173848cef69723f459b2ff063d47490c047f1873083aa8389ad7b70dd`.
+4. Repository unit/distribution/CI/documentation tests: **66 passed**.
+5. Node browser-script contracts: **23 passed**.
+6. `scripts/run_application_tests.py`: **811 tests in 539.892 seconds**, eight
    explicit skips and zero failures. Django system checks reported no issues.
-6. After all checks, `git status --short --branch` showed only detached HEAD and
-   no changed or untracked files. The tests did not contaminate the source clone.
+7. After all checks, `git status --porcelain=v1` was empty and `git diff-index
+   --quiet HEAD --` returned zero. The tests did not contaminate the source clone.
 
 ## What this does not prove / 本记录不证明的内容
 
