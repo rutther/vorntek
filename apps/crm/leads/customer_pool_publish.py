@@ -115,7 +115,9 @@ def preferred_publish_route(*, site, company) -> PublishRoute | None:
             points_by_row_key.setdefault(row_key, []).append(point)
 
     candidates: list[tuple[tuple, PublishRoute]] = []
+    has_standard_rows = False
     for pool_row in CustomerPoolRow.objects.filter(site=site, company=company):
+        has_standard_rows = True
         points = points_by_row_key.get(pool_row.row_key) or []
         if not points or has_hard_restriction(pool_row.restriction_note):
             continue
@@ -141,7 +143,11 @@ def preferred_publish_route(*, site, company) -> PublishRoute | None:
         ))
     if candidates:
         return min(candidates, key=lambda item: item[0])[1]
-    if points_by_row_key:
+    # The standard-row ledger is authoritative whenever it exists. A pre-existing
+    # contact point may lack this import's row_key because get_or_create preserves
+    # its older evidence. Fail closed instead of bypassing a hard restriction by
+    # relabeling that point as an unrelated historical fallback.
+    if has_standard_rows:
         return None
     if fallback:
         return PublishRoute(point=fallback[0], pool_row=None, label='历史资料联系方式')

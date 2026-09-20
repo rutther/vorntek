@@ -275,6 +275,40 @@ class CustomerPoolPublishTests(TestCase):
         self.assertEqual(route.label, '历史资料联系方式')
         self.assertEqual(route.point.raw_value, 'legacy@example.invalid')
 
+    def test_standard_row_without_evidence_mapping_never_falls_back(self):
+        company = Company.objects.create(
+            site=self.site,
+            name='Existing Route Ltd',
+            normalized_name='existing route ltd',
+            country='KE',
+            status='prospect',
+            source_channel='manual',
+        )
+        CompanyPoolState.objects.create(company=company, state='review')
+        CompanyContactPoint.objects.create(
+            site=self.site,
+            company=company,
+            channel='phone',
+            raw_value='+254700005999',
+            normalized_value='+254700005999',
+            usage_status='unknown',
+            evidence_json={'origin': 'older manual record'},
+        )
+        CustomerPoolRow.objects.create(
+            site=self.site,
+            company=company,
+            row_key='f' * 64,
+            phone='+254700005999',
+            country_code='KE',
+            company_name=company.name,
+            value='36.0',
+            account_id='AF-KE-EXISTING',
+            restriction_note='该号码不导出',
+            source_channel='research_public',
+        )
+
+        self.assertIsNone(preferred_publish_route(site=self.site, company=company))
+
     def test_bulk_publish_keeps_each_company_in_its_own_transaction(self):
         self.import_rows([
             standard21_row(
