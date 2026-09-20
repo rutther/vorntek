@@ -13,6 +13,7 @@ from django.db import connection
 from django.http import HttpResponse
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from console import views
 from console.article_delivery import ArticleDeliveryError
@@ -33,12 +34,14 @@ from console.content_access import (
     CONTENT_WRITE,
     RELEASES_CANDIDATE_BUILD,
     RELEASES_CANDIDATE_SELECT,
+    RELEASES_DEPLOY,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
 from console.models import (
     ContentAccessGrant,
     WebsiteDeploymentOperation,
+    WebsiteReleaseDeployment,
     WebsiteReleaseSelection,
 )
 from sitecore.models import (
@@ -92,6 +95,9 @@ EXPECTED_CONTENT_ROUTE_CAPABILITIES = {
     'website_candidate_select': frozenset(
         {CONTENT_READ, RELEASES_READ, RELEASES_CANDIDATE_SELECT}
     ),
+    'website_candidate_deploy': frozenset(
+        {CONTENT_READ, RELEASES_READ, RELEASES_DEPLOY}
+    ),
 }
 
 
@@ -125,6 +131,7 @@ CONTENT_ROUTE_CASES = (
     ('article_preview_file', ('0' * 64, 'articles/index.html'), 'get'),
     ('website_candidate_build', (999_990,), 'post'),
     ('website_candidate_select', (999_989,), 'get'),
+    ('website_candidate_deploy', (999_988,), 'get'),
 )
 
 
@@ -142,7 +149,7 @@ class ContentRoutePolicyContractTests(SimpleTestCase):
         }
         self.assertEqual(normalized, EXPECTED_CONTENT_ROUTE_CAPABILITIES)
         self.assertEqual(set(normalized), set(CONTENT_VIEW_NAMES))
-        self.assertEqual(len(normalized), 29)
+        self.assertEqual(len(normalized), 30)
 
     def test_every_policy_entry_resolves_to_the_named_console_route(self):
         route_cases = {name: args for name, args, _method in CONTENT_ROUTE_CASES}
@@ -170,6 +177,7 @@ class ContentRouteCapabilityTests(TestCase):
         ReleaseBuild,
         WebsiteReleaseSelection,
         WebsiteDeploymentOperation,
+        WebsiteReleaseDeployment,
     )
 
     @classmethod
@@ -300,6 +308,7 @@ class ContentRouteCapabilityTests(TestCase):
             patch('console.views.build_website_candidate') as website_candidate,
             patch('console.views.review_website_candidate') as review_candidate,
             patch('console.views.select_website_candidate') as select_candidate,
+            patch('console.views.deploy_selected_website') as deploy_candidate,
         ):
             for route_name, args, method in CONTENT_ROUTE_CASES:
                 with self.subTest(route_name=route_name):
@@ -316,6 +325,7 @@ class ContentRouteCapabilityTests(TestCase):
         website_candidate.assert_not_called()
         review_candidate.assert_not_called()
         select_candidate.assert_not_called()
+        deploy_candidate.assert_not_called()
         self.assertEqual(
             list(
                 SiteLocale.objects.filter(site=self.site)
@@ -1122,6 +1132,168 @@ class ContentRouteCapabilityTests(TestCase):
         self.assertIn('当前选择已被其他操作更新', str(form.non_field_errors()))
         self.assertNotIn('website_selection_changed', str(form.non_field_errors()))
 
+    def test_candidate_deployment_requires_exact_capability_current_selection_and_reason(self):
+        self.grant(CONTENT_READ)
+        self.grant(RELEASES_READ)
+        self.client.force_login(self.content_user)
+        candidate = SimpleNamespace(pk=83)
+        manifest = {
+            'kind': 'websiteCandidate',
+            'scope': 'wholeSite',
+            'version': 'd' * 64,
+            'articleVersion': 'e' * 64,
+            'baseSourceVersion': 'f' * 64,
+            'fileCount': 32,
+        }
+        selection = SimpleNamespace(
+            pk=12,
+            release_id=candidate.pk,
+            version=manifest['version'],
+        )
+        url = reverse('console:website_candidate_deploy', args=[candidate.pk])
+        rendered = []
+
+        def capture(_request, **kwargs):
+            rendered.append(kwargs)
+            return HttpResponse('deployment form')
+
+        with (
+            patch(
+                'console.views.review_website_candidate',
+                return_value=(candidate, manifest),
+            ) as reviewer,
+            patch('console.views.current_website_selection', return_value=selection),
+            patch('console.views.current_website_deployment', return_value=None),
+            patch('console.views.current_prepared_website_deployment', return_value=None),
+            patch('console.views.render_form_console', side_effect=capture),
+            patch(
+                'console.views.deploy_selected_website',
+                return_value={
+                    'deploymentId': 7,
+                    'operationId': 8,
+                    'selectionId': selection.pk,
+                    'version': manifest['version'],
+                    'previous': '',
+                    'changed': True,
+                    'replayed': False,
+                },
+            ) as deployer,
+        ):
+            denied = self.client.get(url)
+            self.assertEqual(denied.status_code, 403)
+            reviewer.assert_not_called()
+
+            self.grant(RELEASES_DEPLOY)
+            allowed = self.client.get(url)
+            self.assertEqual(allowed.status_code, 200)
+            self.assertEqual(
+                rendered[-1]['workspace_template'],
+                'console/_website_deployment_workspace.html',
+            )
+            self.assertEqual(
+                rendered[-1]['extra_context']['selection'],
+                selection,
+            )
+
+            invalid = self.client.post(url, {
+                'expected_selection_id': selection.pk,
+                'expected_deployed_version': '',
+                'request_token': str(uuid4()),
+                'reason': 'short',
+            })
+            self.assertEqual(invalid.status_code, 200)
+            deployer.assert_not_called()
+
+            token = uuid4()
+            deployed = self.client.post(url, {
+                'expected_selection_id': selection.pk,
+                'expected_deployed_version': '',
+                'request_token': str(token),
+                'reason': 'Approved current selection for controlled deployment.',
+            })
+
+        self.assertEqual(deployed.status_code, 302)
+        self.assertEqual(deployed.url, reverse('console:releases'))
+        deployer.assert_called_once_with(
+            site=self.site,
+            expected_selection_id=selection.pk,
+            expected_deployed_version='',
+            request_token=token,
+            actor=self.content_user.get_username(),
+            reason='Approved current selection for controlled deployment.',
+        )
+        self.assertIn('已部署', str(list(deployed.wsgi_request._messages)[0]))
+
+    def test_prepared_deployment_uses_original_request_and_hides_internal_error(self):
+        for capability in (CONTENT_READ, RELEASES_READ, RELEASES_DEPLOY):
+            self.grant(capability)
+        self.client.force_login(self.content_user)
+        candidate = SimpleNamespace(pk=84)
+        version = '1' * 64
+        manifest = {
+            'kind': 'websiteCandidate',
+            'scope': 'wholeSite',
+            'version': version,
+            'articleVersion': '2' * 64,
+            'baseSourceVersion': '3' * 64,
+            'fileCount': 32,
+        }
+        selection = SimpleNamespace(pk=13, release_id=candidate.pk, version=version)
+        token = uuid4()
+        prepared = SimpleNamespace(
+            id=17,
+            selection_id=selection.pk,
+            previous_version='',
+            request_token=token,
+            reason='Original reviewed deployment reason.',
+            deployed_by=self.content_user.get_username(),
+            created_at=timezone.now(),
+        )
+        rendered = []
+
+        def capture(_request, **kwargs):
+            rendered.append(kwargs)
+            return HttpResponse('prepared deployment form')
+
+        with (
+            patch('console.views.review_website_candidate', return_value=(candidate, manifest)),
+            patch('console.views.current_website_selection', return_value=selection),
+            patch('console.views.current_website_deployment', return_value=None),
+            patch(
+                'console.views.current_prepared_website_deployment',
+                return_value=prepared,
+            ),
+            patch('console.views.render_form_console', side_effect=capture),
+            patch(
+                'console.views.deploy_selected_website',
+                side_effect=ArticleDeliveryError('website_deployment_recovery_required'),
+            ) as deployer,
+        ):
+            opened = self.client.get(
+                reverse('console:website_candidate_deploy', args=[candidate.pk])
+            )
+            self.assertEqual(opened.status_code, 200)
+            form = rendered[-1]['extra_context']['deployment_form']
+            self.assertEqual(form.initial['request_token'], token)
+            self.assertEqual(form.initial['reason'], prepared.reason)
+            self.assertTrue(form.fields['reason'].widget.attrs['readonly'])
+
+            response = self.client.post(
+                reverse('console:website_candidate_deploy', args=[candidate.pk]),
+                {
+                    'expected_selection_id': selection.pk,
+                    'expected_deployed_version': '',
+                    'request_token': str(token),
+                    'reason': prepared.reason,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        deployer.assert_called_once()
+        errors = str(rendered[-1]['extra_context']['deployment_form'].non_field_errors())
+        self.assertIn('待恢复状态', errors)
+        self.assertNotIn('website_deployment_recovery_required', errors)
+
     def test_system_admin_keeps_representative_read_write_and_high_risk_routes_without_grants(self):
         self.client.force_login(self.admin_user)
         workspace = {'locale': {'code': 'en'}}
@@ -1167,6 +1339,7 @@ class ContentRouteCapabilityTests(TestCase):
             patch('console.views.build_private_article_preview') as article_preview,
             patch('console.views.build_website_candidate') as website_candidate,
             patch('console.views.review_website_candidate') as review_candidate,
+            patch('console.views.deploy_selected_website') as deploy_candidate,
             patch('console.views.read_private_preview') as preview_reader,
             patch('console.views.disable_locale') as disable_locale,
         ):
@@ -1178,6 +1351,10 @@ class ContentRouteCapabilityTests(TestCase):
             )
             candidate_select_put = self.client.put(
                 reverse('console:website_candidate_select', args=[1]),
+                {},
+            )
+            candidate_deploy_put = self.client.put(
+                reverse('console:website_candidate_deploy', args=[1]),
                 {},
             )
             article_file_post = self.client.post(
@@ -1195,6 +1372,7 @@ class ContentRouteCapabilityTests(TestCase):
         self.assertEqual(article_preview_get.status_code, 405)
         self.assertEqual(candidate_get.status_code, 405)
         self.assertEqual(candidate_select_put.status_code, 405)
+        self.assertEqual(candidate_deploy_put.status_code, 405)
         self.assertEqual(article_file_post.status_code, 405)
         self.assertEqual(locale_get.status_code, 405)
         articles.assert_not_called()
@@ -1202,5 +1380,6 @@ class ContentRouteCapabilityTests(TestCase):
         article_preview.assert_not_called()
         website_candidate.assert_not_called()
         review_candidate.assert_not_called()
+        deploy_candidate.assert_not_called()
         preview_reader.assert_not_called()
         disable_locale.assert_not_called()

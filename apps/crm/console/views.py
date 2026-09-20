@@ -87,6 +87,7 @@ from .content_access import (
     CONTENT_WRITE,
     RELEASES_CANDIDATE_BUILD,
     RELEASES_CANDIDATE_SELECT,
+    RELEASES_DEPLOY,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
     effective_content_capabilities,
@@ -151,6 +152,12 @@ from .three_d_payloads import three_d_asset_detail_context, three_d_asset_page_p
 from .system_forms import ConsoleUserForm, SalesTeamForm
 from .system_versions import sales_team_version_matches, system_user_version_matches
 from .website_candidate import build_website_candidate
+from .website_deployment import (
+    current_prepared_website_deployment,
+    current_website_deployment,
+    deploy_selected_website,
+)
+from .website_deployment_forms import WebsiteDeploymentForm
 from .website_selection import (
     current_website_selection,
     review_website_candidate,
@@ -203,6 +210,9 @@ CONTENT_ROUTE_CAPABILITIES: dict[str, frozenset[str]] = {
     ),
     'website_candidate_select': frozenset(
         {CONTENT_READ, RELEASES_READ, RELEASES_CANDIDATE_SELECT}
+    ),
+    'website_candidate_deploy': frozenset(
+        {CONTENT_READ, RELEASES_READ, RELEASES_DEPLOY}
     ),
 }
 
@@ -2885,6 +2895,8 @@ def public_marketing_measurement_config(request):
 def releases(request):
     site, _locale, capabilities = content_site_scope(request, 'releases')
     current_selection = current_website_selection(site=site)
+    current_deployment = current_website_deployment(site=site)
+    prepared_deployment = current_prepared_website_deployment(site=site)
     return render_console(
         request,
         section_key='releases',
@@ -2895,6 +2907,10 @@ def releases(request):
             current_selection_version=(
                 current_selection.version if current_selection is not None else ''
             ),
+            current_deployment_version=(
+                current_deployment.version if current_deployment is not None else ''
+            ),
+            deployment_prepared=prepared_deployment is not None,
         ),
     )
 
@@ -3403,6 +3419,128 @@ def website_candidate_select(request, candidate_record_id: int):
             ),
             'candidate_manifest': manifest,
             'current_selection_version': current_version,
+        },
+    )
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def website_candidate_deploy(request, candidate_record_id: int):
+    site, _locale, _capabilities = content_site_scope(request, 'website_candidate_deploy')
+    actor = request.user.get_username() or 'django-console'
+    try:
+        candidate, manifest = review_website_candidate(
+            site=site,
+            record_id=candidate_record_id,
+        )
+    except (ArticleDeliveryError, OSError):
+        messages.error(request, '整站候选无法通过完整性核验，不能部署。')
+        return redirect('console:releases')
+
+    selection = current_website_selection(site=site)
+    if (
+        selection is None
+        or selection.release_id != candidate.pk
+        or selection.version != manifest['version']
+    ):
+        messages.error(request, '该候选不是数据库中的当前选择，不能部署。')
+        return redirect('console:releases')
+
+    deployment = current_website_deployment(site=site)
+    deployed_version = deployment.version if deployment is not None else ''
+    prepared = current_prepared_website_deployment(site=site)
+    if prepared is not None and prepared.selection_id != selection.pk:
+        messages.error(request, '另一个部署操作等待恢复；当前候选不能部署。')
+        return redirect('console:releases')
+    resume = prepared is not None
+    resume_allowed = not resume or prepared.deployed_by == actor
+
+    if request.method == 'POST':
+        form = WebsiteDeploymentForm(request.POST)
+        if not resume_allowed:
+            form.add_error(None, '该待恢复操作由另一账号发起；当前账号不能替代其完成。')
+        elif form.is_valid():
+            try:
+                result = deploy_selected_website(
+                    site=site,
+                    expected_selection_id=form.cleaned_data['expected_selection_id'],
+                    expected_deployed_version=form.cleaned_data[
+                        'expected_deployed_version'
+                    ],
+                    request_token=form.cleaned_data['request_token'],
+                    actor=actor,
+                    reason=form.cleaned_data['reason'],
+                )
+            except (ArticleDeliveryError, OSError) as exc:
+                code = exc.code if isinstance(exc, ArticleDeliveryError) else ''
+                if code in {
+                    'website_deployment_selection_changed',
+                    'website_deployment_changed',
+                }:
+                    form.add_error(
+                        None,
+                        '当前选择或已部署版本已变化；请返回发布中心重新审查。',
+                    )
+                elif code == 'website_candidate_already_deployed':
+                    messages.info(request, '该候选已经是当前部署版本。')
+                    return redirect('console:releases')
+                elif code in {
+                    'website_deployment_in_progress',
+                    'website_deployment_recovery_required',
+                }:
+                    form.add_error(
+                        None,
+                        '部署操作已保留为待恢复状态；请刷新后使用原请求继续。',
+                    )
+                elif code == 'website_deployment_request_failed':
+                    messages.error(request, '此前部署请求已安全终止；请重新打开候选再试。')
+                    return redirect('console:releases')
+                else:
+                    form.add_error(None, '部署未完成；已停止并保留审计状态，请重新核验。')
+            else:
+                suffix = '（待恢复请求已安全续办）' if result['replayed'] or resume else ''
+                messages.success(request, f'整站候选已部署{suffix}；公开服务指针已完成受控切换。')
+                return redirect('console:releases')
+    else:
+        if deployed_version == manifest['version'] and prepared is None:
+            messages.info(request, '该候选已经是当前部署版本。')
+            return redirect('console:releases')
+        form = WebsiteDeploymentForm(initial={
+            'expected_selection_id': selection.pk,
+            'expected_deployed_version': (
+                prepared.previous_version if prepared is not None else deployed_version
+            ),
+            'request_token': prepared.request_token if prepared is not None else uuid4(),
+            'reason': prepared.reason if prepared is not None else '',
+        })
+        if prepared is not None:
+            form.fields['reason'].widget.attrs['readonly'] = True
+
+    return render_form_console(
+        request,
+        section_key='releases',
+        page_payload=make_page(
+            section_key='releases',
+            title='部署整站候选',
+            description='核对当前选择与部署前置条件；确认后会原子切换本安装的公开网站。',
+            page_type='form',
+            workspace_label='受控整站部署',
+            workspace_meta='部署写入独立收据；陈旧页面被拒绝，准备中断可用原请求安全续办。',
+            search_placeholder='',
+        ),
+        workspace_template='console/_website_deployment_workspace.html',
+        extra_context={
+            'hide_toolrows': True,
+            'deployment_form': form,
+            'deployment_form_action': reverse(
+                'console:website_candidate_deploy', args=[candidate.pk]
+            ),
+            'candidate_manifest': manifest,
+            'selection': selection,
+            'current_deployment_version': deployed_version,
+            'prepared_operation': prepared,
+            'resume_operation': resume,
+            'resume_allowed': resume_allowed,
         },
     )
 

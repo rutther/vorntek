@@ -41,14 +41,16 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   verifies the artifact but cannot activate or deploy it. The operator confirmation page
   re-verifies exact candidate evidence, requires an audit reason, handles stale forms and
   labels the current choice as selected but not deployed. A dedicated serving
-  volume and unreachable adapter now provide immutable copy verification, stale
+  volume and adapter now provide immutable copy verification, stale
   CAS and a relative-symlink atomic Nginx switch/rollback; database deployment
   core now adds a separate capability, prepared-operation concurrency interlock,
-  crash replay and immutable receipt. It is not exposed by HTTP or workers;
-  operator confirmation and Linux PostgreSQL/container acceptance remain open; see
+  crash replay and immutable receipt. An authenticated exact-permission confirmation
+  page now exposes only the current selection, makes serving impact explicit and
+  resumes only the original prepared request/operator. No worker invokes it;
+  Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
 - Post-change local validation passes 49 repository checks, 23 JavaScript
-  contracts and 791 Django tests with eight explicit skips. The migration-chain
+  contracts and 794 Django tests with eight explicit skips. The migration-chain
   packaging assertion now verifies all 32 canonical migrations. PostgreSQL 18,
   Compose and clean-clone acceptance remain required because Docker/PostgreSQL
   are unavailable on this Windows host.
@@ -87,7 +89,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
 | Export | Authenticated XLSX bytes, hash, sheets and expected records checked | Actual browser save-to-disk remains unconfirmed |
 | Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
-| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection ledger, stale-safe selection UI, atomic serving store and unreachable crash-resumable deployment core; 67 focused delivery/store/deployment tests plus route/policy coverage | [Architecture](ARTICLE_DELIVERY.md); deployment UI and Linux end-to-end serving acceptance remain open |
+| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection/deployment ledgers, stale-safe operator confirmations, atomic serving store and crash-resumable deployment; 67 focused delivery/store/deployment tests plus route/policy coverage | [Architecture](ARTICLE_DELIVERY.md); Linux PostgreSQL/Nginx end-to-end serving acceptance remains open |
 
 The running demonstration has 200 seeded fictional companies plus one converted
 synthetic customer and eight inquiries. The independent clone has 200 companies

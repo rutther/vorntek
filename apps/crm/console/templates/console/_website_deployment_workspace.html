@@ -1,0 +1,91 @@
+<section class="editor-shell">
+    <form method="post" action="{{ deployment_form_action }}" class="editor-layout">
+        {% csrf_token %}
+        {{ deployment_form.expected_selection_id }}
+        {{ deployment_form.expected_deployed_version }}
+        {{ deployment_form.request_token }}
+
+        <div class="editor-main">
+            {% if deployment_form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in deployment_form.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+
+            {% if resume_operation %}
+                <section class="editor-card">
+                    <div class="editor-card-head">
+                        <div>
+                            <h2>待恢复部署</h2>
+                            <p>此前操作已写入准备记录。必须使用原请求令牌、原原因和原操作者续办，不能另起部署覆盖。</p>
+                        </div>
+                    </div>
+                    <div class="meta-list">
+                        <div class="meta-item"><span>操作编号</span><strong>{{ prepared_operation.id }}</strong></div>
+                        <div class="meta-item"><span>原操作者</span><strong>{{ prepared_operation.deployed_by }}</strong></div>
+                        <div class="meta-item"><span>准备时间</span><strong>{{ prepared_operation.created_at }}</strong></div>
+                        <div class="meta-item"><span>恢复权限</span><strong>{% if resume_allowed %}当前账号可续办{% else %}当前账号不可替代原操作者{% endif %}</strong></div>
+                    </div>
+                </section>
+            {% endif %}
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>部署证据</h2>
+                        <p>候选已由服务器重新逐文件核验；提交时还会再次核验数据库选择、来源制品和服务目录。</p>
+                    </div>
+                </div>
+                <div class="meta-list">
+                    <div class="meta-item"><span>选择记录</span><strong>#{{ selection.id }}</strong></div>
+                    <div class="meta-item"><span>目标整站版本</span><strong class="mono">{{ candidate_manifest.version }}</strong></div>
+                    <div class="meta-item"><span>文章版本</span><strong class="mono">{{ candidate_manifest.articleVersion }}</strong></div>
+                    <div class="meta-item"><span>基础站点版本</span><strong class="mono">{{ candidate_manifest.baseSourceVersion }}</strong></div>
+                    <div class="meta-item"><span>冻结文件数</span><strong>{{ candidate_manifest.fileCount }}</strong></div>
+                    <div class="meta-item"><span>当前已部署版本</span><strong class="mono">{{ current_deployment_version|default:'安装内置基线' }}</strong></div>
+                </div>
+            </section>
+
+            <section class="editor-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>部署说明</h2>
+                        <p>部署旧候选会形成新的回滚收据；已有选择和部署历史不会被覆盖。</p>
+                    </div>
+                </div>
+                <label class="field field-block">
+                    <span class="field-label">{{ deployment_form.reason.label }}</span>
+                    {{ deployment_form.reason }}
+                    <small class="field-help">{{ deployment_form.reason.help_text }}</small>
+                    {% for error in deployment_form.reason.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </label>
+            </section>
+        </div>
+
+        <aside class="editor-side">
+            <section class="editor-card side-card">
+                <div class="editor-card-head">
+                    <div>
+                        <h2>{% if resume_operation %}确认恢复{% else %}确认部署{% endif %}</h2>
+                        <p>该动作会改变本安装的公开网站服务指针，不会修改香港生产，除非本软件被另行部署到该生产环境。</p>
+                    </div>
+                </div>
+                <div class="side-actions">
+                    {% if resume_allowed %}
+                        <button type="submit" class="button primary">{% if resume_operation %}使用原请求继续部署{% else %}确认部署当前选择{% endif %}</button>
+                    {% endif %}
+                    <a href="{% url 'console:releases' %}" class="button neutral">返回发布中心</a>
+                </div>
+            </section>
+            <section class="editor-card side-card">
+                <div class="editor-card-head"><div><h2>安全边界</h2></div></div>
+                <ul class="hint-list">
+                    <li>只能部署数据库中的当前选择，陈旧页面会被拒绝。</li>
+                    <li>Nginx 只读挂载，切换使用同文件系统原子指针。</li>
+                    <li>成功后追加部署收据；回滚也必须先选择旧候选再部署。</li>
+                    <li>Meta、广告、WhatsApp 和外部发送不会因此启用。</li>
+                </ul>
+            </section>
+        </aside>
+    </form>
+</section>

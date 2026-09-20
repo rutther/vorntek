@@ -13,6 +13,7 @@ from console.content_access import (
     CONTENT_READ,
     RELEASES_CANDIDATE_BUILD,
     RELEASES_CANDIDATE_SELECT,
+    RELEASES_DEPLOY,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
@@ -278,7 +279,7 @@ class GenericTablePayloadContractTests(SimpleTestCase):
             },
         )
 
-        def payload_for(capabilities, current=''):
+        def payload_for(capabilities, current='', deployed='', prepared=False):
             build_rows = MagicMock()
             build_rows.filter.return_value.order_by.return_value.__getitem__.return_value = []
             release_rows = MagicMock()
@@ -291,6 +292,8 @@ class GenericTablePayloadContractTests(SimpleTestCase):
                     site=site,
                     capabilities=frozenset(capabilities),
                     current_selection_version=current,
+                    current_deployment_version=deployed,
+                    deployment_prepared=prepared,
                 )
 
         incomplete = payload_for({CONTENT_READ, RELEASES_READ})
@@ -304,6 +307,20 @@ class GenericTablePayloadContractTests(SimpleTestCase):
             RELEASES_READ,
             RELEASES_CANDIDATE_SELECT,
         }, current=version)
+        deployable = payload_for(
+            {CONTENT_READ, RELEASES_READ, RELEASES_DEPLOY},
+            current=version,
+        )
+        deployed = payload_for(
+            {CONTENT_READ, RELEASES_READ, RELEASES_DEPLOY},
+            current=version,
+            deployed=version,
+        )
+        recovering = payload_for(
+            {CONTENT_READ, RELEASES_READ, RELEASES_DEPLOY},
+            current=version,
+            prepared=True,
+        )
 
         self.assertEqual(incomplete['views']['releases']['table']['rows'][0]['actions'], [])
         action = selectable['views']['releases']['table']['rows'][0]['actions'][0]
@@ -316,6 +333,18 @@ class GenericTablePayloadContractTests(SimpleTestCase):
         current_row = current['views']['releases']['table']['rows'][0]
         self.assertEqual(current_row['actions'], [])
         self.assertEqual(current_row['cells']['status']['label'], '已选择（未部署）')
+        deploy_action = deployable['views']['releases']['table']['rows'][0]['actions'][0]
+        self.assertEqual(deploy_action['label'], '审查并部署当前选择')
+        self.assertEqual(
+            deploy_action['href'],
+            reverse('console:website_candidate_deploy', args=[release.id]),
+        )
+        deployed_row = deployed['views']['releases']['table']['rows'][0]
+        self.assertEqual(deployed_row['actions'], [])
+        self.assertEqual(deployed_row['cells']['status']['label'], '已部署')
+        recovery_row = recovering['views']['releases']['table']['rows'][0]
+        self.assertEqual(recovery_row['cells']['status']['label'], '部署待恢复')
+        self.assertEqual(recovery_row['actions'][0]['label'], '恢复待完成部署')
 
 
 class ContentAccessibilityDomContractTests(SimpleTestCase):
@@ -331,6 +360,20 @@ class ContentAccessibilityDomContractTests(SimpleTestCase):
         self.assertIn('选择不等于上线', template)
         self.assertIn('不会修改 artifact active 指针', template)
         self.assertIn('Nginx 切换与回滚', template)
+
+    def test_deployment_template_states_impact_receipt_and_recovery_boundary(self):
+        template = (
+            TEMPLATE_ROOT / '_website_deployment_workspace.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('{% csrf_token %}', template)
+        self.assertIn('{{ deployment_form.expected_selection_id }}', template)
+        self.assertIn('{{ deployment_form.expected_deployed_version }}', template)
+        self.assertIn('{{ deployment_form.request_token }}', template)
+        self.assertIn('会改变本安装的公开网站服务指针', template)
+        self.assertIn('使用原请求继续部署', template)
+        self.assertIn('成功后追加部署收据', template)
+        self.assertIn('Meta、广告、WhatsApp', template)
 
     def test_detail_drawer_has_modal_name_description_and_focus_contract(self):
         template = (TEMPLATE_ROOT / 'app_shell.html').read_text(encoding='utf-8')

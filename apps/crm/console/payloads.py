@@ -23,6 +23,7 @@ from .content_access import (
     CONTENT_READ,
     RELEASES_CANDIDATE_BUILD,
     RELEASES_CANDIDATE_SELECT,
+    RELEASES_DEPLOY,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
@@ -1006,6 +1007,8 @@ def releases_payload(
     capabilities: frozenset[str] = frozenset(),
     include_diagnostics: bool = False,
     current_selection_version: str = '',
+    current_deployment_version: str = '',
+    deployment_prepared: bool = False,
 ) -> dict:
     if RELEASES_READ not in capabilities:
         raise PermissionDenied('当前账号没有查看预览与快照记录的权限。')
@@ -1041,6 +1044,11 @@ def releases_payload(
         CONTENT_READ,
         RELEASES_READ,
         RELEASES_CANDIDATE_SELECT,
+    }.issubset(capabilities)
+    can_deploy = {
+        CONTENT_READ,
+        RELEASES_READ,
+        RELEASES_DEPLOY,
     }.issubset(capabilities)
 
     build_rows = []
@@ -1124,6 +1132,7 @@ def releases_payload(
             )
         if (
             can_candidate_select
+            and not deployment_prepared
             and candidate_version
             and candidate_version != current_selection_version
         ):
@@ -1136,16 +1145,36 @@ def releases_payload(
                     ),
                 )
             )
+        if (
+            can_deploy
+            and candidate_version
+            and candidate_version == current_selection_version
+            and candidate_version != current_deployment_version
+        ):
+            preview_actions.append(
+                link_action(
+                    '恢复待完成部署' if deployment_prepared else '审查并部署当前选择',
+                    reverse(
+                        'console:website_candidate_deploy',
+                        kwargs={'candidate_record_id': item.id},
+                    ),
+                    tone='primary',
+                )
+            )
         release_type = (
             '整站候选'
             if candidate_version
             else ('文章预览' if article_preview_version else 'snapshot')
         )
-        release_status = (
-            badge('已选择（未部署）', 'blue')
-            if candidate_version and candidate_version == current_selection_version
-            else badge(status_label(item.status), status_tone(item.status))
-        )
+        if candidate_version and candidate_version == current_deployment_version:
+            release_status = badge('已部署', 'green')
+        elif candidate_version and candidate_version == current_selection_version:
+            release_status = badge(
+                '部署待恢复' if deployment_prepared else '已选择（未部署）',
+                'orange' if deployment_prepared else 'blue',
+            )
+        else:
+            release_status = badge(status_label(item.status), status_tone(item.status))
         release_rows.append(
             build_row(
                 row_id=f'release-{item.id}',
@@ -1181,10 +1210,10 @@ def releases_payload(
     payload = make_page(
         section_key='releases',
         title='预览与快照',
-        description='这里生成预览构建、审查文章快照并固化完整站点候选。候选不会被自动选择或部署；生产发布由受控部署流程执行，后台不直接上线生产。',
+        description='这里生成预览、固化并选择完整站点候选。只有独立部署权限和二次确认才能切换本安装的公开网站；不会自动部署或改动其它环境。',
         page_type='list',
         workspace_label='预览与快照',
-        workspace_meta='先审查文章私有预览，再从指定预览固化完整站点候选；生产发布另走受控部署流程。',
+        workspace_meta='先审查、固化并选择候选，再由独立部署权限执行可恢复的原子切换。',
         search_placeholder=build_search_placeholder,
     )
     payload['tabs'] = [
@@ -1260,7 +1289,7 @@ def releases_payload(
     payload['notes'] = [
         {
             'title': '生产发布边界',
-            'body': 'Django 后台可以生成预览、内容快照和完整站点候选，但候选不会自动成为公开网站；生产发布由受控部署流程执行，选择、部署、切换和回滚由后续受控发布层负责。',
+            'body': 'Django 后台可以生成预览、内容快照和完整站点候选，但候选不会自动成为公开网站；生产发布由受控部署流程执行：先写入不可变选择，再由独立部署权限和二次确认完成本安装的原子切换或回滚。',
         }
     ]
     return _apply_table_contract(payload)

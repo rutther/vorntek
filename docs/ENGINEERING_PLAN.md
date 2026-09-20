@@ -84,17 +84,19 @@ the classifications above; unknown files are not silently shipped.
   update/rollback chain; selection cannot activate artifacts or deploy files.
 - [x] Add the authenticated operator confirmation page for that selection core,
   with explicit candidate evidence, reason capture and stale-form handling.
-- [x] Add the unreachable serving-store foundation: a dedicated shared volume,
+- [x] Add the serving-store foundation: a dedicated shared volume,
   read-only Nginx mount, immutable verified materialization, stale-pointer CAS
   and relative-symlink atomic switch/rollback. It is intentionally not exposed
   until the database deployment permission and receipt layer is complete.
 - [x] Add append-only migration 0032 and the crash-resumable deployment service:
   separate permission, latest-selection binding, prepared-operation interlock,
   filesystem/ledger CAS, exact replay recovery and immutable deployment receipt.
-  It remains unreachable until an authenticated confirmation route is accepted.
+- [x] Add the exact-permission deployment confirmation route and release-center
+  states for selected, recovery-pending and deployed candidates. Recovery reuses
+  the original request facts and the route never exposes internal errors.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next add the deployment operator confirmation and Linux
-  PostgreSQL/Compose end-to-end serving acceptance.
+  public abstractions; next run Linux PostgreSQL/Compose end-to-end serving
+  acceptance, including interrupted deployment and rollback.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 
 Exit condition: generic Hong Kong capabilities selected for the public product

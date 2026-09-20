@@ -75,6 +75,15 @@ def current_website_deployment(*, site) -> WebsiteReleaseDeployment | None:
     )
 
 
+def current_prepared_website_deployment(*, site) -> WebsiteDeploymentOperation | None:
+    return (
+        WebsiteDeploymentOperation.objects.select_related('selection', 'release')
+        .filter(site=site, status='prepared')
+        .order_by('-id')
+        .first()
+    )
+
+
 def _matches(
     operation: WebsiteDeploymentOperation,
     *,

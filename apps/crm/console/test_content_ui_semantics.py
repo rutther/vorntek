@@ -48,8 +48,8 @@ class ReleaseUiSemanticsTests(SimpleTestCase):
 
         self.assertEqual(payload['title'], '预览与快照')
         self.assertEqual(payload['workspaceLabel'], '预览与快照')
-        self.assertIn('生产发布由受控部署流程执行', payload['description'])
-        self.assertIn('后台不直接上线生产', payload['description'])
+        self.assertIn('独立部署权限和二次确认', payload['description'])
+        self.assertIn('不会自动部署或改动其它环境', payload['description'])
         self.assertIn('生产发布由受控部署流程执行', payload['notes'][0]['body'])
 
     def test_release_search_only_promises_diagnostics_to_system_admins(self):

@@ -43,8 +43,10 @@ certifications.
   verified candidates into immutable releases and atomically switches a relative
   Nginx pointer while the web server remains read-only.
 - A crash-resumable, database-gated website deployment core with an independent
-  `releases.deploy` capability, prepared-operation interlock and immutable receipt;
-  no deployment route is exposed yet.
+  `releases.deploy` capability, prepared-operation interlock and immutable receipt.
+- An authenticated deployment confirmation page that re-verifies the current
+  selection, makes the serving impact explicit, rejects stale forms and resumes
+  a prepared operation only with its original UUID, reason and operator.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be

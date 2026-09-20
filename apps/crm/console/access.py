@@ -93,6 +93,7 @@ CONTENT_VIEW_NAMES = frozenset({
     'three_d_placement_edit', 'asset_upload', 'asset_import_path', 'asset_file',
     'releases', 'release_build_preview', 'article_release_preview',
     'article_preview_file', 'website_candidate_build', 'website_candidate_select',
+    'website_candidate_deploy',
 })
 MARKETING_VIEW_NAMES = frozenset({
     'marketing_attribution',

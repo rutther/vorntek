@@ -165,6 +165,11 @@ urlpatterns = [
         name='website_candidate_select',
     ),
     path(
+        'releases/website-candidates/<int:candidate_record_id>/deploy/',
+        views.website_candidate_deploy,
+        name='website_candidate_deploy',
+    ),
+    path(
         'releases/articles/preview/<str:version>/<path:artifact>',
         views.article_preview_file,
         name='article_preview_file',
