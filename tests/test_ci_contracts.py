@@ -49,10 +49,16 @@ class CIContractTests(unittest.TestCase):
 
     def test_ci_runs_full_suite_postgres_http_and_container_smoke(self):
         workflow = yaml.safe_load((ROOT/'.github/workflows/ci.yml').read_text(encoding='utf-8'))
+        application_checkout = next(
+            step for step in workflow['jobs']['application']['steps']
+            if step.get('uses', '').startswith('actions/checkout@')
+        )
+        self.assertEqual(application_checkout['with']['fetch-depth'], 0)
         commands = '\n'.join(step.get('run', '') for job in workflow['jobs'].values() for step in job['steps'])
         for required in ('scripts/run_application_tests.py', 'scripts/test_postgres_install.py', '--http',
                          'docker compose build', 'scripts/check_local_stack.py',
                          'python -m pip_audit -r apps/crm/requirements.lock',
+                         'scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean',
                          'scripts/release_manifest.py --require-clean',
                          'release_preflight --strict', 'maintenance --help',
                          'run_synthetic_website_deployment_acceptance',

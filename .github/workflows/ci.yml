@@ -20,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7, resolved 2026-09-12
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6, resolved 2026-09-12
         with:
@@ -36,6 +37,8 @@ jobs:
         run: python -m pip_audit -r apps/crm/requirements.lock --progress-spinner off
       - name: Distribution and private recovery guards
         run: python -m unittest discover -s tests -v
+      - name: Candidate Git history audit since the trusted RC1 tag
+        run: python scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean
       - name: Deterministic source release manifest
         run: python scripts/release_manifest.py --require-clean
       - name: Browser script contracts (no real platform requests)
