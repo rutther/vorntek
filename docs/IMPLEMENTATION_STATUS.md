@@ -61,8 +61,9 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
 - Post-change local validation passes 66 repository checks, 23 JavaScript
   contracts and 811 Django tests with eight explicit skips. The latest security
   regressions prove that restricted standard-21 rows cannot fall back to older
-  unmapped contact evidence and that CSV formula prefixes are neutralized while
-  valid international phone text remains stable. Content stores now use
+  unmapped contact evidence and that CSV formula prefixes, including after
+  leading whitespace, are neutralized while valid international phone text
+  remains stable. Content stores now use
   crash-released POSIX advisory locks, clean failed article staging trees and
   reject hardlinked article artifacts; the actual POSIX branch remains a Linux
   CI/runtime gate. A separate no-local,

@@ -97,8 +97,9 @@ request to resume without deleting or guessing ownership of a stale PID file.
 Regular-file and single-link checks reject substituted lock paths. Windows keeps
 an exclusive-file fallback only for local tests because the real serving path
 requires POSIX relative symlinks. Article staging now removes failed temporary
-trees, and verification rejects hardlinked artifact files as well as symlinks,
-changed bytes and unexpected files.
+trees, failed article/website pointer swaps remove their temporary files, and
+verification rejects hardlinked artifact files as well as symlinks, changed
+bytes and unexpected files.
 
 This adapter cannot authorize itself merely because a candidate directory exists;
 only the database-gated deployment service may call it.
@@ -249,7 +250,7 @@ commit.
 已经接通只读挂载/不可变复制/原子指针 serving store 的实际切换与回滚路径。恢复命令可根据
 恢复后的最新有效部署收据，从候选存储重建派生 serving cache，不伪造或修改数据库历史。
 文章制品、整站候选和 serving store 已统一使用由内核在进程退出时释放的 POSIX 文件锁，
-陈旧 PID 文件不会永久阻断恢复；文章暂存失败会清理半成品，硬链接制品也会被拒绝。
+陈旧 PID 文件不会永久阻断恢复；文章暂存或指针切换失败会清理半成品，硬链接制品也会被拒绝。
 系统没有后台自动部署，且这些首次卷初始化、真实原子切换、中断续办、回滚、重启持久化
 和 cache 重建路径虽然已写入 PostgreSQL/Compose/Nginx 验收门禁，尚未在当前候选提交的
 Linux CI 中成功执行；在该验收前仍不能称为发布完成，也不得把 artifact、私有预览或候选

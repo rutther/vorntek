@@ -79,8 +79,9 @@ certifications.
   routes cannot fall back to older unmapped contact evidence.
 - Customer-pool exports now preserve the active neutral filters and offer an
   explicit standard-21 column picker while keeping phone and email as required
-  keys. CSV output neutralizes spreadsheet-formula prefixes without rewriting
-  syntactically valid international phone text.
+  keys. CSV output neutralizes spreadsheet-formula prefixes, including after
+  leading whitespace, without rewriting syntactically valid international phone
+  text.
 - Customer detail pages now show value, all standard-21 routes in deterministic
   order, hard-restriction warnings and neutral contact provenance labels.
 - Python dependency evidence is bound to the exact lock-file hash; the earlier
@@ -93,7 +94,7 @@ certifications.
 - Article, whole-site candidate and serving stores now share a POSIX advisory
   lock that the kernel releases after process termination, so a stale lock file
   cannot permanently block crash recovery. Article staging also removes failed
-  temporary trees and rejects hardlinked artifact files.
+  temporary trees, failed pointer-swap files and hardlinked artifact files.
 
 ## [0.1.0-rc.1] - 2026-09-13
 

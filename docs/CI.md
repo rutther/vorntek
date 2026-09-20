@@ -61,7 +61,7 @@ the unpushed Linux job has already succeeded.
 
 ## Current local evidence
 
-- `run_application_tests.py`: 811 tests in 521.459s, 803 passed, eight skipped,
+- `run_application_tests.py`: 811 tests in 521.271s, 803 passed, eight skipped,
   zero failures. Django system checks reported no issues. The existing Windows
   virtual environment was used, not the CI job's declared Python3.12.12/Linux
   environment.
