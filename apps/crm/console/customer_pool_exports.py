@@ -63,6 +63,7 @@ STANDARD21_CONTENT_TYPE = 'text/csv; charset=utf-8'
 STANDARD21_REQUIRED_COLUMNS = ('phone', 'email')
 STANDARD21_PHONE_COLUMNS = frozenset({'phone', 'phone_2', 'phone_3'})
 SPREADSHEET_FORMULA_PREFIXES = ('=', '+', '-', '@')
+SPREADSHEET_IGNORED_PREFIX = ' \t\r\n'
 PHONE_TEXT_PATTERN = re.compile(r'^[+-]?[0-9(). /-]+$')
 STANDARD21_COLUMN_LABELS = {
     'phone': '电话',
@@ -238,9 +239,14 @@ def _standard21_spreadsheet_text(header: str, value) -> str:
     """Keep phone text stable while neutralizing active spreadsheet formulas."""
 
     text = str(value or '')
-    if not text.startswith(SPREADSHEET_FORMULA_PREFIXES):
+    formula_candidate = text.lstrip(SPREADSHEET_IGNORED_PREFIX)
+    if not formula_candidate.startswith(SPREADSHEET_FORMULA_PREFIXES):
         return text
-    if header in STANDARD21_PHONE_COLUMNS and PHONE_TEXT_PATTERN.fullmatch(text):
+    if (
+        formula_candidate == text
+        and header in STANDARD21_PHONE_COLUMNS
+        and PHONE_TEXT_PATTERN.fullmatch(text)
+    ):
         return text
     return "'" + text
 

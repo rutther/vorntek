@@ -327,6 +327,7 @@ class Standard21ImportTests(TestCase):
             company_name='=HYPERLINK("https://example.invalid","open")',
             value='36.0',
             restriction_note='+cmd|synthetic',
+            source_channel=' \t=1+1',
         )
 
         payload = standard21_csv_bytes([SimpleNamespace(**values)])
@@ -339,6 +340,7 @@ class Standard21ImportTests(TestCase):
             "'=HYPERLINK(\"https://example.invalid\",\"open\")",
         )
         self.assertEqual(exported['restriction_note'], "'+cmd|synthetic")
+        self.assertEqual(exported['source_channel'], "' \t=1+1")
 
     def test_twenty_one_column_file_is_rejected_by_two_table_template(self):
         payload = csv_bytes([row(account_id='AF-KE-1003')])
