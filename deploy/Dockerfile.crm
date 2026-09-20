@@ -7,6 +7,8 @@ RUN pip install --no-cache-dir -r /tmp/requirements.lock \
     && groupadd --gid 10001 newcrown \
     && useradd --uid 10001 --gid 10001 --no-create-home newcrown
 COPY apps/crm/ /app/
+COPY apps/website/styles.css /app/article-preview-assets/styles.css
+COPY apps/website/assets/vorntek/ /app/article-preview-assets/assets/vorntek/
 COPY VERSION /app/VERSION
 RUN mkdir -p /app/staticfiles /app/.runtime/customer-exports /data/assets /data/crm-attachments /data/whatsapp-media \
     && chown -R 10001:10001 /app/staticfiles /app/.runtime /data

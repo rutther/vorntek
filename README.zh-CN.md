@@ -74,6 +74,10 @@ docker compose exec crm python manage.py createsuperuser
 更新已有安装前请遵循中英双语[更新操作手册](docs/UPGRADE.md)。迁移前必须在外部写入
 已暂停的情况下通过只读 `python manage.py release_preflight --strict` 检查。
 
+文章私有预览要求将 `NEWCROWN_ARTICLE_PUBLIC_ORIGIN` 配置为本安装真实的 HTTPS
+公开来源；示例值有意使用不可上线域名。私有预览需要登录且不会激活官网，其资源与版本
+边界详见[文章交付架构](docs/ARTICLE_DELIVERY.md)。
+
 ## 开发与验证
 
 ```sh

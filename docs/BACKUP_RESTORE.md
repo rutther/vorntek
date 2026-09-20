@@ -19,7 +19,7 @@ A complete New Crown recovery set additionally requires:
 | --- | --- | --- |
 | Database | `postgres_data` | Logical archive; table/relationship/sequence/constraint verification |
 | Assets and attachments | `crm_files` (`/data`) | Separate private file snapshot, hash manifest, correct ownership |
-| Generated exports/runtime | `crm_runtime` | Inventory and authorized snapshot; never replay restored jobs automatically |
+| Generated exports/runtime | `crm_runtime` | Inventory and authorized snapshot, including private article-preview artifacts; never replay restored jobs or treat a preview as a public activation |
 | Secret vault and app secrets | `.secrets` | Separate encrypted/controlled transfer; matching vault key is essential |
 | Version/configuration | immutable images, source, private `.env` | Match application/migration version, site URL and storage mapping |
 | Collected static assets | `crm_static` | Rebuild from the recorded application version, not from arbitrary old files |

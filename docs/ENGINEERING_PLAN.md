@@ -70,9 +70,12 @@ the classifications above; unknown files are not silently shipped.
 - [x] Add private content-addressed article storage and a pinned whole-build input;
   withdrawal cannot recover stale pages, preview artifacts cannot be promoted by
   a mode flag, and activation rejects stale expected versions.
+- [x] Add authenticated, site-scoped private article preview with immutable
+  artifacts, version-bound review records, traversal-safe referenced assets and a network-silent response
+  policy; preview generation never changes an active pointer.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next review authenticated private preview, operator
-  authorization and whole-site composition/activation as separate lifecycle layers.
+  public abstractions; next review operator approval plus whole-site composition,
+  asset freezing and activation as separate lifecycle layers.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 
 Exit condition: generic Hong Kong capabilities selected for the public product

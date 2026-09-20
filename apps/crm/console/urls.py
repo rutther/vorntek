@@ -153,5 +153,11 @@ urlpatterns = [
     path('api/leads/forms/<str:form_code>/definition/', views.public_lead_form_definition, name='public_lead_form_definition'),
     path('releases/', views.releases, name='releases'),
     path('releases/build-preview/', views.release_build_preview, name='release_build_preview'),
+    path('releases/articles/preview/', views.article_release_preview, name='article_release_preview'),
+    path(
+        'releases/articles/preview/<str:version>/<path:artifact>',
+        views.article_preview_file,
+        name='article_preview_file',
+    ),
     path('api/leads/forms/<str:form_code>/submit/', views.public_lead_submit, name='public_lead_submit'),
 ]

@@ -14,6 +14,7 @@ copied from another environment must not override this policy.
 | Email inquiry/reminder and SMTP test actions | Return without constructing/sending messages. |
 | Platform diagnostics | Refuses external requests. |
 | WhatsApp live Graph/YCloud clients, media and templates | Constructors refuse before credential access; direct HTTP boundaries recheck policy, including previously created clients. Mock fixtures remain network-free. |
+| Private article preview | Authenticated reader strips scripts, forms, frames, external navigation/images and rejects CSS network loads; no-store CSP also denies script, connect, frame, object and form targets. |
 
 The final row closes an identified gap: the older send-only WhatsApp switch did
 not cover template reads/media downloads or direct transport clients. The global

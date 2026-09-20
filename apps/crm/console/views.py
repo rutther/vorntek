@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -45,6 +47,13 @@ from sitecore.models import Article, Category, MediaAsset, Site, SiteLocale, Thr
 from .article_categories import category_editor_page_payload
 from .article_exports import build_articles_export_zip
 from .article_imports import ArticleImportZipForm
+from .article_delivery import ArticleDeliveryError
+from .article_preview import (
+    article_preview_store,
+    build_private_article_preview,
+    reviewed_article_preview,
+)
+from .article_preview_reader import read_private_preview
 from .article_workspace import article_workspace_bundle
 from .acquisition_versions import lead_form_version_matches
 from .acquisition_workspace import build_acquisition_forms_workspace
@@ -173,6 +182,12 @@ CONTENT_ROUTE_CAPABILITIES: dict[str, frozenset[str]] = {
     'asset_file': frozenset({ASSETS_READ}),
     'releases': frozenset({RELEASES_READ}),
     'release_build_preview': frozenset({RELEASES_PREVIEW_BUILD}),
+    'article_release_preview': frozenset(
+        {CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD}
+    ),
+    'article_preview_file': frozenset(
+        {CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD}
+    ),
 }
 
 
@@ -3247,3 +3262,65 @@ def release_build_preview(request):
             messages.error(request, f'预览构建未完成：{result.build.build_key}。')
     destination = 'console:releases' if RELEASES_READ in capabilities else 'console:workbench'
     return redirect(destination)
+
+
+@login_required
+@require_POST
+def article_release_preview(request):
+    site, _locale, _capabilities = content_site_scope(request, 'article_release_preview')
+    actor = request.user.get_username() or 'django-console'
+    try:
+        result = build_private_article_preview(site=site, actor=actor)
+    except (ArticleDeliveryError, OSError):
+        messages.error(request, '文章私有预览未生成；请检查内容与服务器预览配置。')
+    else:
+        messages.success(
+            request,
+            f'文章私有预览已生成：{result["articleCount"]} 篇；未发布到公开网站。',
+        )
+    return redirect('console:releases')
+
+
+def _private_preview_response(raw: bytes, content_type: str) -> HttpResponse:
+    response = HttpResponse(raw, content_type=content_type)
+    response['Cache-Control'] = 'private, no-store, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Content-Security-Policy'] = (
+        "default-src 'none'; style-src 'self'; img-src 'self'; "
+        "script-src 'none'; connect-src 'none'; frame-src 'none'; "
+        "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    )
+    response['Referrer-Policy'] = 'no-referrer'
+    response['X-Frame-Options'] = 'DENY'
+    return response
+
+
+@login_required
+@require_GET
+def article_preview_file(request, version: str, artifact: str):
+    site, _locale, _capabilities = content_site_scope(request, 'article_preview_file')
+    if reviewed_article_preview(site=site, version=version) is None:
+        raise Http404('没有这份已审查的文章私有预览。')
+    base = reverse(
+        'console:article_preview_file',
+        kwargs={'version': version, 'artifact': 'placeholder'},
+    ).removesuffix('placeholder')
+    try:
+        result = read_private_preview(
+            version=version,
+            artifact=artifact,
+            base=base,
+            store=article_preview_store(site, initialize=False),
+            asset_root=Path(settings.SITEOS_ARTICLE_PREVIEW_ASSET_ROOT),
+        )
+    except (ArticleDeliveryError, OSError):
+        response = _private_preview_response(
+            '文章私有预览暂不可用。'.encode('utf-8'),
+            'text/plain; charset=utf-8',
+        )
+        response.status_code = 503
+        return response
+    if result is None:
+        raise Http404('文章私有预览中没有该文件。')
+    return _private_preview_response(*result)

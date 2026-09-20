@@ -93,6 +93,12 @@ Before updating an existing installation, follow the bilingual
 [upgrade runbook](docs/UPGRADE.md). `python manage.py release_preflight --strict`
 is read-only and must pass with outbound writers paused before migrations run.
 
+Private article previews require `NEWCROWN_ARTICLE_PUBLIC_ORIGIN` to be the
+installation's real HTTPS public origin. The example value is intentionally
+non-live. Preview is authenticated, never activates the public site, and its
+remaining asset/version limits are documented in the
+[article delivery architecture](docs/ARTICLE_DELIVERY.md).
+
 ## Development and verification
 
 ```sh

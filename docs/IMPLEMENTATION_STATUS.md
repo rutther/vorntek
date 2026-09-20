@@ -25,14 +25,17 @@ Observed 2026-09-20. **Public source pre-release; full goal acceptance remains o
   deterministic release and renders safe product-neutral article documents.
   Its private, owner-marked artifact store now adds immutable content-addressed
   versions, CAS activation, update/withdrawal/rollback and a pinned read-only
-  whole-build input. Thirty-one focused tests cover content/path/locale rejection,
+  whole-build input. Authenticated, site-scoped private preview adds exact
+  three-capability gates, version-bound review records, traversal-safe referenced
+  assets, script/external-request stripping and no-store/CSP responses without
+  changing an active pointer. Forty-one focused article tests cover content/path/locale rejection,
   Markdown and JSON-LD injection boundaries, translations, robots directives,
-  changed/extra files, stale activations and preview promotion refusal. It contains
-  no Hong Kong brand or Meta script. Authenticated private preview, operator
-  authorization and whole-site build/activation remain open; see
+  changed/extra files, stale activations, preview promotion refusal and preview
+  tamper/network boundaries. It contains no Hong Kong brand or Meta script.
+  Operator authorization and whole-site asset freezing/build/activation remain open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
 - Post-change local validation passes 48 repository checks, 23 JavaScript
-  contracts and 737 Django tests with seven explicit skips. The migration-chain
+  contracts and 749 Django tests with seven explicit skips. The migration-chain
   packaging assertion now verifies all 29 canonical migrations. PostgreSQL 18,
   Compose and clean-clone acceptance remain required because Docker/PostgreSQL
   are unavailable on this Windows host.
@@ -71,7 +74,7 @@ Observed 2026-09-20. **Public source pre-release; full goal acceptance remains o
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
 | Export | Authenticated XLSX bytes, hash, sheets and expected records checked | Actual browser save-to-disk remains unconfirmed |
 | Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
-| Article delivery | Deterministic snapshot, safe renderer, immutable private artifacts and pinned build input; 31 focused tests | [Architecture](ARTICLE_DELIVERY.md); private preview and whole-site activation are not yet accepted |
+| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, pinned build input and authenticated network-silent private preview; 41 focused article tests | [Architecture](ARTICLE_DELIVERY.md); CSS/images are not yet frozen with the artifact, and operator-approved whole-site activation is not accepted |
 
 The running demonstration has 200 seeded fictional companies plus one converted
 synthetic customer and eight inquiries. The independent clone has 200 companies

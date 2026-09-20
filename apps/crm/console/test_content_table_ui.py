@@ -7,7 +7,12 @@ from django.conf import settings
 from django.template.loader import get_template
 from django.test import SimpleTestCase
 
-from console.content_access import ASSETS_READ, RELEASES_READ
+from console.content_access import (
+    ASSETS_READ,
+    CONTENT_READ,
+    RELEASES_PREVIEW_BUILD,
+    RELEASES_READ,
+)
 from console.payloads import _apply_table_contract, assets_payload, releases_payload
 
 
@@ -156,6 +161,44 @@ class GenericTablePayloadContractTests(SimpleTestCase):
             self.assertFalse(table['selectable'])
             self.assertEqual(table['bulkActions'], [])
             self.assertTrue(all(not row['actions'] for row in table['rows']))
+
+    def test_article_preview_actions_require_all_three_capabilities(self):
+        site = SimpleNamespace(pk=1, id=1, code='siteos_demo', name='Vorntek')
+        release = SimpleNamespace(
+            id=9,
+            release_key='article-preview:1:v1',
+            status='built',
+            created_by='reviewer',
+            notes='Private preview',
+            artifact_path='',
+            exported_at=None,
+            built_at=None,
+            published_at=None,
+            created_at=None,
+            snapshot_manifest={'kind': 'articlePreview', 'version': 'v1'},
+        )
+
+        def payload_for(capabilities):
+            build_rows = MagicMock()
+            build_rows.filter.return_value.order_by.return_value.__getitem__.return_value = []
+            release_rows = MagicMock()
+            release_rows.order_by.return_value.__getitem__.return_value = [release]
+            with (
+                patch('console.payloads.ReleaseBuild.objects.select_related', return_value=build_rows),
+                patch('console.payloads.Release.objects.filter', return_value=release_rows),
+            ):
+                return releases_payload(site=site, capabilities=frozenset(capabilities))
+
+        incomplete = payload_for({RELEASES_READ, RELEASES_PREVIEW_BUILD})
+        complete = payload_for({CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD})
+
+        self.assertNotIn('生成文章私有预览', [action['label'] for action in incomplete['actions']])
+        self.assertEqual(incomplete['views']['releases']['table']['rows'][0]['actions'], [])
+        self.assertIn('生成文章私有预览', [action['label'] for action in complete['actions']])
+        self.assertEqual(
+            complete['views']['releases']['table']['rows'][0]['actions'][0]['label'],
+            '打开文章私有预览',
+        )
 
 
 class ContentAccessibilityDomContractTests(SimpleTestCase):

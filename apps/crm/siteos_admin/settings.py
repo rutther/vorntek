@@ -141,6 +141,15 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATIC_ROOT = Path(os.getenv('SITEOS_ADMIN_STATIC_ROOT', BASE_DIR / 'staticfiles'))
+SITEOS_ARTICLE_PREVIEW_ROOT = Path(
+    os.getenv('SITEOS_ARTICLE_PREVIEW_ROOT', BASE_DIR / '.runtime' / 'article-previews')
+)
+SITEOS_ARTICLE_PREVIEW_ASSET_ROOT = Path(
+    os.getenv('SITEOS_ARTICLE_PREVIEW_ASSET_ROOT', BASE_DIR.parent / 'website')
+)
+SITEOS_ARTICLE_PUBLIC_ORIGIN = os.getenv(
+    'SITEOS_ARTICLE_PUBLIC_ORIGIN', 'https://vorntek.example'
+)
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CSRF_TRUSTED_ORIGINS = env_list('SITEOS_ADMIN_CSRF_TRUSTED_ORIGINS')

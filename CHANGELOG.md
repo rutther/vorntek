@@ -26,6 +26,8 @@ certifications.
   core with explicit locale relationships and no marketing-script injection.
 - A private owner-marked article artifact store with content-addressed versions,
   compare-and-swap activation, withdrawal/rollback and pinned read-only build input.
+- Authenticated, site-scoped article private preview with version-bound review records,
+  traversal-safe referenced assets and network-silent no-store/CSP responses.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be

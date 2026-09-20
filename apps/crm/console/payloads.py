@@ -20,6 +20,7 @@ from .content_access import (
     ASSETS_IMPORT_LOCAL,
     ASSETS_READ,
     ASSETS_WRITE,
+    CONTENT_READ,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
@@ -1023,6 +1024,11 @@ def releases_payload(
         .order_by('-created_at')[:80]
     )
     releases = list(Release.objects.filter(site=site).order_by('-created_at')[:80])
+    can_article_preview = {
+        CONTENT_READ,
+        RELEASES_READ,
+        RELEASES_PREVIEW_BUILD,
+    }.issubset(capabilities)
 
     build_rows = []
     for item in builds:
@@ -1062,6 +1068,26 @@ def releases_payload(
 
     release_rows = []
     for item in releases:
+        snapshot = item.snapshot_manifest if isinstance(item.snapshot_manifest, dict) else {}
+        article_preview_version = (
+            snapshot.get('version')
+            if snapshot.get('kind') == 'articlePreview' and item.status == 'built'
+            else ''
+        )
+        preview_actions = []
+        if can_article_preview and article_preview_version:
+            preview_actions.append(
+                link_action(
+                    '打开文章私有预览',
+                    reverse(
+                        'console:article_preview_file',
+                        kwargs={
+                            'version': article_preview_version,
+                            'artifact': 'articles/index.html',
+                        },
+                    ),
+                )
+            )
         release_rows.append(
             build_row(
                 row_id=f'release-{item.id}',
@@ -1090,7 +1116,7 @@ def releases_payload(
                     [{'label': '内部产物路径', 'value': item.artifact_path or '未设置'}]
                     if include_diagnostics else []
                 ),
-                actions=[],
+                actions=preview_actions,
             )
         )
 
@@ -1111,6 +1137,14 @@ def releases_payload(
     if RELEASES_PREVIEW_BUILD in capabilities:
         payload['actions'].append(
             post_action('生成预览产物', reverse('console:release_build_preview'), tone='primary')
+        )
+    if can_article_preview:
+        payload['actions'].append(
+            post_action(
+                '生成文章私有预览',
+                reverse('console:article_release_preview'),
+                tone='secondary',
+            )
         )
     payload['views'] = {
         'builds': {
