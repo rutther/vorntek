@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import io
+from types import SimpleNamespace
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import connection
@@ -21,6 +23,7 @@ from .customer_import_services import (
     preview_customer_import,
 )
 from .customer_standard21_import import (
+    POOL_FIELD_BY_HEADER,
     STANDARD21_HEADERS,
     build_standard21_payloads,
     preview_standard21_import,
@@ -315,6 +318,27 @@ class Standard21ImportTests(TestCase):
         self.assertIsNone(normalize_standard21_columns(['phone', 'phone', 'email']))
         self.assertIsNone(normalize_standard21_columns(['phone']))
         self.assertIsNone(normalize_standard21_columns(['phone', 'email', 'unknown']))
+
+    def test_export_neutralizes_formulas_but_preserves_international_phone_text(self):
+        values = {field: '' for field in POOL_FIELD_BY_HEADER.values()}
+        values.update(
+            phone='+254 700-000-021',
+            email='@SUM(1,1)',
+            company_name='=HYPERLINK("https://example.invalid","open")',
+            value='36.0',
+            restriction_note='+cmd|synthetic',
+        )
+
+        payload = standard21_csv_bytes([SimpleNamespace(**values)])
+        exported = next(csv.DictReader(io.StringIO(payload.decode('utf-8-sig'))))
+
+        self.assertEqual(exported['phone'], '+254 700-000-021')
+        self.assertEqual(exported['email'], "'@SUM(1,1)")
+        self.assertEqual(
+            exported['company'],
+            "'=HYPERLINK(\"https://example.invalid\",\"open\")",
+        )
+        self.assertEqual(exported['restriction_note'], "'+cmd|synthetic")
 
     def test_twenty_one_column_file_is_rejected_by_two_table_template(self):
         payload = csv_bytes([row(account_id='AF-KE-1003')])

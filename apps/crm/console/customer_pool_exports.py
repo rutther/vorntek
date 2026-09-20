@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import re
 import uuid
 from collections.abc import Callable
 from datetime import timedelta
@@ -60,6 +61,9 @@ MAX_STANDARD21_ROWS = 50000
 STANDARD21_FILE_NAME = 'vorntek-customer-pool-standard21.csv'
 STANDARD21_CONTENT_TYPE = 'text/csv; charset=utf-8'
 STANDARD21_REQUIRED_COLUMNS = ('phone', 'email')
+STANDARD21_PHONE_COLUMNS = frozenset({'phone', 'phone_2', 'phone_3'})
+SPREADSHEET_FORMULA_PREFIXES = ('=', '+', '-', '@')
+PHONE_TEXT_PATTERN = re.compile(r'^[+-]?[0-9(). /-]+$')
 STANDARD21_COLUMN_LABELS = {
     'phone': '电话',
     'email': '邮箱',
@@ -230,8 +234,19 @@ def normalize_standard21_columns(raw_columns) -> tuple[str, ...] | None:
     return tuple(header for header in STANDARD21_HEADERS if header in selected)
 
 
+def _standard21_spreadsheet_text(header: str, value) -> str:
+    """Keep phone text stable while neutralizing active spreadsheet formulas."""
+
+    text = str(value or '')
+    if not text.startswith(SPREADSHEET_FORMULA_PREFIXES):
+        return text
+    if header in STANDARD21_PHONE_COLUMNS and PHONE_TEXT_PATTERN.fullmatch(text):
+        return text
+    return "'" + text
+
+
 def standard21_csv_bytes(pool_rows, columns=STANDARD21_HEADERS) -> bytes:
-    """Restore persisted source rows as a deterministic UTF-8 CSV."""
+    """Restore persisted rows as deterministic, spreadsheet-safe UTF-8 CSV."""
 
     normalized_columns = normalize_standard21_columns(columns)
     if normalized_columns is None:
@@ -241,7 +256,10 @@ def standard21_csv_bytes(pool_rows, columns=STANDARD21_HEADERS) -> bytes:
     writer.writerow(normalized_columns)
     for pool_row in pool_rows:
         by_header = dict(zip(STANDARD21_HEADERS, pool_row_standard_values(pool_row)))
-        writer.writerow([by_header[header] for header in normalized_columns])
+        writer.writerow([
+            _standard21_spreadsheet_text(header, by_header[header])
+            for header in normalized_columns
+        ])
     return '\ufeff'.encode('utf-8') + buffer.getvalue().encode('utf-8')
 
 
