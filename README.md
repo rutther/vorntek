@@ -89,6 +89,10 @@ configuration, not silently converts existing forms. See the
 legacy migration ledgers are refused; never delete ledger rows or run old demo
 reset helpers to bypass this guard.
 
+Before updating an existing installation, follow the bilingual
+[upgrade runbook](docs/UPGRADE.md). `python manage.py release_preflight --strict`
+is read-only and must pass with outbound writers paused before migrations run.
+
 ## Development and verification
 
 ```sh

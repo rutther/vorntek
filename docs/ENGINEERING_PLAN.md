@@ -71,14 +71,14 @@ inputs have documented extension boundaries.
 ### 3. Versioned installation and upgrade
 
 - [x] Establish a semantic source version and expose it from CRM health output.
-- [ ] Add a preflight command that reports application version, database ledger,
+- [x] Add a preflight command that reports application version, database ledger,
   pending migrations, storage access and unsafe external-I/O settings without
   mutating state.
 - [ ] Prove empty PostgreSQL 18 installation, 0.1.0-rc.1-to-current upgrade,
   repeat execution and rejected downgrade/unknown-ledger behavior.
 - [ ] Add a release manifest tying source version, migration tip and website asset
   build together.
-- [ ] Document and test stop-writers, backup, upgrade, health verification and
+- [x] Document stop-writers, backup, upgrade, health verification and
   rollback/restore as one operator runbook.
 
 Exit condition: version mismatch is diagnosable before writes; an upgrade either

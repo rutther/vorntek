@@ -71,6 +71,9 @@ docker compose exec crm python manage.py createsuperuser
 见[替换检查表](docs/VORNTEK_ROLLOUT.md)。不改写已执行的 SQL；不完整历史迁移账本
 会被拒绝，不能删除账本记录或运行旧演示重置工具来绕过检查。
 
+更新已有安装前请遵循中英双语[更新操作手册](docs/UPGRADE.md)。迁移前必须在外部写入
+已暂停的情况下通过只读 `python manage.py release_preflight --strict` 检查。
+
 ## 开发与验证
 
 ```sh

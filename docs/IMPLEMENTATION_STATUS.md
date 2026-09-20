@@ -6,6 +6,11 @@ Observed 2026-09-20. **Public source pre-release; full goal acceptance remains o
 
 - The working source version is `0.2.0-dev.1`; `/healthz/` now reports the
   service and source version. This is not a release tag.
+- `release_preflight --strict` now reports version, PostgreSQL migration ledger,
+  pending suffix, storage state and outbound-writer readiness without writes;
+  container CI is configured to require it after startup. The bilingual
+  [upgrade runbook](UPGRADE.md) keeps backup, stop-writers, migration and recovery
+  steps in one sequence.
 - Migrations 0028–0029 and the generic standard 21-column customer-pool import/export
   workflow are under active verification. Eleven focused tests and 42 existing
   customer-pool/navigation tests pass locally.

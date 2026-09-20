@@ -73,6 +73,8 @@ jobs:
         run: docker compose up -d
       - name: Check real container entrypoints and default-disabled measurement
         run: python scripts/check_local_stack.py --url http://127.0.0.1:8088/ --wait-seconds 180
+      - name: Read-only release and migration preflight
+        run: docker compose exec -T crm python manage.py release_preflight --strict
       - name: Check maintenance entrypoints without accessing business records
         run: |
           sudo install -d -m 0700 -o 10001 -g 10001 ./backups
