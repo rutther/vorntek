@@ -74,6 +74,34 @@ def _is_runtime_input(path: str) -> bool:
     return path.startswith(RUNTIME_PREFIXES) or path in RUNTIME_ROOT_FILES
 
 
+def _changed_blob_paths(root: Path, commits: list[str]) -> dict[str, set[str]]:
+    """Bind every candidate blob version to every path changed to that version."""
+    paths: dict[str, set[str]] = {}
+    zero_oid = '0' * 40
+    for commit in commits:
+        raw = _git(
+            root,
+            'diff-tree', '--root', '--no-commit-id', '-r', '-z', '--no-renames',
+            '--raw', commit,
+        )
+        fields = raw.split(b'\0')
+        for index in range(0, len(fields) - 1, 2):
+            header = fields[index]
+            path_bytes = fields[index + 1]
+            if not header or not path_bytes:
+                continue
+            parts = header.removeprefix(b':').split()
+            if len(parts) != 5:
+                raise ValueError('Unexpected raw Git diff record.')
+            _old_mode, new_mode, _old_oid, new_oid_bytes, status = parts
+            new_oid = new_oid_bytes.decode('ascii')
+            if status == b'D' or new_oid == zero_oid or new_mode == b'160000':
+                continue
+            path = path_bytes.decode('utf-8', errors='surrogateescape')
+            paths.setdefault(new_oid, set()).add(path)
+    return paths
+
+
 def audit_range(
     root: Path,
     base: str,
@@ -108,7 +136,12 @@ def audit_range(
             path_bytes.decode('utf-8', errors='surrogateescape') if separator else '',
         )
 
-    batch_input = b''.join(oid.encode('ascii') + b'\n' for oid in object_paths)
+    commits = _git(
+        root, 'rev-list', '--reverse', f'{base_commit}..{head_commit}'
+    ).decode('ascii').splitlines()
+    changed_blob_paths = _changed_blob_paths(root, commits)
+    scan_oids = set(object_paths).union(changed_blob_paths)
+    batch_input = b''.join(oid.encode('ascii') + b'\n' for oid in sorted(scan_oids))
     object_info = _git(
         root,
         'cat-file',
@@ -129,21 +162,23 @@ def audit_range(
         blob_count += 1
         oid = oid_bytes.decode('ascii')
         size = int(size_bytes)
-        path = object_paths.get(oid, '')
+        paths = sorted(changed_blob_paths.get(oid) or {object_paths.get(oid, '')})
+        representative_path = paths[0]
         if size > largest_blob_bytes:
             largest_blob_bytes = size
-            largest_blob_path = path
+            largest_blob_path = representative_path
         if size > max_blob_bytes:
-            findings.add(AuditFinding('oversized blob', oid, path))
+            findings.add(AuditFinding('oversized blob', oid, representative_path))
 
-        pure = PurePosixPath(path)
-        lower_path = path.lower()
-        if BLOCKED_PARTS.intersection(pure.parts):
-            findings.add(AuditFinding('blocked private/runtime path', oid, path))
-        if pure.name.startswith('.env') and pure.name != '.env.example':
-            findings.add(AuditFinding('blocked environment file', oid, path))
-        if lower_path.endswith(BLOCKED_SUFFIXES):
-            findings.add(AuditFinding('blocked backup/key/archive suffix', oid, path))
+        for path in paths:
+            pure = PurePosixPath(path)
+            lower_path = path.lower()
+            if BLOCKED_PARTS.intersection(pure.parts):
+                findings.add(AuditFinding('blocked private/runtime path', oid, path))
+            if pure.name.startswith('.env') and pure.name != '.env.example':
+                findings.add(AuditFinding('blocked environment file', oid, path))
+            if lower_path.endswith(BLOCKED_SUFFIXES):
+                findings.add(AuditFinding('blocked backup/key/archive suffix', oid, path))
 
         payload = _git(root, 'cat-file', 'blob', oid)
         if b'\0' in payload[:8192]:
@@ -151,16 +186,21 @@ def audit_range(
         text_blob_count += 1
         for marker in PRIVATE_KEY_MARKERS:
             if marker in payload:
-                findings.add(AuditFinding('private key material', oid, path))
+                for path in paths:
+                    findings.add(AuditFinding('private key material', oid, path))
         for label, pattern in SHAPED_SECRET_PATTERNS.items():
             if pattern.search(payload):
-                findings.add(AuditFinding(label, oid, path))
-        if not _is_test_fixture(path) and CREDENTIAL_URL.search(payload):
-            findings.add(AuditFinding('credential-bearing service URL', oid, path))
-        if _is_runtime_input(path):
-            for label, marker in PRODUCTION_MARKERS.items():
-                if marker in payload:
+                for path in paths:
                     findings.add(AuditFinding(label, oid, path))
+        if CREDENTIAL_URL.search(payload):
+            for path in paths:
+                if not _is_test_fixture(path):
+                    findings.add(AuditFinding('credential-bearing service URL', oid, path))
+        for path in paths:
+            if _is_runtime_input(path):
+                for label, marker in PRODUCTION_MARKERS.items():
+                    if marker in payload:
+                        findings.add(AuditFinding(label, oid, path))
 
     commit_count = int(
         _git(root, 'rev-list', '--count', f'{base_commit}..{head_commit}').decode().strip()
@@ -173,6 +213,7 @@ def audit_range(
         'commit_count': commit_count,
         'unique_object_count': len(object_paths),
         'unique_blob_count': blob_count,
+        'changed_blob_path_count': sum(len(paths) for paths in changed_blob_paths.values()),
         'text_blob_count': text_blob_count,
         'largest_blob_bytes': largest_blob_bytes,
         'largest_blob_path': largest_blob_path,

@@ -53,16 +53,20 @@ class ReleaseHistoryAuditTests(unittest.TestCase):
 
     def test_blocked_paths_runtime_identifiers_and_large_blobs_fail(self):
         self.commit_file('.env', 'SAFE=synthetic\n', 'blocked environment path')
+        shared = '# production host: ' + 'filline' + '.com\n' + ('x' * 128)
+        self.commit_file('tests/shared.txt', shared, 'allowed path for shared blob')
         self.commit_file(
-            'scripts/example.py',
-            '# production host: filline.com\n' + ('x' * 128),
-            'runtime production marker',
+            'scripts/shared.py', shared, 'same blob under runtime path',
         )
         report = audit_range(self.root, self.base, max_blob_bytes=64)
         kinds = {item['kind'] for item in report['findings']}
         self.assertIn('blocked environment file', kinds)
         self.assertIn('production domain', kinds)
         self.assertIn('oversized blob', kinds)
+        self.assertIn(
+            'scripts/shared.py',
+            {item['path'] for item in report['findings'] if item['kind'] == 'production domain'},
+        )
 
 
 if __name__ == '__main__':
