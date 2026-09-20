@@ -20,7 +20,10 @@ Observed 2026-09-20. **Public source pre-release; full goal acceptance remains o
   and 669 Django tests with seven explicit skips. Full post-change, PostgreSQL 18,
   Compose and clean-clone acceptance are still required.
 - Read-only production comparison uses the Hong Kong `filline.com` stack as the
-  business reference. No Hong Kong service or data was changed. See the active
+  business reference. The [106-path parity ledger](PRODUCTION_PARITY.md)
+  classifies every post-baseline production change as generic, pending article
+  review, private/excluded, correction-required or host-specific/replaced. No
+  Hong Kong service or data was changed. See the active
   [engineering plan](ENGINEERING_PLAN.md).
 
 ## Current delivery

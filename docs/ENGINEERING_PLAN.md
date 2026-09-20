@@ -45,8 +45,10 @@ operation or WhatsApp enablement is authorized by this plan.
 - [x] Identify authoritative production, website and public-source locations.
 - [x] Recheck local Git state, public remote and Hong Kong runtime read-only state.
 - [x] Establish repeatable Python and JavaScript test baselines.
-- [ ] Record the remaining production-to-public file/function matrix with an
-  explicit disposition for every post-baseline production module.
+- [x] Record the 106-path production-to-public matrix with an explicit
+  disposition for every post-baseline input in
+  [`PRODUCTION_PARITY.md`](PRODUCTION_PARITY.md); the file list was mechanically
+  checked for missing, extra and duplicate entries.
 
 Exit condition: every candidate input has a named owner, provenance and one of
 the classifications above; unknown files are not silently shipped.

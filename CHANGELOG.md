@@ -13,6 +13,8 @@ certifications.
   and outbound-writer readiness, enforced by container CI.
 - A deterministic, non-secret source release manifest tying the Git tree, version,
   website tree, migration tip, Compose file and dependency lock together.
+- A complete 106-path Hong Kong production-delta ledger that separates reusable
+  product work from private research inputs, defective semantics and host scripts.
 - The standard 21-column customer-pool CSV workflow: strict parsing, value
   reconciliation, preview/commit, row-level persistence and authorized CSV export.
 - Controlled bulk review/publish for customer-pool records, with deterministic
