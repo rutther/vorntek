@@ -62,14 +62,14 @@ host paths or regional research records may enter this repository.
 
 ## ARTICLE REVIEW — reusable CMS delivery candidate (25)
 
-- `console/article_build_input.py`
+- `console/article_build_input.py` — adapted: pinned, hash-verified whole-build input; preview cannot be promoted by a mode flag.
 - `console/article_delivery.py` — adapted: product-neutral deterministic release contract; no host or brand coupling.
 - `console/article_exports.py`
 - `console/article_imports.py`
 - `console/article_isolated_publish.py`
 - `console/article_preview.py`
 - `console/article_preview_reader.py`
-- `console/article_release_store.py`
+- `console/article_release_store.py` — adapted: product-neutral locale paths, owner-marked private roots, immutable artifacts and CAS activation.
 - `console/article_rendering.py` — adapted: safe Markdown/JSON-LD renderer with no marketing-script injection.
 - `console/article_workspace.py`
 - `console/static/console/article-workspace.js`
@@ -78,21 +78,22 @@ host paths or regional research records may enter this repository.
 - `console/templates/console/_article_release_preview.html`
 - `console/templates/console/_article_workspace.html`
 - `console/templates/console/article_delivery_page.html` — adapted: configured site identity and locale navigation; no production brand or Pixel script.
-- `console/test_article_build_input.py`
+- `console/test_article_build_input.py` — adapted and expanded stale-pointer, withdrawal and preview-promotion coverage.
 - `console/test_article_delivery.py` — adapted and expanded contract/security coverage.
 - `console/test_article_delivery_cms.py`
-- `console/test_article_release_store.py`
+- `console/test_article_release_store.py` — adapted and expanded ownership, generic locale, tamper, CAS and rollback coverage.
 - `console/test_article_rendering.py` — adapted and expanded rendering/injection coverage.
 - `console/test_content_route_permissions.py`
 - `console/views.py`
 - `requirements.lock` — accepted only with locked Markdown parser, current-host license evidence and tests; Linux image reinventory remains required.
 - `requirements.txt` — accepted only with the renderer slice.
 
-The five implementation/test paths and their dependency change above form the
-accepted pure snapshot/rendering sub-slice. Release storage, preview reader,
-build input, activation, workspace and shared view/router changes remain under
-review. See [`ARTICLE_DELIVERY.md`](ARTICLE_DELIVERY.md). The Markdown dependency
-is accepted only with the renderer and its security tests, never as unexplained
+The snapshot/rendering, private immutable store and pinned build-input paths above
+form the accepted article artifact sub-slice. Preview reader, operator workflow,
+whole-site composition/activation, workspace and shared view/router changes remain
+under review. The internal artifact pointer is not a production deployment.
+See [`ARTICLE_DELIVERY.md`](ARTICLE_DELIVERY.md). The Markdown dependency is
+accepted only with the renderer and its security tests, never as unexplained
 lock-file drift.
 
 ## PRIVATE EXCLUDE — source-specific research and retained evidence (45)

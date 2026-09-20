@@ -67,9 +67,12 @@ the classifications above; unknown files are not silently shipped.
 - [x] Add the product-neutral article snapshot and safe-rendering core, with
   deterministic digests, explicit translations, no raw HTML and no injected
   marketing scripts; see [`ARTICLE_DELIVERY.md`](ARTICLE_DELIVERY.md).
+- [x] Add private content-addressed article storage and a pinned whole-build input;
+  withdrawal cannot recover stale pages, preview artifacts cannot be promoted by
+  a mode flag, and activation rejects stale expected versions.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next review immutable storage, private preview, build input
-  and activation as separate lifecycle layers.
+  public abstractions; next review authenticated private preview, operator
+  authorization and whole-site composition/activation as separate lifecycle layers.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 
 Exit condition: generic Hong Kong capabilities selected for the public product

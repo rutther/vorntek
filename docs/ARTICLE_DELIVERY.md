@@ -17,6 +17,20 @@ are rejected, JSON-LD is escaped against script breakout, an article page has on
 top-level heading, and preview output is `noindex,nofollow`. The renderer performs
 no file, network or database writes.
 
+`console/article_release_store.py` stages those documents in a private,
+owner-marked, content-addressed store. It rejects filesystem links/reparse points,
+unknown or locale-hard-coded artifact paths, unexpected files and changed bytes.
+Activation uses an expected-current compare-and-swap pointer, so a stale operator
+tab cannot replace a newer activation. Withdrawal is represented by a new empty
+release; reads never search an older version for missing content. Preview and live
+stores have distinct ownership markers, and live staging refuses incomplete
+language sets.
+
+`console/article_build_input.py` returns one pinned, verified active version for a
+later whole-site composer. It checks the pointer before and after reading every
+hash-verified UTF-8 artifact, rejects preview artifacts in release mode and never
+activates anything itself.
+
 Brand name, locale labels and logo URL come from the site record/configuration.
 The public implementation deliberately does not carry the Hong Kong company's
 name, fixed language set, host paths, Meta Pixel injection or production-only
@@ -26,20 +40,21 @@ URLs but does not fetch them.
 
 ## Lifecycle boundary
 
-The current accepted slice stops at an in-memory release and rendered document
-map. It does **not** yet provide:
+The current accepted slice stops at a private immutable store and read-only build
+input. It does **not** yet provide:
 
-- immutable on-disk release storage and retention;
 - private preview serving and traversal-safe asset reading;
 - an operator approval/activation transaction;
 - integration with the static website build and rollback pointer;
 - background scheduling or external publication;
 - a claim that CMS edits are live merely because rendering succeeded.
 
-Those concerns must be added as independently tested layers. Activation must
-verify the same release digest, write to a versioned staging area, switch a
-single pointer only after complete verification and retain the previous release
-for rollback. No production path or domain may be used as a default.
+Those concerns must be added as independently tested layers. The storage pointer
+is an internal artifact-selection primitive, not authorization to publish a
+website. The future composer must consume the complete pinned file set, stage a
+whole website, switch its own pointer only after verification and retain the
+previous website release for rollback. No production path or domain may be used
+as a default.
 
 ## Clean-install contract
 
@@ -49,12 +64,14 @@ dependency. Current-host license evidence is bound to the exact lock-file hash i
 historical evidence for the preceding 24-package lock and must be regenerated
 before a new binary image is published.
 
-Tests cover deterministic snapshots, unpublished-row exclusion, duplicate and
-path rejection, explicit translation links, safe Markdown, one-H1 output,
-preview/live robots behavior, absence of tracking scripts, JSON script-breakout
-defense and post-freeze tamper rejection. Database-backed snapshot, immutable
-store, private preview and end-to-end activation tests remain later gates.
+Thirty-one focused tests cover deterministic snapshots, unpublished-row
+exclusion, duplicate and path rejection, explicit translation links, safe
+Markdown, one-H1 output, preview/live robots behavior, absence of tracking
+scripts, JSON script-breakout defense, store ownership, generic locale paths,
+CAS activation, update/withdrawal/rollback, changed/extra file rejection, stale
+build inputs and preview-to-release refusal. Database-backed snapshot, private
+preview and end-to-end whole-site activation tests remain later gates.
 
-中文：当前完成的是可审计的文章快照与安全渲染核心，不是“一键发布”。后续必须把
-版本化存储、私有预览、静态站构建、原子切换和回滚分别实现并验收；在此之前不得将
-渲染成功描述为生产网站已经更新。
+中文：当前完成的是可审计快照、安全渲染、私有不可变存储和固定版本构建输入，不是
+“一键发布”。后续必须把私有预览、整站静态构建、发布授权、原子切换和整站回滚分别
+实现并验收；在此之前不得将文章 artifact 激活描述为生产网站已经更新。
