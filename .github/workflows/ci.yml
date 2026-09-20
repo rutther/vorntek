@@ -77,6 +77,19 @@ jobs:
         run: python scripts/check_local_stack.py --url http://127.0.0.1:8088/ --wait-seconds 180
       - name: Read-only release and migration preflight
         run: docker compose exec -T crm python manage.py release_preflight --strict
+      - name: Synthetic website deployment lifecycle through the real shared volume
+        run: |
+          docker compose exec -T -e NEWCROWN_SYNTHETIC_ACCEPTANCE=1 crm \
+            python manage.py run_synthetic_website_deployment_acceptance \
+              --synthetic-only --expect-database newcrown --require-bundled-baseline
+          curl --fail --silent --show-error \
+            http://127.0.0.1:8088/articles/acceptance-guide/ \
+            | grep --fixed-strings 'Synthetic deployment marker'
+          docker compose restart crm website
+          python scripts/check_local_stack.py --url http://127.0.0.1:8088/ --wait-seconds 180
+          curl --fail --silent --show-error \
+            http://127.0.0.1:8088/articles/acceptance-guide/ \
+            | grep --fixed-strings 'Synthetic deployment marker'
       - name: Check maintenance entrypoints without accessing business records
         run: |
           sudo install -d -m 0700 -o 10001 -g 10001 ./backups

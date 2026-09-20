@@ -46,11 +46,16 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   core now adds a separate capability, prepared-operation concurrency interlock,
   crash replay and immutable receipt. An authenticated exact-permission confirmation
   page now exposes only the current selection, makes serving impact explicit and
-  resumes only the original prepared request/operator. No worker invokes it;
+  resumes only the original prepared request/operator. No worker invokes it.
+  A guarded synthetic-only command and CI step now exercise update, interrupted
+  deployment recovery, rollback, PostgreSQL trigger refusals, real Nginx serving
+  and restart persistence. The gate has not yet run for this unpushed commit, so
   Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
 - Post-change local validation passes 49 repository checks, 23 JavaScript
-  contracts and 794 Django tests with eight explicit skips. The migration-chain
+  contracts and 797 Django tests with eight explicit skips. Three command-guard
+  tests ensure the destructive lifecycle acceptance fails closed before database
+  or filesystem writes when its safety preconditions are absent. The migration-chain
   packaging assertion now verifies all 32 canonical migrations. PostgreSQL 18,
   Compose and clean-clone acceptance remain required because Docker/PostgreSQL
   are unavailable on this Windows host.
@@ -89,7 +94,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
 | Export | Authenticated XLSX bytes, hash, sheets and expected records checked | Actual browser save-to-disk remains unconfirmed |
 | Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
-| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection/deployment ledgers, stale-safe operator confirmations, atomic serving store and crash-resumable deployment; 67 focused delivery/store/deployment tests plus route/policy coverage | [Architecture](ARTICLE_DELIVERY.md); Linux PostgreSQL/Nginx end-to-end serving acceptance remains open |
+| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection/deployment ledgers, stale-safe operator confirmations, atomic serving store and crash-resumable deployment; 70 focused delivery/store/deployment/command tests and guarded Linux/PostgreSQL/Compose lifecycle acceptance encoded in CI | [Architecture](ARTICLE_DELIVERY.md); the new current-commit PostgreSQL/Nginx gate has not yet run, so end-to-end serving acceptance remains open |
 
 The running demonstration has 200 seeded fictional companies plus one converted
 synthetic customer and eight inquiries. The independent clone has 200 companies

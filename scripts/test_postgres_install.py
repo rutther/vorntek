@@ -72,6 +72,11 @@ def main():
         'SITEOS_ADMIN_DATABASE_PASSWORD': password, 'SITEOS_ADMIN_DATABASE_SSLMODE': 'disable',
         'SITEOS_ADMIN_SECURE_SSL_REDIRECT': '0', 'NEWCROWN_ALLOW_EXTERNAL_IO': '0',
         'NEWCROWN_SITE_URL': 'http://localhost:8088',
+        'NEWCROWN_SYNTHETIC_ACCEPTANCE': '1',
+        'SITEOS_ARTICLE_RELEASE_ROOT': str(runtime / 'acceptance-article-releases'),
+        'SITEOS_WEBSITE_RELEASE_ROOT': str(runtime / 'acceptance-website-releases'),
+        'SITEOS_WEBSITE_SERVING_ROOT': str(runtime / 'acceptance-website-serving'),
+        'SITEOS_WEBSITE_SOURCE_ROOT': str(ROOT / 'apps' / 'website'),
         'PYTHONIOENCODING': 'utf-8',
     })
     report = {'started_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
@@ -181,6 +186,35 @@ def main():
         with connect() as conn:
             assert conn.execute("SELECT name FROM site WHERE code='siteos_demo'").fetchone()[0] == 'SYNTHETIC preserved configuration'
         checked('bootstrap_preserves_custom_site_settings')
+
+        if os.name != 'nt':
+            acceptance_output = manage(
+                'run_synthetic_website_deployment_acceptance',
+                '--synthetic-only',
+                '--expect-database',
+                'newcrown_install',
+                contains='"result": "passed"',
+            )
+            acceptance = json.loads(
+                next(
+                    line
+                    for line in reversed(acceptance_output.splitlines())
+                    if line.strip()
+                )
+            )
+            assert acceptance['selectionEvents'] == 4
+            assert acceptance['deploymentReceipts'] == 4
+            assert acceptance['relativePointer'].startswith('releases/')
+            checked(
+                'synthetic_website_selection_deploy_recovery_rollback_and_postgres_guards',
+                acceptance,
+            )
+        else:
+            report['checks'].append({
+                'name': 'synthetic_website_deployment_posix_filesystem',
+                'result': 'skipped',
+                'detail': 'Real relative-symlink acceptance runs on Linux CI.',
+            })
 
         with connect() as conn:
             conn.execute('SELECT pg_advisory_lock(72304466189427711)')

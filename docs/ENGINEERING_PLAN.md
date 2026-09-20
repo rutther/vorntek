@@ -94,6 +94,11 @@ the classifications above; unknown files are not silently shipped.
 - [x] Add the exact-permission deployment confirmation route and release-center
   states for selected, recovery-pending and deployed candidates. Recovery reuses
   the original request facts and the route never exposes internal errors.
+- [x] Encode a destructive synthetic-only PostgreSQL/Compose acceptance gate for
+  selection, initial deployment, update, crash replay, rollback, SQL immutability,
+  real Nginx serving and restart persistence. It refuses live/scheduled settings,
+  non-loopback targets and nonempty release ledgers; current-commit CI execution
+  is still required before recording runtime acceptance.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
   public abstractions; next run Linux PostgreSQL/Compose end-to-end serving
   acceptance, including interrupted deployment and rollback.

@@ -53,7 +53,11 @@ class CIContractTests(unittest.TestCase):
         for required in ('scripts/run_application_tests.py', 'scripts/test_postgres_install.py', '--http',
                          'docker compose build', 'scripts/check_local_stack.py',
                          'scripts/release_manifest.py --require-clean',
-                         'release_preflight --strict', 'maintenance --help'):
+                         'release_preflight --strict', 'maintenance --help',
+                         'run_synthetic_website_deployment_acceptance',
+                         '--require-bundled-baseline',
+                         'docker compose restart crm website',
+                         '/articles/acceptance-guide/'):
             self.assertIn(required, commands)
 
     def test_socket_guard_recognizes_only_loopback(self):

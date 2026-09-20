@@ -40,12 +40,23 @@ Older local-only counts below are historical.
 | Application | Pinned Python dependencies, `pip check`, recovery/configuration unit tests, Node script contracts, complete SQLite regression | Synthetic transports; not real Meta or full PostgreSQL business acceptance |
 | PostgreSQL and Compose | Official PG18 package binaries, isolated install/upgrade/restore/HTTP harness, all image builds, actual container entrypoint smoke and maintenance CLI help | Must actually run before claiming success; not full private-data recovery, all browser flows or publishing |
 
+The current unpushed workflow also runs
+`run_synthetic_website_deployment_acceptance` only inside that fresh loopback
+stack. It requires explicit synthetic acknowledgement, disabled outbound and
+scheduled work, an exact database identity, an empty release ledger and the
+image-bundled website baseline. It exercises deployment, update, crash recovery,
+rollback and PostgreSQL trigger refusals. CI then reads the generated article
+through Nginx before and after restarting CRM and Nginx. Adding this step is not
+evidence that it passed; status documents must cite the exact remote run before
+claiming Linux acceptance.
+
 ## Current local evidence
 
-- `run_application_tests.py`: 656 tests in 449.361s, 649 passed, seven skipped,
-  zero failures. Django system checks reported no issues. Python3.12.14/Windows
-  was used locally, not the CI job's declared Python3.12.12/Linux environment.
-- Unit/distribution/CI configuration checks: 29 passed. Node VM tests: 14 passed.
+- `run_application_tests.py`: 797 tests in 569.654s, 789 passed, eight skipped,
+  zero failures. Django system checks reported no issues. The existing Windows
+  virtual environment was used, not the CI job's declared Python3.12.12/Linux
+  environment.
+- Unit/distribution/CI configuration checks: 49 passed. Node VM tests: 23 passed.
 - PG17.11 `test_postgres_install.py --http`: 23 aggregate checks passed, including
   the actual smoke script. The HTTP server and unique cluster stopped. Private
   synthetic evidence is retained outside Git in the operator's private test directory.

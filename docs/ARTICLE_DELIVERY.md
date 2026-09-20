@@ -119,8 +119,17 @@ prepared operation reopens with its original UUID and read-only reason and only
 the original operator can resume it. Stale and internal failure codes are replaced
 with safe operator messages. No worker or scheduler invokes deployment.
 
-Linux PostgreSQL/Compose must still prove the SQL triggers, volume copy-up and real
-Nginx behavior before this lifecycle is accepted for a release.
+`run_synthetic_website_deployment_acceptance` now packages the destructive part
+of that proof behind three independent guards: an explicit synthetic flag and
+environment acknowledgement, a loopback-only site, and an empty release/deployment
+ledger with all outbound work disabled. On PostgreSQL it creates only fictional
+content, exercises first deployment, update, crash-after-switch replay, rollback,
+selection/deployment interlocks and the immutable SQL triggers, then reports the
+final route and relative serving pointer. The Linux Compose CI additionally
+requires the image-bundled baseline, reads the generated page through real Nginx,
+restarts both CRM and Nginx, and reads it again. This gate is present in source but
+has not yet run for the current unpushed commit; PostgreSQL/Compose acceptance
+therefore remains open rather than inferred from local SQLite tests.
 
 Brand name, locale labels and logo URL come from the site record/configuration.
 The public implementation deliberately does not carry the Hong Kong company's
@@ -202,7 +211,11 @@ selection/deployment interlock, update/rollback chains and immutable model behav
 Route and template tests additionally cover the exact deployment capability,
 reason/UUID form, current-selection binding, original-request recovery and safe
 error wording.
-PostgreSQL/Compose triggers and end-to-end whole-site activation remain later gates.
+Three additional command-guard tests prove that missing acknowledgement,
+live/scheduled execution and non-PostgreSQL targets are rejected before writes.
+The PostgreSQL/Compose trigger and Nginx assertions are now executable CI gates,
+but remain unaccepted until that job runs successfully for the exact candidate
+commit.
 
 中文：当前完成的是可审计快照、安全渲染、私有不可变存储、固定版本构建输入、经过权限
 控制且阻断外部网络请求的后台私有预览，以及把官网 HTML/CSS/JS/图片与正式模式文章
