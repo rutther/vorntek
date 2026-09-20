@@ -2,7 +2,7 @@
 
 Django owns managed authentication, content-type, permission and session tables.
 Business models use `managed = False`; the authoritative schema is the complete,
-ordered and checksum-verified `migrations/0001…0027` SQL chain. Do not rewrite
+ordered and checksum-verified `migrations/0001…0032` SQL chain. Do not rewrite
 applied SQL or use a demo reset as an installation/upgrade procedure.
 
 ## Fresh installation and upgrade
@@ -18,8 +18,8 @@ python manage.py collectstatic --noinput
 
 Without `--apply`, `initialize_database` only inspects/plans. With it, installation
 verifies SQL checksums, takes a cooperative PostgreSQL lock, runs Django migrations
-and records each SQL migration transactionally. It checks 58 unmanaged models and
-799 fields. Repeated initialization preserves existing configuration and data.
+and records each SQL migration transactionally. It checks 62 unmanaged models and
+866 fields. Repeated initialization preserves existing configuration and data.
 
 Existing unowned databases, partial/gapped legacy ledgers and changed applied
 checksums are refused. Missing ledger rows do not mean old SQL is safe to replay.

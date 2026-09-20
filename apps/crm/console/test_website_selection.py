@@ -7,7 +7,7 @@ from django.db import connection
 from django.test import TestCase
 
 from console.article_delivery import ArticleDeliveryError
-from console.models import WebsiteReleaseSelection
+from console.models import WebsiteDeploymentOperation, WebsiteReleaseSelection
 from console.website_selection import (
     current_website_selection,
     select_website_candidate,
@@ -17,7 +17,7 @@ from sitecore.models import Release, Site
 
 
 class WebsiteSelectionTests(TestCase):
-    unmanaged_models = (Site, Release, WebsiteReleaseSelection)
+    unmanaged_models = (Site, Release, WebsiteReleaseSelection, WebsiteDeploymentOperation)
 
     @classmethod
     def setUpClass(cls):

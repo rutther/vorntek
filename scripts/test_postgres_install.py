@@ -166,7 +166,7 @@ def main():
         manage('initialize_database', contains='PLAN ONLY')
         assert fingerprint('newcrown_install') == before == {}, 'Planning wrote database tables'
         checked('empty_database_plan_does_not_write')
-        manage('initialize_database', '--apply', contains='58 models, 799 fields')
+        manage('initialize_database', '--apply', contains='62 models, 866 fields')
         checked('complete_sql_chain_install_as_non_superuser')
         manage('bootstrap_site')
         baseline = fingerprint('newcrown_install')

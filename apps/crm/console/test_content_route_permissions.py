@@ -36,7 +36,11 @@ from console.content_access import (
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
-from console.models import ContentAccessGrant, WebsiteReleaseSelection
+from console.models import (
+    ContentAccessGrant,
+    WebsiteDeploymentOperation,
+    WebsiteReleaseSelection,
+)
 from sitecore.models import (
     Article,
     Category,
@@ -165,6 +169,7 @@ class ContentRouteCapabilityTests(TestCase):
         Release,
         ReleaseBuild,
         WebsiteReleaseSelection,
+        WebsiteDeploymentOperation,
     )
 
     @classmethod

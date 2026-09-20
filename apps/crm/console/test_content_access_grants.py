@@ -29,6 +29,12 @@ SELECTION_MIGRATION_PATH = (
     / 'migrations'
     / '0031_website_candidate_selection.sql'
 )
+DEPLOYMENT_MIGRATION_PATH = (
+    Path(__file__).resolve().parents[1]
+    / 'db'
+    / 'migrations'
+    / '0032_website_deployment_ledger.sql'
+)
 
 
 class ContentAccessGrantModelContractTests(SimpleTestCase):
@@ -65,6 +71,7 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
                 'releases.preview_build',
                 'releases.candidate_build',
                 'releases.candidate_select',
+                'releases.deploy',
             },
         )
         self.assertEqual(
@@ -95,6 +102,7 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
         original_capabilities = set(CONTENT_ACCESS_CAPABILITIES) - {
             'releases.candidate_build',
             'releases.candidate_select',
+            'releases.deploy',
         }
         for capability in original_capabilities:
             self.assertIn(f"'{capability}'", sql)
@@ -119,7 +127,8 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
         )
         self.assertNotIn("'releases.candidate_select'", upgrade)
         for capability in set(CONTENT_ACCESS_CAPABILITIES) - {
-            'releases.candidate_select'
+            'releases.candidate_select',
+            'releases.deploy',
         }:
             self.assertIn(f"'{capability}'", upgrade)
 
@@ -128,12 +137,29 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
         selection_upgrade = SELECTION_MIGRATION_PATH.read_text(encoding='utf-8')
 
         self.assertNotIn("'releases.candidate_select'", build_upgrade)
-        for capability in CONTENT_ACCESS_CAPABILITIES:
+        for capability in set(CONTENT_ACCESS_CAPABILITIES) - {'releases.deploy'}:
             self.assertIn(f"'{capability}'", selection_upgrade)
+        self.assertNotIn("'releases.deploy'", selection_upgrade)
         self.assertIn('website_release_selection_scope_fk', selection_upgrade)
         self.assertIn('REFERENCES release(site_id, id)', selection_upgrade)
         self.assertIn('website_release_selection_prevent_update_delete', selection_upgrade)
         self.assertIn('website_release_selection is append-only', selection_upgrade)
+
+    def test_website_deploy_is_a_separate_recoverable_append_only_upgrade(self):
+        selection_upgrade = SELECTION_MIGRATION_PATH.read_text(encoding='utf-8')
+        deployment_upgrade = DEPLOYMENT_MIGRATION_PATH.read_text(encoding='utf-8')
+
+        self.assertNotIn("'releases.deploy'", selection_upgrade)
+        for capability in CONTENT_ACCESS_CAPABILITIES:
+            self.assertIn(f"'{capability}'", deployment_upgrade)
+        self.assertIn('website_deploy_operation_selection_fk', deployment_upgrade)
+        self.assertIn('uq_website_deploy_prepared_site', deployment_upgrade)
+        self.assertIn('website_deployment_operation transition refused', deployment_upgrade)
+        self.assertIn(
+            'website_release_deployment does not match prepared operation',
+            deployment_upgrade,
+        )
+        self.assertIn('website_release_deployment is append-only', deployment_upgrade)
 
 
 class ContentAccessGrantSQLiteConstraintTests(TestCase):

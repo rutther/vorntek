@@ -11,7 +11,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   container CI is configured to require it after startup. The bilingual
   [upgrade runbook](UPGRADE.md) keeps backup, stop-writers, migration and recovery
   steps in one sequence.
-- Migrations 0028–0031 and the generic standard 21-column customer-pool import/export
+- Migrations 0028–0032 and the generic standard 21-column customer-pool import/export
   workflow are under active verification. The accepted list-page slice now has a
   role-bounded query layer, dense and company views, multi-country/value/state
   filters, numeric phone sorting and controlled standard-21 column selection,
@@ -43,11 +43,13 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   labels the current choice as selected but not deployed. A dedicated serving
   volume and unreachable adapter now provide immutable copy verification, stale
   CAS and a relative-symlink atomic Nginx switch/rollback; database deployment
-  authorization/receipt and Linux container acceptance remain open; see
+  core now adds a separate capability, prepared-operation concurrency interlock,
+  crash replay and immutable receipt. It is not exposed by HTTP or workers;
+  operator confirmation and Linux PostgreSQL/container acceptance remain open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
 - Post-change local validation passes 49 repository checks, 23 JavaScript
-  contracts and 782 Django tests with eight explicit skips. The migration-chain
-  packaging assertion now verifies all 31 canonical migrations. PostgreSQL 18,
+  contracts and 791 Django tests with eight explicit skips. The migration-chain
+  packaging assertion now verifies all 32 canonical migrations. PostgreSQL 18,
   Compose and clean-clone acceptance remain required because Docker/PostgreSQL
   are unavailable on this Windows host.
 - Read-only production comparison uses the Hong Kong `filline.com` stack as the
@@ -80,12 +82,12 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
 | Forms and CRM | Invalid input refused, successful inquiry persisted once, replay deduplicated; business context visible in authenticated CRM | [HTTP evidence](HTTP_ACCEPTANCE.md), [deployed evidence](VORNTEK_DEPLOYMENT.md); synthetic only |
 | Sales and roles | Assignment, qualification, conversion, follow-up task, handover and denied cross-user paths tested over actual HTTP | [Deployed role checks](review/DEPLOYED_ROLES_20260913.md); temporary accounts disabled |
 | Accounts | Hashed passwords, restricted admin management, one-time credential receipt, session invalidation and redaction | [Account security](ACCOUNT_SECURITY.md); no fixed default password |
-| Database lifecycle | 31 canonical SQL migrations in the working source; guarded initialization, upgrade, locks, failure rollback, independent restore | Migrations 0028–0031 are locally checked but still need PostgreSQL/Compose upgrade acceptance; prior evidence: [PostgreSQL acceptance](POSTGRES_ACCEPTANCE.md), [container acceptance](CONTAINER_ACCEPTANCE.md) |
+| Database lifecycle | 32 canonical SQL migrations in the working source; guarded initialization, upgrade, locks, failure rollback, independent restore | Migrations 0028–0032 are locally checked but still need PostgreSQL/Compose upgrade acceptance; prior evidence: [PostgreSQL acceptance](POSTGRES_ACCEPTANCE.md), [container acceptance](CONTAINER_ACCEPTANCE.md) |
 | Recovery | Actual synthetic 70-table restore, schema/sequence checks, vault decryption and independent file-volume recovery | [Recovery guide](BACKUP_RESTORE.md), [image/recovery evidence](review/IMAGE_SECURITY_20260913.md); not original-company data migration |
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
 | Export | Authenticated XLSX bytes, hash, sheets and expected records checked | Actual browser save-to-disk remains unconfirmed |
 | Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
-| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection ledger, stale-safe operator confirmation and unreachable atomic serving-store primitive; 59 focused delivery/store tests plus route/policy/selection coverage | [Architecture](ARTICLE_DELIVERY.md); database-gated deployment receipt and Linux end-to-end serving acceptance remain open |
+| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection ledger, stale-safe selection UI, atomic serving store and unreachable crash-resumable deployment core; 67 focused delivery/store/deployment tests plus route/policy coverage | [Architecture](ARTICLE_DELIVERY.md); deployment UI and Linux end-to-end serving acceptance remain open |
 
 The running demonstration has 200 seeded fictional companies plus one converted
 synthetic customer and eight inquiries. The independent clone has 200 companies

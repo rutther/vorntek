@@ -39,6 +39,12 @@ certifications.
   receipts, verified update/rollback chains and no artifact activation or deploy.
 - A site-scoped operator confirmation page that re-verifies candidate evidence,
   requires an audit reason, rejects stale forms and labels selection as not deployed.
+- A dedicated website serving volume and fail-closed serving store that copies
+  verified candidates into immutable releases and atomically switches a relative
+  Nginx pointer while the web server remains read-only.
+- A crash-resumable, database-gated website deployment core with an independent
+  `releases.deploy` capability, prepared-operation interlock and immutable receipt;
+  no deployment route is exposed yet.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be
@@ -47,6 +53,8 @@ certifications.
   with the high-risk whole-site candidate-build capability.
 - Append-only migration 0031, which adds the separate candidate-selection
   capability and immutable site/candidate selection ledger.
+- Append-only migration 0032, which adds deployment permission, recoverable
+  operation transitions, selection/deployment binding and immutable receipts.
 
 ### Changed
 
@@ -62,7 +70,7 @@ certifications.
 - Python dependency evidence is bound to the exact lock-file hash; the earlier
   Linux image inventory is retained as historical evidence instead of being
   relabeled after Markdown dependencies were added.
-- The packaging regression now verifies the complete 31-migration chain.
+- The packaging regression now verifies the complete 32-migration chain.
 
 ## [0.1.0-rc.1] - 2026-09-13
 

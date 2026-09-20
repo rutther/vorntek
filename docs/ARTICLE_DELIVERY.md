@@ -91,10 +91,26 @@ files, unsafe pointers, links and source drift fail closed. The deployment
 manifest is dot-prefixed and the existing Nginx hidden-path rule denies it.
 
 This adapter is not yet callable from a route or background task. In particular,
-it does not decide whether a candidate was selected in the database and does not
-write the independent deployment receipt. Keeping it unreachable until those
-two checks exist prevents a filesystem primitive from becoming an authorization
-bypass.
+it cannot authorize itself merely because a candidate directory exists.
+
+`console/website_deployment.py` and migration 0032 add the database gate above
+that primitive. Deployment has a separate high-risk `releases.deploy` capability
+contract and accepts only the latest immutable candidate-selection row. A durable
+`prepared` operation binds the request UUID, site, selection, release, target,
+previous deployed version, actor and reason before any serving write. While it is
+prepared, both a different deployment and a new candidate selection are refused.
+After the filesystem CAS succeeds, a second transaction verifies the served bytes,
+appends an immutable receipt and performs the sole allowed operation transition to
+`activated`. A crash after the pointer switch leaves `prepared`; replaying the same
+UUID recognizes the target, re-verifies it and finishes the receipt. A failure
+known to occur before switching becomes terminal `failed` and permits a new request.
+Database triggers reject operation rewrites/deletes, invalid transitions, receipt
+fields that do not match the prepared operation, and receipt updates/deletes.
+
+The service core remains unreachable from HTTP or workers in this slice. The
+operator confirmation route and exact permission gate must be added before it is
+callable, and Linux PostgreSQL/Compose must still prove the SQL triggers and real
+Nginx behavior.
 
 Brand name, locale labels and logo URL come from the site record/configuration.
 The public implementation deliberately does not carry the Hong Kong company's
@@ -107,12 +123,11 @@ loads so opening it does not contact their hosts.
 ## Lifecycle boundary
 
 The current accepted slice stops at an audited, immutable whole-site candidate,
-a non-deploying selection ledger and an unreachable verified serving-store
-primitive.
+a non-deploying selection ledger, an unreachable verified serving-store primitive
+and its crash-resumable database deployment service core.
 It does **not** yet provide:
 
-- the database-gated deployment operation/receipt that is allowed to invoke the
-  atomic serving-store switch;
+- the authenticated operator route that alone may invoke the deployment core;
 - background scheduling or external publication;
 - a claim that CMS edits are live merely because rendering succeeded.
 
@@ -171,13 +186,17 @@ history and artifact/record mismatch refusal. Four cross-platform serving-store
 tests cover materialization, stale CAS, tamper/extra-file refusal and rollback;
 the actual POSIX relative-symlink case is explicitly left for Linux CI/container
 acceptance because this Windows host cannot create it.
-PostgreSQL/Compose, database-gated deployment receipts and end-to-end whole-site
-activation tests remain later gates.
+Eight deployment-service tests cover current-selection binding, stale conditions,
+idempotent replay, crash-after-switch resumption, terminal pre-switch failure,
+selection/deployment interlock, update/rollback chains and immutable model behavior.
+PostgreSQL/Compose triggers, the authenticated deployment route and end-to-end
+whole-site activation remain later gates.
 
 中文：当前完成的是可审计快照、安全渲染、私有不可变存储、固定版本构建输入、经过权限
 控制且阻断外部网络请求的后台私有预览，以及把官网 HTML/CSS/JS/图片与正式模式文章
 一起固化的整站候选、不产生部署副作用的候选选择审计链和操作员确认页面，以及尚未接入
 路由的只读挂载/不可变复制/原子指针 serving-store 基础；候选构建与选择是两项独立高风险
-权限，但仍不是“一键发布”。后续须补数据库门禁、独立部署收据并做 Linux 容器端到端验收；
+权限。数据库门禁、可恢复操作状态和独立部署收据的服务核心已经存在，但尚无任何 HTTP/任务
+入口，仍不是“一键发布”。后续须补精确权限确认页并做 Linux PostgreSQL/容器端到端验收；
 在此之前不得将 artifact、私有预览、候选构建或底层原子指针描述为生产网站
 已经更新。

@@ -17,6 +17,7 @@ CONTENT_ACCESS_CAPABILITIES = (
     'releases.preview_build',
     'releases.candidate_build',
     'releases.candidate_select',
+    'releases.deploy',
 )
 
 
@@ -183,6 +184,95 @@ class WebsiteReleaseSelection(models.Model):
 
     def __str__(self) -> str:
         return f'{self.site_id}:{self.version}'
+
+
+class WebsiteDeploymentOperation(models.Model):
+    request_token = models.UUIDField('请求令牌', unique=True)
+    site = models.ForeignKey(
+        Site,
+        verbose_name='站点',
+        on_delete=models.PROTECT,
+        related_name='website_deployment_operations',
+    )
+    selection = models.ForeignKey(
+        WebsiteReleaseSelection,
+        verbose_name='候选选择',
+        on_delete=models.PROTECT,
+        related_name='deployment_operations',
+    )
+    release = models.ForeignKey(
+        Release,
+        verbose_name='整站候选',
+        on_delete=models.PROTECT,
+        related_name='website_deployment_operations',
+    )
+    version = models.CharField('部署版本', max_length=64)
+    previous_version = models.CharField('前一部署版本', max_length=64, blank=True, default='')
+    deployed_by = models.TextField('部署人')
+    reason = models.TextField('部署原因')
+    status = models.CharField('状态', max_length=16, default='prepared')
+    error_code = models.CharField('失败代码', max_length=100, blank=True, default='')
+    created_at = models.DateTimeField('准备时间', auto_now_add=True, editable=False)
+    completed_at = models.DateTimeField('完成时间', blank=True, null=True, editable=False)
+
+    class Meta:
+        managed = False
+        db_table = 'website_deployment_operation'
+        ordering = ['-id']
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValueError('WebsiteDeploymentOperation transitions require the deployment service.')
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError('WebsiteDeploymentOperation cannot be deleted.')
+
+
+class WebsiteReleaseDeployment(models.Model):
+    operation = models.OneToOneField(
+        WebsiteDeploymentOperation,
+        verbose_name='部署操作',
+        on_delete=models.PROTECT,
+        related_name='receipt',
+    )
+    request_token = models.UUIDField('请求令牌', unique=True)
+    site = models.ForeignKey(
+        Site,
+        verbose_name='站点',
+        on_delete=models.PROTECT,
+        related_name='website_deployments',
+    )
+    selection = models.ForeignKey(
+        WebsiteReleaseSelection,
+        verbose_name='候选选择',
+        on_delete=models.PROTECT,
+        related_name='deployment_receipts',
+    )
+    release = models.ForeignKey(
+        Release,
+        verbose_name='整站候选',
+        on_delete=models.PROTECT,
+        related_name='website_deployments',
+    )
+    version = models.CharField('部署版本', max_length=64)
+    previous_version = models.CharField('前一部署版本', max_length=64, blank=True, default='')
+    deployed_by = models.TextField('部署人')
+    reason = models.TextField('部署原因')
+    created_at = models.DateTimeField('部署时间', auto_now_add=True, editable=False)
+
+    class Meta:
+        managed = False
+        db_table = 'website_release_deployment'
+        ordering = ['-id']
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValueError('WebsiteReleaseDeployment is append-only.')
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError('WebsiteReleaseDeployment is append-only.')
 
 
 class AuditLog(models.Model):

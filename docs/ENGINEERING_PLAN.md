@@ -88,9 +88,13 @@ the classifications above; unknown files are not silently shipped.
   read-only Nginx mount, immutable verified materialization, stale-pointer CAS
   and relative-symlink atomic switch/rollback. It is intentionally not exposed
   until the database deployment permission and receipt layer is complete.
+- [x] Add append-only migration 0032 and the crash-resumable deployment service:
+  separate permission, latest-selection binding, prepared-operation interlock,
+  filesystem/ledger CAS, exact replay recovery and immutable deployment receipt.
+  It remains unreachable until an authenticated confirmation route is accepted.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next add the database-gated deployment operation/receipt,
-  operator confirmation and Linux end-to-end serving acceptance.
+  public abstractions; next add the deployment operator confirmation and Linux
+  PostgreSQL/Compose end-to-end serving acceptance.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 
 Exit condition: generic Hong Kong capabilities selected for the public product

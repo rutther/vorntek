@@ -9,7 +9,7 @@ from django.db import transaction
 from sitecore.models import Release, Site
 
 from .article_delivery import ArticleDeliveryError
-from .models import WebsiteReleaseSelection
+from .models import WebsiteDeploymentOperation, WebsiteReleaseSelection
 from .website_candidate import website_release_store
 
 
@@ -152,6 +152,11 @@ def select_website_candidate(
             .order_by('-id')
             .first()
         )
+        if WebsiteDeploymentOperation.objects.filter(
+            site=site,
+            status='prepared',
+        ).exists():
+            raise ArticleDeliveryError('website_deployment_in_progress')
         current_version = current.version if current is not None else ''
         if current_version != expected:
             raise ArticleDeliveryError('website_selection_changed')
