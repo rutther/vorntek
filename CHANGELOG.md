@@ -63,6 +63,8 @@ certifications.
 - A loopback-only ephemeral browser-acceptance fixture for real desktop/mobile,
   inquiry, login, standard-21 import and disk-download verification without
   external delivery or persistent credentials.
+- A clean source-clone acceptance record proving a fresh locked install and the
+  complete source, JavaScript and Django suites without untracked workspace inputs.
 
 ### Changed
 

@@ -59,15 +59,21 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
 - Post-change local validation passes 63 repository checks, 23 JavaScript
-  contracts and 806 Django tests with eight explicit skips. The four public
+  contracts and 806 Django tests with eight explicit skips. A separate no-local,
+  no-hardlink clone of exact commit `ac83ca4` also passed a fresh locked dependency
+  install, `pip check`, the same 63 + 23 checks and all 806 Django tests in
+  520.232 seconds, then remained Git-clean. This proves source reconstruction on
+  Windows, not anonymous GitHub or Linux runtime acceptance; see the
+  [clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md). The four public
   input guards bind the 45-path private-exclusion ledger and reject tracked
   secret/token shapes, credential URLs outside test fixtures, key/backup artifacts
   and known production identifiers. Three command-guard
   tests ensure the destructive lifecycle acceptance fails closed before database
   or filesystem writes when its safety preconditions are absent. The migration-chain
   packaging assertion now verifies all 32 canonical migrations. PostgreSQL 18,
-  Compose and clean-clone acceptance remain required because Docker/PostgreSQL
-  are unavailable on this Windows host.
+  Compose and anonymous remote-clone acceptance remain required because
+  Docker/PostgreSQL are unavailable on this Windows host and the candidate has
+  not yet been pushed.
 - The current source security review upgraded Django 5.2.13 to the supported
   5.2.17 security patch, added a pinned CI dependency audit, and returned no
   known Python vulnerabilities after the upgrade. It also unified provider-error
@@ -125,6 +131,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
 | Export | Authenticated XLSX bytes, hash, sheets and expected records checked; actual browser standard-21 CSV saved and independently inspected on disk | Queued XLSX browser save and equivalent packaged Linux browser path remain open |
 | Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
+| Source reconstruction | Separate `--no-local --no-hardlinks` clone, fresh virtual environment, locked install, clean manifest, 63 repository + 23 JavaScript + 806 Django checks, clean worktree afterward | [Clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md); Windows/Python 3.13 only, not anonymous GitHub or Linux runtime acceptance |
 | Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection/deployment ledgers, stale-safe operator confirmations, atomic serving store, crash-resumable deployment and receipt-bound cache reconstruction; 78 focused delivery/store/deployment/recovery/command tests and guarded Linux/PostgreSQL/Compose lifecycle acceptance encoded in CI | [Architecture](ARTICLE_DELIVERY.md); the new current-commit PostgreSQL/Nginx gate has not yet run, so end-to-end serving acceptance remains open |
 
 The running demonstration has 200 seeded fictional companies plus one converted

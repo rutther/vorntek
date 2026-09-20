@@ -166,8 +166,13 @@ external sending is enabled by default.
   [`review/BROWSER_ACCEPTANCE_20260921.md`](review/BROWSER_ACCEPTANCE_20260921.md).
 - [ ] Run all local suites, PostgreSQL lifecycle/HTTP acceptance and Compose
   build/start/health/stop in disposable environments.
-- [ ] Clone the candidate commit anonymously into a clean directory and repeat
-  documented installation without untracked local inputs.
+- [x] Clone the candidate source into a separate clean directory without local
+  object hardlinks, create a fresh virtual environment and repeat the locked
+  install plus all source/JavaScript/application suites without untracked inputs.
+  The exact source commit stayed clean after 63 + 23 + 806 checks; see the
+  [clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md).
+- [ ] After pushing, clone the exact candidate commit anonymously from GitHub and
+  repeat the documented install plus required Linux/PostgreSQL/Compose gates.
 
 Exit condition: a third party can install and operate the source using only the
 repository and documented prerequisites.

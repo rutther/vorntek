@@ -81,5 +81,10 @@ Use small reviewable commits. Update `CHANGELOG.md`, implementation status and t
 acceptance ledger with tests actually run and unverified environments. A manifest
 binds source state but does not prove runtime acceptance or authorize deployment.
 
+The latest [clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md)
+shows the source-only reconstruction procedure and its limits. Before release,
+repeat it as an anonymous clone of the exact pushed commit and run the separate
+Linux/PostgreSQL/Compose gates; a local clean clone does not satisfy those checks.
+
 使用小而可审查的提交。同步更新变更日志、实施状态和验收台账，只记录实际执行的测试，
 明确未验证环境。发布清单只绑定源码状态，不等于运行验收，也不授权部署。
