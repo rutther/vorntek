@@ -17,8 +17,10 @@ Observed 2026-09-20. **Public source pre-release; full goal acceptance remains o
   filters, numeric phone sorting and controlled standard-21 column selection,
   without private research adapters. Controlled bulk review/publish uses the same
   single-record gate with deterministic route choice and independent per-company
-  results. Its eight service tests and the combined 37-test customer-pool
-  view/query suite pass locally.
+  results. The neutral detail page exposes the same standard-21 routes and hard
+  restrictions, while private regional research evidence remains excluded. Its
+  eight service tests and the combined 39-test customer-pool view/query suite pass
+  locally.
 - The pre-change baseline remains 44 repository checks, 23 JavaScript contracts
   and 669 Django tests with seven explicit skips. Full post-change, PostgreSQL 18,
   Compose and clean-clone acceptance are still required.

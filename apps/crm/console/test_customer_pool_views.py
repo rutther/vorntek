@@ -696,6 +696,77 @@ class CustomerPoolViewTests(TestCase):
         self.assertNotContains(sales_page, '+254700000001')
         self.assertNotContains(sales_page, '+254700000003')
 
+    def test_pool_detail_orders_standard_routes_and_marks_hard_restrictions(self):
+        self.import_standard21_fixture()
+        first = CustomerPoolRow.objects.filter(account_id='AF-KE-8001').order_by(
+            'row_number'
+        ).first()
+        second = CustomerPoolRow.objects.get(account_id='AF-KE-8002')
+        CustomerPoolRow.objects.filter(
+            account_id='AF-KE-8001', value=Decimal('31.0')
+        ).update(restriction_note='源表标记为历史备用号码，需人工确认后再拨打')
+        CompanyContactPoint.objects.filter(company_id=first.company_id).order_by('id').update(
+            evidence_json={
+                'source_sheet': 'Synthetic Contacts',
+                'source_row': 7,
+                'note': 'Synthetic evidence only',
+            }
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('console:customer_pool_detail', args=[first.company_id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '路线明细（标准 21 列）')
+        self.assertContains(response, '价值 36.0')
+        self.assertEqual(len(response.context['workspace']['route_columns']), 21)
+        body = response.content.decode('utf-8')
+        self.assertLess(body.index('+254700000002'), body.index('+254700000001'))
+        self.assertContains(response, '源表标记为历史备用号码')
+        self.assertNotContains(response, '不导出/禁联')
+        self.assertContains(response, '未公开')
+        self.assertContains(response, 'Synthetic Contacts')
+        self.assertContains(response, 'Synthetic evidence only')
+        self.assertContains(response, '允许使用')
+
+        response = self.client.get(
+            reverse('console:customer_pool_detail', args=[second.company_id])
+        )
+        self.assertContains(response, '价值 75.0')
+        self.assertContains(response, '不导出/禁联')
+        self.assertContains(response, '该号码不导出')
+        self.assertContains(response, '直联手机')
+        self.assertContains(response, '本人直联')
+        self.assertContains(response, '已确认')
+        self.assertIn('<tr class="table-warning">', response.content.decode('utf-8'))
+
+    def test_admin_can_open_unmanaged_detail_but_sales_cannot(self):
+        unmanaged = create_manual_customer(
+            site=self.site,
+            actor=self.sales,
+            idempotency_token='view-unmanaged-create-0001',
+            company_name='Unmanaged Detail Company',
+            email='unmanaged-detail@example.invalid',
+            assignment_mode='review',
+        ).company
+        CompanyPoolState.objects.filter(company=unmanaged).delete()
+
+        self.client.force_login(self.admin)
+        admin_detail = self.client.get(
+            reverse('console:customer_pool_detail', args=[unmanaged.pk])
+        )
+        self.assertEqual(admin_detail.status_code, 200)
+        self.assertContains(admin_detail, '未纳入公海')
+        self.assertContains(admin_detail, 'Unmanaged Detail Company')
+
+        self.client.force_login(self.sales)
+        sales_detail = self.client.get(
+            reverse('console:customer_pool_detail', args=[unmanaged.pk])
+        )
+        self.assertEqual(sales_detail.status_code, 404)
+
     def test_sales_can_bulk_claim_explicit_rows_and_see_per_company_results(self):
         second = create_manual_customer(
             site=self.site,

@@ -1,0 +1,6 @@
+<dl class="small mb-0">
+    {% if evidence.source_sheet %}<div><dt>原表位置</dt><dd>{{ evidence.source_sheet }} · 第 {{ evidence.source_row }} 行</dd></div>{% endif %}
+    {% if evidence.source_url %}<div><dt>来源地址 / 说明</dt><dd class="text-break">{{ evidence.source_url }}</dd></div>{% endif %}
+    {% if evidence.correction %}<div><dt>历史纠正</dt><dd class="text-break">{{ evidence.correction }}</dd></div>{% endif %}
+    {% if evidence.note %}<div><dt>证据及用途说明</dt><dd class="text-break">{{ evidence.note }}</dd></div>{% endif %}
+</dl>

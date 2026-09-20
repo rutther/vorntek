@@ -36,6 +36,8 @@ certifications.
   single-record review gate; restricted routes stay in review for manual handling.
 - Customer-pool exports now preserve the active neutral filters and offer an
   explicit standard-21 column picker while keeping phone and email as required keys.
+- Customer detail pages now show value, all standard-21 routes in deterministic
+  order, hard-restriction warnings and neutral contact provenance labels.
 
 ## [0.1.0-rc.1] - 2026-09-13
 

@@ -126,6 +126,29 @@ DENSE_SORT_CHOICES = (
     ('value', '价值分高到低（打电话用）'),
     ('file', '原始文件顺序'),
 ) + tuple((sort_key, label) for _key, sort_key, label in DENSE_COLUMNS if sort_key != 'value')
+DENSE_COLUMN_WIDTHS = {
+    'phone': 160,
+    'email': 210,
+    'country': 120,
+    'country_code': 96,
+    'person': 120,
+    'company': 210,
+    'value': 76,
+    'email_2': 190,
+    'email_3': 190,
+    'phone_2': 150,
+    'phone_3': 150,
+    'route_type': 140,
+    'route_tier': 140,
+    'account_id': 140,
+    'whatsapp': 110,
+    'evidence_v': 80,
+    'identity_i': 80,
+    'tech_t': 80,
+    'priority_p': 80,
+    'restriction_note': 240,
+    'source_channel': 150,
+}
 COMPANY_SORT_ORDERS = {
     'updated': ('-updated_at', '-id'),
     'value': ('-value', 'name', 'id'),
@@ -187,6 +210,32 @@ def _dense_header_columns(request, *, sort, direction):
             'sort_url': _query_url(request, sort=sort_key, dir=next_direction, page=None),
         })
     return columns
+
+
+def _detail_route_columns():
+    return [
+        {
+            'key': key,
+            'field': field,
+            'label': label,
+            'width': DENSE_COLUMN_WIDTHS[key],
+        }
+        for key, field, label in DENSE_COLUMNS
+    ]
+
+
+def _detail_route_cells(pool_row, *, company_name):
+    cells = []
+    for key, field, _label in DENSE_COLUMNS:
+        value = getattr(pool_row, field, '')
+        if field == 'value':
+            value = f'{value:.1f}' if value is not None else '—'
+        elif field == 'company_name' and not value:
+            value = company_name
+        else:
+            value = value or '—'
+        cells.append({'key': key, 'value': value})
+    return cells
 
 
 def _context(request, *, workspace, locale, active_key='customer_pool'):
@@ -832,19 +881,9 @@ def customer_pool(request):
 def customer_pool_detail(request, company_id: int):
     require_sales(request.user, SalesCapability.POOL_READ)
     site, locale = default_site_locale(None)
-    available = public_pool_queryset(site=site, actor=request.user)
-    owned = crm_owned_queryset_for_user(Company.objects.filter(site=site), request.user)
-    reviewable = crm_owned_queryset_for_user(
-        Company.objects.filter(site=site, pool_state__state__in={'review', 'archived'}),
-        request.user,
-    ) if can_sales(request.user, SalesCapability.POOL_REVIEW) else Company.objects.none()
+    visible = all_customers_queryset(site=site, user=request.user)
     company = (
-        Company.objects.filter(
-            Q(pk__in=available.values('pk'))
-            | Q(pk__in=owned.values('pk'))
-            | Q(pk__in=reviewable.values('pk')),
-            pk=company_id,
-        )
+        Company.objects.filter(pk__in=visible.values('pk'), pk=company_id)
         .select_related('pool_state', 'owner_user', 'team')
         .prefetch_related('customer_sources', 'contact_points', 'contacts')
         .first()
@@ -857,18 +896,57 @@ def customer_pool_detail(request, company_id: int):
         _assignment_candidates_for_company(actor=request.user, company=company)
     )
     can_assign_record = bool(assignment_candidates)
+    contact_points = list(company.contact_points.all())
+    channel_labels = {
+        'email': '邮箱',
+        'phone': '电话',
+        'whatsapp': 'WhatsApp',
+        'website': '网站',
+        'other': '其他',
+    }
+    status_labels = {
+        'active': '有效',
+        'unverified': '待核验',
+        'do_not_contact': '禁止联系',
+        'invalid': '无效',
+    }
+    usage_labels = {
+        'permitted': '允许使用',
+        'restricted': '限制使用',
+        'unknown': '用途待确认',
+    }
+    for point in contact_points:
+        point.channel_label = channel_labels.get(point.channel, '未知类型')
+        point.status_label = status_labels.get(point.status, '未知状态')
+        point.usage_label = usage_labels.get(point.usage_status, '用途待确认')
+    routes = [
+        {
+            'record': pool_row,
+            'cells': _detail_route_cells(pool_row, company_name=company.name),
+            'restricted': has_hard_restriction(pool_row.restriction_note),
+        }
+        for pool_row in CustomerPoolRow.objects.filter(site=site, company=company).order_by(
+            '-value', 'row_number', 'row_key'
+        )
+    ]
     workspace = {
         'company': company,
-        'state': company.pool_state,
+        'state': getattr(company, 'pool_state', None),
+        'value_label': f'{company.value:.1f}' if company.value is not None else '—',
+        'route_columns': _detail_route_columns(),
+        'routes': routes,
         'sources': [
             {
                 'record': source,
                 'source_label': SOURCE_LABELS.get(source.source_type, source.source_type),
                 'intake_label': INTAKE_LABELS.get(source.intake_method, source.intake_method),
+                'evidence_label': dict(EVIDENCE_OPTIONS).get(
+                    source.evidence_status, '证据待补充'
+                ),
             }
             for source in company.customer_sources.all()
         ],
-        'contact_points': company.contact_points.all(),
+        'contact_points': contact_points,
         'claim_url': reverse('console:customer_pool_claim', args=[company.pk]),
         'release_url': reverse('console:customer_pool_release', args=[company.pk]),
         'claim_token': f'claim-{uuid.uuid4().hex}',
@@ -890,7 +968,7 @@ def customer_pool_detail(request, company_id: int):
         'website_url': _safe_website(company.website),
         'company_workspace_url': (
             reverse('console:company_workspace_detail_v2', args=[company.pk])
-            if company.pool_state.state == 'owned'
+            if getattr(getattr(company, 'pool_state', None), 'state', None) == 'owned'
             and can_sales(request.user, SalesCapability.READ, record=company)
             else ''
         ),
