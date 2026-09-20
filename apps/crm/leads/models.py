@@ -374,6 +374,8 @@ class Company(models.Model):
     industry = models.TextField('行业', blank=True, default='')
     country = models.TextField('国家/地区', blank=True, default='')
     city = models.TextField('城市', blank=True, default='')
+    country_code = models.CharField('国家代码（ISO2）', max_length=2, blank=True, default='')
+    value = models.DecimalField('价值分', max_digits=6, decimal_places=1, blank=True, null=True)
     status = models.CharField('状态', max_length=32, default='prospect')
     source_channel = models.CharField('来源渠道', max_length=32, default='website')
     notes = models.TextField('备注', blank=True, default='')
@@ -916,7 +918,7 @@ class WhatsAppConversation(models.Model):
     contact = models.ForeignKey(
         Contact,
         verbose_name='联系人',
-        on_delete=models.DO_NOTHING,
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
         related_name='whatsapp_conversations',
@@ -1299,3 +1301,71 @@ class CustomerExportJob(models.Model):
         ordering = ['-created_at', '-id']
         verbose_name = '客户导出任务'
         verbose_name_plural = '客户导出任务'
+
+
+class CustomerPoolRow(models.Model):
+    site = models.ForeignKey('sitecore.Site', verbose_name='站点', on_delete=models.DO_NOTHING)
+    company = models.ForeignKey(
+        Company,
+        verbose_name='企业',
+        on_delete=models.DO_NOTHING,
+        related_name='pool_rows',
+    )
+    contact = models.ForeignKey(
+        Contact,
+        verbose_name='联系人',
+        on_delete=models.DO_NOTHING,
+        blank=True,
+        null=True,
+        related_name='pool_rows',
+    )
+    import_batch = models.ForeignKey(
+        CustomerImportBatch,
+        verbose_name='导入批次',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='pool_rows',
+    )
+    import_row = models.ForeignKey(
+        CustomerImportRow,
+        verbose_name='导入行',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='pool_rows',
+    )
+    row_key = models.CharField('行幂等键', max_length=64)
+    row_number = models.PositiveIntegerField('源文件行号', default=0)
+    phone = models.TextField('电话', blank=True, default='')
+    email = models.TextField('邮箱', blank=True, default='')
+    country_name = models.TextField('国家名称', blank=True, default='')
+    country_code = models.CharField('国家代码', max_length=2, blank=True, default='')
+    person_name = models.TextField('人物姓名', blank=True, default='')
+    company_name = models.TextField('企业名称', blank=True, default='')
+    value = models.DecimalField('价值分', max_digits=6, decimal_places=1)
+    email_2 = models.TextField('邮箱2', blank=True, default='')
+    email_3 = models.TextField('邮箱3', blank=True, default='')
+    phone_2 = models.TextField('电话2', blank=True, default='')
+    phone_3 = models.TextField('电话3', blank=True, default='')
+    route_type = models.TextField('路线类型', blank=True, default='')
+    route_tier = models.TextField('路线层级', blank=True, default='')
+    account_id = models.TextField('账户 ID', blank=True, default='')
+    whatsapp_confirmed = models.TextField('WhatsApp 确认', blank=True, default='')
+    evidence_v = models.TextField('证据 V', blank=True, default='')
+    identity_i = models.TextField('身份 I', blank=True, default='')
+    tech_t = models.TextField('技术 T', blank=True, default='')
+    priority_p = models.TextField('优先级 P', blank=True, default='')
+    restriction_note = models.TextField('限制注记', blank=True, default='')
+    source_channel = models.TextField('来源渠道', blank=True, default='')
+    project_signal = models.BooleanField('项目/采购信号', default=False)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField('更新时间', auto_now=True, editable=False)
+
+    class Meta:
+        managed = False
+        db_table = 'crm_customer_pool_row'
+        ordering = ['company_id', '-value', 'id']
+        verbose_name = '客户公海标准行'
+        verbose_name_plural = '客户公海标准行'
+        unique_together = (('site', 'row_key'),)

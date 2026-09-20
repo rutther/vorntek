@@ -32,6 +32,8 @@ from leads.customer_pool_services import (
     restore_archived_customer,
 )
 from leads.customer_import_services import (
+    MAX_IMPORT_BYTES,
+    MAX_RESEARCH_IMPORT_BYTES,
     RESEARCH_SNAPSHOT_PROFILES,
     commit_customer_import,
     preview_customer_import,
@@ -358,6 +360,7 @@ def customer_pool(request):
             'template_url': reverse('console:customer_pool_template'),
             'import_url': reverse('console:customer_pool_import'),
             'export_url': reverse('console:customer_pool_export'),
+            'export_standard21_url': reverse('console:customer_pool_export_standard21'),
             'bulk_claim_url': reverse('console:customer_pool_bulk_claim'),
             'bulk_claim_token': f'bulk-claim-{uuid.uuid4().hex}',
             'bulk_claim_result': bulk_claim_result,
@@ -767,7 +770,7 @@ def customer_pool_import(request):
     site, locale = default_site_locale(None)
     selected_batch = None
     selected_import_profile = str(request.POST.get('import_profile') or 'template')
-    if selected_import_profile not in {'template', *RESEARCH_SNAPSHOT_PROFILES}:
+    if selected_import_profile not in {'template', 'standard21', *RESEARCH_SNAPSHOT_PROFILES}:
         selected_import_profile = 'template'
     if request.method == 'POST':
         try:
@@ -780,9 +783,25 @@ def customer_pool_import(request):
                 messages.success(request, '导入批次已执行；逐行结果已保留。')
             else:
                 upload = request.FILES.get('file')
-                file_bytes = upload.read() if upload else b''
+                max_bytes = (
+                    MAX_IMPORT_BYTES
+                    if selected_import_profile == 'template'
+                    else MAX_RESEARCH_IMPORT_BYTES
+                )
+                if upload and upload.size > max_bytes:
+                    raise ValidationError('文件超过所选导入类型的大小限制。')
+                file_bytes = upload.read(max_bytes + 1) if upload else b''
                 original_name = upload.name if upload else ''
-                if selected_import_profile == 'template':
+                if selected_import_profile == 'standard21':
+                    from leads.customer_standard21_import import preview_standard21_import
+
+                    result = preview_standard21_import(
+                        site=site,
+                        actor=request.user,
+                        file_bytes=file_bytes,
+                        original_name=original_name,
+                    )
+                elif selected_import_profile == 'template':
                     result = preview_customer_import(
                         site=site,
                         actor=request.user,
@@ -809,6 +828,9 @@ def customer_pool_import(request):
         'source_rows': '判定行',
         'company_rows': '企业源行',
         'contact_rows': '联系方式源行',
+        'accounts': '账户数',
+        'source_file_rows': '源文件行数',
+        'pool_rows': '公海行',
         'new': '新增',
         'supplement': '补充',
         'unchanged': '不变',
@@ -869,6 +891,8 @@ def customer_pool_import(request):
         'import_profiles': [
             {'code': profile.code, 'label': profile.label}
             for profile in RESEARCH_SNAPSHOT_PROFILES.values()
+        ] + [
+            {'code': 'standard21', 'label': '标准 21 列客户池（CSV，10 MB 以内）'},
         ],
         'selected_import_profile': selected_import_profile,
         'template_url': reverse('console:customer_pool_template'),

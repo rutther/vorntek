@@ -315,6 +315,7 @@ def _classify_payload(*, site, payload: dict[str, Any]) -> tuple[str, str, Compa
     return 'unchanged', '匹配到现有企业，当前文件没有可安全补充的新信息。', existing
 
 
+@transaction.atomic
 def _persist_preview_payloads(
     *,
     site,
@@ -328,6 +329,17 @@ def _persist_preview_payloads(
     contact_row_count: int,
     rejected_rows: list[dict[str, Any]] | None = None,
 ) -> ImportPreviewResult:
+    # Serialize preview publication per site so concurrent parses of the same
+    # file cannot race the unique batch key. Parsing remains outside the lock.
+    type(site).objects.select_for_update().only('pk').get(pk=site.pk)
+    existing = CustomerImportBatch.objects.filter(
+        site=site,
+        namespace=namespace,
+        file_sha256=file_hash,
+        adapter_version=adapter_version,
+    ).first()
+    if existing is not None:
+        return ImportPreviewResult(batch=existing, replayed=True)
     batch = CustomerImportBatch.objects.create(
         site=site,
         created_by=actor,
@@ -898,6 +910,10 @@ def _commit_row(*, row: CustomerImportRow, batch: CustomerImportBatch, site, act
     )
     for contact_payload in payload['contacts']:
         _import_contact(site=site, company=company, payload=contact_payload)
+    if payload.get('kind') == 'standard21':
+        from .customer_standard21_import import commit_standard21_rows
+
+        commit_standard21_rows(row=row, batch=batch, site=site, actor=actor, company=company)
     row.company = company
     row.status = 'imported'
     row.result_json = {'company_id': company.pk}

@@ -142,7 +142,7 @@ SALES_VIEW_NAMES = frozenset({
     'customer_pool_restore', 'customer_pool_contact_search',
     'customer_pool_export', 'customer_pool_export_download',
     'customer_pool_export_retry', 'customer_pool_export_cancel',
-    'customer_pool_export_status',
+    'customer_pool_export_status', 'customer_pool_export_standard21',
 })
 # Historical import compatibility. The old constant mixed attribution reads
 # and operational sales writes; keeping it as the safe sales-only set prevents

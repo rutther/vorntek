@@ -28,6 +28,7 @@ urlpatterns = [
     path('sales/customer-pool/template.xlsx', customer_pool_views.customer_pool_template, name='customer_pool_template'),
     path('sales/customer-pool/import/', customer_pool_views.customer_pool_import, name='customer_pool_import'),
     path('sales/customer-pool/export/', customer_pool_exports.customer_pool_export, name='customer_pool_export'),
+    path('sales/customer-pool/export/standard21/', customer_pool_exports.customer_pool_export_standard21, name='customer_pool_export_standard21'),
     path('sales/customer-pool/export/status/', customer_pool_exports.customer_pool_export_status, name='customer_pool_export_status'),
     path('sales/customer-pool/export/<int:job_id>/download/', customer_pool_exports.customer_pool_export_download, name='customer_pool_export_download'),
     path('sales/customer-pool/export/<int:job_id>/retry/', customer_pool_exports.customer_pool_export_retry, name='customer_pool_export_retry'),

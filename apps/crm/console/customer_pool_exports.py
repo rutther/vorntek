@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import uuid
 from collections.abc import Callable
 from datetime import timedelta
@@ -19,7 +21,8 @@ from django.views.decorators.http import require_GET, require_POST
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 
-from leads.models import Company, CustomerExportJob
+from leads.customer_standard21_import import STANDARD21_HEADERS, pool_row_standard_values
+from leads.models import Company, CustomerExportJob, CustomerPoolRow
 
 from .access import crm_owned_queryset_for_user
 from .capabilities import SalesCapability, can_sales, require_sales
@@ -38,6 +41,10 @@ EXPORT_FIELD_LABELS = {
     'contact_point': '可用联系方式',
 }
 EXPORT_FORMATS = ('xlsx',)
+MAX_STANDARD21_ROWS = 50000
+STANDARD21_FILE_NAME = 'vorntek-customer-pool-standard21.csv'
+STANDARD21_CONTENT_TYPE = 'text/csv; charset=utf-8'
+STANDARD21_REQUIRED_COLUMNS = ('phone', 'email')
 
 
 def _excel_text(value) -> str:
@@ -148,6 +155,41 @@ def _normalized_fields(raw_fields) -> tuple[str, ...] | None:
     ):
         return None
     return tuple(field for field in EXPORT_FIELD_GROUPS if field in fields)
+
+
+def normalize_standard21_columns(raw_columns) -> tuple[str, ...] | None:
+    if not isinstance(raw_columns, (list, tuple)):
+        return None
+    selected = [str(value or '').strip() for value in raw_columns]
+    if not selected or len(selected) != len(set(selected)):
+        return None
+    if any(column not in STANDARD21_HEADERS for column in selected):
+        return None
+    if any(column not in selected for column in STANDARD21_REQUIRED_COLUMNS):
+        return None
+    return tuple(header for header in STANDARD21_HEADERS if header in selected)
+
+
+def standard21_csv_bytes(pool_rows, columns=STANDARD21_HEADERS) -> bytes:
+    """Restore persisted source rows as a deterministic UTF-8 CSV."""
+
+    normalized_columns = normalize_standard21_columns(columns)
+    if normalized_columns is None:
+        raise ValueError('invalid standard21 columns')
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator='\r\n')
+    writer.writerow(normalized_columns)
+    for pool_row in pool_rows:
+        by_header = dict(zip(STANDARD21_HEADERS, pool_row_standard_values(pool_row)))
+        writer.writerow([by_header[header] for header in normalized_columns])
+    return '\ufeff'.encode('utf-8') + buffer.getvalue().encode('utf-8')
+
+
+def _standard21_pool_rows(*, site, company_ids):
+    return CustomerPoolRow.objects.filter(
+        site=site,
+        company_id__in=company_ids,
+    ).order_by('import_batch_id', 'row_number', 'row_key')
 
 
 def _workbook(
@@ -511,6 +553,56 @@ def customer_pool_export(request):
     )
     messages.success(request, f'导出任务 #{job.pk} 已进入后台队列，页面会自动更新状态。')
     return redirect('console:customer_pool')
+
+
+@login_required
+@require_POST
+def customer_pool_export_standard21(request):
+    require_sales(request.user, SalesCapability.POOL_EXPORT)
+    site, _locale = default_site_locale(None)
+    queryset, export_scope = _filtered_queryset(request, site=site)
+    companies = list(queryset[:MAX_EXPORT_ROWS + 1])
+    if export_scope.get('mode') == 'selected' and (
+        export_scope.get('invalid_selection')
+        or len(companies) != export_scope.get('requested_ids')
+    ):
+        messages.error(request, '所选范围包含不存在或无权导出的客户，已取消整个导出。')
+        return redirect('console:customer_pool')
+    if not companies:
+        messages.error(request, '没有可导出的已授权客户。')
+        return redirect('console:customer_pool')
+    if len(companies) > MAX_EXPORT_ROWS:
+        messages.error(request, f'单次最多导出 {MAX_EXPORT_ROWS} 家企业，请缩小筛选范围。')
+        return redirect('console:customer_pool')
+    requested_columns = request.POST.getlist('columns')
+    columns = (
+        STANDARD21_HEADERS
+        if not requested_columns
+        else normalize_standard21_columns(requested_columns)
+    )
+    if columns is None:
+        messages.error(request, '导出列无效：电话和邮箱必须保留，且不能包含重复或未知列。')
+        return redirect('console:customer_pool')
+    pool_rows = list(
+        _standard21_pool_rows(
+            site=site,
+            company_ids=[company.pk for company in companies],
+        )[: MAX_STANDARD21_ROWS + 1]
+    )
+    if not pool_rows:
+        messages.error(request, '所选范围没有标准 21 列客户池记录。')
+        return redirect('console:customer_pool')
+    if len(pool_rows) > MAX_STANDARD21_ROWS:
+        messages.error(request, f'单次最多导出 {MAX_STANDARD21_ROWS} 行，请缩小筛选范围。')
+        return redirect('console:customer_pool')
+    response = HttpResponse(
+        standard21_csv_bytes(pool_rows, columns=columns),
+        content_type=STANDARD21_CONTENT_TYPE,
+    )
+    response['Content-Disposition'] = f'attachment; filename="{STANDARD21_FILE_NAME}"'
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 @login_required

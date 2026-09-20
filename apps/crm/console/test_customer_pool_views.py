@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 from datetime import timedelta
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -20,6 +21,7 @@ from openpyxl import load_workbook
 
 from console.customer_pool_exports import _private_path, process_customer_export_job
 from leads.customer_pool_services import create_manual_customer, publish_reviewed_customer
+from leads.customer_standard21_import import STANDARD21_HEADERS
 from leads.models import (
     Activity,
     Company,
@@ -30,6 +32,7 @@ from leads.models import (
     CustomerExportJob,
     CustomerImportBatch,
     CustomerImportRow,
+    CustomerPoolRow,
     CustomerSource,
     LeadFormDefinition,
     LeadConversion,
@@ -68,6 +71,7 @@ class CustomerPoolViewTests(TestCase):
         CustomerSource,
         CustomerImportBatch,
         CustomerImportRow,
+        CustomerPoolRow,
         CustomerExportJob,
     )
 
@@ -311,9 +315,63 @@ class CustomerPoolViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '标准客户模板')
+        self.assertContains(response, '标准 21 列客户池')
         self.assertContains(response, '非洲第二轮 v345（674 家）')
         self.assertContains(response, '中东第二轮 v013（175 家）')
         self.assertContains(response, '仅接受系统锁定的原始版本')
+
+    def test_admin_can_import_commit_and_export_standard21_csv(self):
+        values = {header: '' for header in STANDARD21_HEADERS}
+        values.update(
+            {
+                'phone': '+254700000021',
+                'country_name': '肯尼亚',
+                'country': 'KE',
+                'person_name': 'Synthetic Buyer',
+                'company': 'Synthetic Standard 21 Ltd',
+                'value': '31.0',
+                'route_type': '公司总机',
+                'route_tier': '企业总机',
+                'account_id': 'SYN-KE-0021',
+                'evidence_V': 'V3',
+                'identity_I': 'I2',
+                'priority_P': 'P2',
+                'source_channel': 'research_public',
+            }
+        )
+        buffer = StringIO()
+        writer = csv.DictWriter(buffer, fieldnames=STANDARD21_HEADERS, lineterminator='\r\n')
+        writer.writeheader()
+        writer.writerow(values)
+        payload = buffer.getvalue().encode('utf-8')
+        self.client.force_login(self.admin)
+
+        preview = self.client.post(
+            reverse('console:customer_pool_import'),
+            {
+                'action': 'preview',
+                'import_profile': 'standard21',
+                'file': SimpleUploadedFile('standard21.csv', payload, content_type='text/csv'),
+            },
+        )
+
+        self.assertEqual(preview.status_code, 200)
+        batch = CustomerImportBatch.objects.get(namespace='standard21')
+        self.assertEqual(batch.counts_json['pool_rows'], 1)
+        committed = self.client.post(
+            reverse('console:customer_pool_import'),
+            {'action': 'commit', 'batch_id': str(batch.pk)},
+        )
+        self.assertEqual(committed.status_code, 200)
+        self.assertEqual(CustomerPoolRow.objects.count(), 1)
+
+        exported = self.client.post(
+            reverse('console:customer_pool_export_standard21'),
+            {'mode': 'current', 'scope': 'review'},
+        )
+        self.assertEqual(exported.status_code, 200)
+        self.assertEqual(exported.content, b'\xef\xbb\xbf' + payload)
+        self.assertIn('vorntek-customer-pool-standard21.csv', exported['Content-Disposition'])
 
     def test_admin_import_workspace_routes_locked_snapshot_to_selected_adapter(self):
         self.client.force_login(self.admin)
