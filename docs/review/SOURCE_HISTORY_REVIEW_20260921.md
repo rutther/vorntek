@@ -2,10 +2,10 @@
 
 This review covers the unpushed candidate history from trusted public tag
 `v0.1.0-rc.1` (`fe353544d6d37d5cbf01ccecbb157cf30edba6fe`) through source
-commit `6faa1367bf40831676d1a965e3c7af052b14e69b`. It is a secret/privacy
+commit `c63d8bd71c07de30ae4e954611c39cff7f9689fd`. It is a secret/privacy
 and distribution-input guard, not a legal certification or runtime acceptance.
 
-本审查覆盖已公开可信标签 `v0.1.0-rc.1` 至尚未推送的源码提交 `6faa136`。它检查
+本审查覆盖已公开可信标签 `v0.1.0-rc.1` 至尚未推送的源码提交 `c63d8bd`。它检查
 秘密、隐私和公开分发输入边界，不是法律认证，也不等于运行环境验收。
 
 ## Exact result / 精确结果
@@ -18,9 +18,9 @@ python3 scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean
 
 reported:
 
-- 35 candidate commits;
-- 634 unique introduced Git objects;
-- 369 unique blobs and 369 changed blob/path bindings, all treated as text by
+- 43 candidate commits;
+- 701 unique introduced Git objects;
+- 399 unique blobs and 399 changed blob/path bindings, all treated as text by
   the scanner;
 - largest blob: `apps/crm/console/views.py`, 142,197 bytes;
 - one-megabyte maximum newly introduced blob policy;

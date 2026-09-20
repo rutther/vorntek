@@ -6,16 +6,27 @@ records evidence and publication boundaries, not a legal certification.
 
 ## Current unpushed candidate
 
-- Candidate source commit `e971f9c226a966eb564b473e9f4c4dedaa5d7418`
-  passed a clean history audit from immutable tag `v0.1.0-rc.1`: 32 commits,
-  609 introduced objects, 359 blobs/path bindings, largest 142,197 bytes and
+- Candidate source commit `c63d8bd71c07de30ae4e954611c39cff7f9689fd`
+  passed a clean history audit from immutable tag `v0.1.0-rc.1`: 43 commits,
+  701 introduced objects, 399 blobs/path bindings, largest 142,197 bytes and
   zero findings. The scanner includes blobs later deleted, binds reused content
   to every candidate-changed path and never prints matched material.
   See the [exact source-history review](review/SOURCE_HISTORY_REVIEW_20260921.md).
 - Current-tree guards separately reject private/backup/key inputs, token shapes,
   credential URLs, known production identifiers and all 45 excluded private
   production paths. Root checks are 66/66; locked Python dependency audit reports
-  no known vulnerability at the observed time.
+  no known vulnerability at the observed time. The complete synthetic SQLite
+  compatibility suite passed 811 tests with eight explicit environment skips;
+  this is not PostgreSQL/Linux runtime acceptance.
+- A structural review of the complete `origin/main...c63d8bd` candidate diff
+  found 141 paths (75 added, 66 modified), 15,833 insertions and 289 deletions.
+  All 521 tracked entries are ordinary non-executable files (`100644`): there
+  are no binary diffs, symlinks, submodules or executable-mode inputs. The 75
+  additions are source, tests, SQL migrations and documentation only, with no
+  newly introduced binary asset. Strict Git object verification found no missing
+  or corrupt reachable object; local unreachable edit objects are not part of a
+  push. This structural/provenance review supplements, but does not replace, the
+  private-input ledger and third-party license evidence below.
 - Actual loopback browser evidence now includes a standard-21 CSV download saved
   and byte-inspected on disk. The earlier browser-save gap is closed for that
   immediate CSV path; queued XLSX and equivalent packaged Linux browser paths

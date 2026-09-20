@@ -104,7 +104,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   UI evidence and still requires packaged Linux repetition; see the
   [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
 - Candidate history now has a repeatable fail-closed audit from the trusted RC1
-  tag. The clean `6faa136` run covered 35 commits, 634 introduced objects and 369
+  tag. The clean `c63d8bd` run covered 43 commits, 701 introduced objects and 399
   blob/path bindings (including later-deleted objects and reused content under
   every changed path), found zero blocked secret/privacy or distribution inputs,
   and is repeated by full-history CI. Pattern scanning is
