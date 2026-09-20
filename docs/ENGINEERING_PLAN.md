@@ -76,8 +76,11 @@ the classifications above; unknown files are not silently shipped.
 - [x] Compose the complete checked-in website and live-mode article artifact into
   one immutable candidate, with frozen CSS/JS/images, internal-link verification,
   source-drift refusal and audited version bindings; no pointer is selected.
+- [x] Add append-only migration 0030 and an explicit high-risk capability plus
+  site-scoped POST action for building a candidate from one reviewed preview;
+  the action cannot select, serve or deploy the result.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next review operator approval/selection and a verified
+  public abstractions; next implement operator approval/selection and a verified
   Nginx serving switch/rollback as separate lifecycle layers.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 

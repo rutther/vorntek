@@ -17,6 +17,12 @@ MIGRATION_PATH = (
     / 'migrations'
     / '0024_content_access_grants.sql'
 )
+CAPABILITY_MIGRATION_PATH = (
+    Path(__file__).resolve().parents[1]
+    / 'db'
+    / 'migrations'
+    / '0030_website_candidate_capability.sql'
+)
 
 
 class ContentAccessGrantModelContractTests(SimpleTestCase):
@@ -51,6 +57,7 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
                 'assets.import_local',
                 'releases.read',
                 'releases.preview_build',
+                'releases.candidate_build',
             },
         )
         self.assertEqual(
@@ -78,7 +85,10 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
         self.assertIn('(user_id IS NULL) <> (group_id IS NULL)', sql)
         self.assertIn('FOREIGN KEY (site_id, locale_id)', sql)
         self.assertIn('REFERENCES site_locale(site_id, id)', sql)
-        for capability in CONTENT_ACCESS_CAPABILITIES:
+        original_capabilities = set(CONTENT_ACCESS_CAPABILITIES) - {
+            'releases.candidate_build'
+        }
+        for capability in original_capabilities:
             self.assertIn(f"'{capability}'", sql)
         for name in (
             'uq_content_grant_user_site_active',
@@ -89,6 +99,18 @@ class ContentAccessGrantModelContractTests(SimpleTestCase):
             'idx_content_grant_group_lookup',
         ):
             self.assertIn(name, sql)
+
+    def test_candidate_build_capability_is_an_append_only_constraint_upgrade(self):
+        base = MIGRATION_PATH.read_text(encoding='utf-8')
+        upgrade = CAPABILITY_MIGRATION_PATH.read_text(encoding='utf-8')
+
+        self.assertNotIn("'releases.candidate_build'", base)
+        self.assertIn(
+            'DROP CONSTRAINT IF EXISTS content_access_grant_capability_check',
+            upgrade,
+        )
+        for capability in CONTENT_ACCESS_CAPABILITIES:
+            self.assertIn(f"'{capability}'", upgrade)
 
 
 class ContentAccessGrantSQLiteConstraintTests(TestCase):

@@ -15,6 +15,7 @@ CONTENT_ACCESS_CAPABILITIES = (
     'assets.import_local',
     'releases.read',
     'releases.preview_build',
+    'releases.candidate_build',
 )
 
 

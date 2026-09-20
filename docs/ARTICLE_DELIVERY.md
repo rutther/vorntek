@@ -55,6 +55,14 @@ source digest is still current and whose translations are complete. The database
 records the exact website, article and base-source versions. Candidate building
 does not select either internal pointer and does not change a web-server root.
 
+The release center exposes that operation only as a POST action on an explicit,
+same-site reviewed article-preview row. It requires `content.read`,
+`releases.read` and the independently granted high-risk
+`releases.candidate_build` capability. Migration 0030 adds that capability by
+replacing the database CHECK constraint in an append-only migration; it does not
+rewrite the original access-control migration. Failures expose a generic operator
+message while the immutable release audit records retain only a stable error code.
+
 Brand name, locale labels and logo URL come from the site record/configuration.
 The public implementation deliberately does not carry the Hong Kong company's
 name, fixed language set, host paths, Meta Pixel injection or production-only
@@ -68,7 +76,7 @@ loads so opening it does not contact their hosts.
 The current accepted slice stops at an audited, immutable whole-site candidate.
 It does **not** yet provide:
 
-- an authorized operator approval/selection transaction;
+- an authorized operator approval/selection transaction after candidate build;
 - a verified serving adapter that atomically switches Nginx to the selected bundle;
 - background scheduling or external publication;
 - a claim that CMS edits are live merely because rendering succeeded.
@@ -119,11 +127,12 @@ records, traversal rejection, network-silent rewriting, shared/localized base
 routes, full Vorntek composition, asset freezing, withdrawal, missing-link
 rejection, candidate source-drift refusal, site scoping and tamper detection.
 Route-policy tests separately cover the exact three-capability gate, HTTP methods
-and private security headers. PostgreSQL/Compose and end-to-end whole-site
+for both private preview and candidate build, plus private security headers.
+PostgreSQL/Compose and end-to-end whole-site
 activation tests remain later gates.
 
 中文：当前完成的是可审计快照、安全渲染、私有不可变存储、固定版本构建输入、经过权限
 控制且阻断外部网络请求的后台私有预览，以及把官网 HTML/CSS/JS/图片与正式模式文章
-一起固化的整站候选；仍不是“一键发布”。后续须把操作员授权、候选选择、Nginx 原子切换
+一起固化的整站候选；候选构建已有独立高风险权限，但仍不是“一键发布”。后续须把操作员审批与候选选择、Nginx 原子切换
 和整站回滚分别实现并验收；在此之前不得将 artifact、私有预览或候选构建描述为生产网站
 已经更新。

@@ -6,10 +6,12 @@ from unittest.mock import MagicMock, patch
 from django.conf import settings
 from django.template.loader import get_template
 from django.test import SimpleTestCase
+from django.urls import reverse
 
 from console.content_access import (
     ASSETS_READ,
     CONTENT_READ,
+    RELEASES_CANDIDATE_BUILD,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
@@ -198,6 +200,57 @@ class GenericTablePayloadContractTests(SimpleTestCase):
         self.assertEqual(
             complete['views']['releases']['table']['rows'][0]['actions'][0]['label'],
             '打开文章私有预览',
+        )
+
+    def test_whole_site_candidate_action_requires_explicit_candidate_capability(self):
+        site = SimpleNamespace(pk=1, id=1, code='siteos_demo', name='Vorntek')
+        release = SimpleNamespace(
+            id=17,
+            release_key='article-preview:1:v2',
+            status='built',
+            created_by='reviewer',
+            notes='Reviewed private preview',
+            artifact_path='',
+            exported_at=None,
+            built_at=None,
+            published_at=None,
+            created_at=None,
+            snapshot_manifest={
+                'kind': 'articlePreview',
+                'scope': 'sitePublished',
+                'version': '2' * 64,
+                'sourceVersion': '3' * 64,
+            },
+        )
+
+        def payload_for(capabilities):
+            build_rows = MagicMock()
+            build_rows.filter.return_value.order_by.return_value.__getitem__.return_value = []
+            release_rows = MagicMock()
+            release_rows.order_by.return_value.__getitem__.return_value = [release]
+            with (
+                patch('console.payloads.ReleaseBuild.objects.select_related', return_value=build_rows),
+                patch('console.payloads.Release.objects.filter', return_value=release_rows),
+            ):
+                return releases_payload(site=site, capabilities=frozenset(capabilities))
+
+        incomplete = payload_for({CONTENT_READ, RELEASES_READ})
+        complete = payload_for({
+            CONTENT_READ,
+            RELEASES_READ,
+            RELEASES_CANDIDATE_BUILD,
+        })
+
+        self.assertEqual(
+            incomplete['views']['releases']['table']['rows'][0]['actions'],
+            [],
+        )
+        action = complete['views']['releases']['table']['rows'][0]['actions'][0]
+        self.assertEqual(action['kind'], 'post')
+        self.assertEqual(action['label'], '固化整站候选')
+        self.assertEqual(
+            action['href'],
+            reverse('console:website_candidate_build', args=[release.id]),
         )
 
 

@@ -30,6 +30,7 @@ from console.content_access import (
     CONTENT_READ,
     CONTENT_SET_PUBLISHED,
     CONTENT_WRITE,
+    RELEASES_CANDIDATE_BUILD,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
@@ -79,6 +80,9 @@ EXPECTED_CONTENT_ROUTE_CAPABILITIES = {
     'article_preview_file': frozenset(
         {CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD}
     ),
+    'website_candidate_build': frozenset(
+        {CONTENT_READ, RELEASES_READ, RELEASES_CANDIDATE_BUILD}
+    ),
 }
 
 
@@ -110,6 +114,7 @@ CONTENT_ROUTE_CASES = (
     ('release_build_preview', (), 'post'),
     ('article_release_preview', (), 'post'),
     ('article_preview_file', ('0' * 64, 'articles/index.html'), 'get'),
+    ('website_candidate_build', (999_990,), 'post'),
 )
 
 
@@ -127,7 +132,7 @@ class ContentRoutePolicyContractTests(SimpleTestCase):
         }
         self.assertEqual(normalized, EXPECTED_CONTENT_ROUTE_CAPABILITIES)
         self.assertEqual(set(normalized), set(CONTENT_VIEW_NAMES))
-        self.assertEqual(len(normalized), 27)
+        self.assertEqual(len(normalized), 28)
 
     def test_every_policy_entry_resolves_to_the_named_console_route(self):
         route_cases = {name: args for name, args, _method in CONTENT_ROUTE_CASES}
@@ -280,6 +285,7 @@ class ContentRouteCapabilityTests(TestCase):
             patch('console.views.create_locale_from_source') as create_locale,
             patch('console.views.run_preview_build') as preview_build,
             patch('console.views.build_private_article_preview') as article_preview,
+            patch('console.views.build_website_candidate') as website_candidate,
         ):
             for route_name, args, method in CONTENT_ROUTE_CASES:
                 with self.subTest(route_name=route_name):
@@ -293,6 +299,7 @@ class ContentRouteCapabilityTests(TestCase):
         create_locale.assert_not_called()
         preview_build.assert_not_called()
         article_preview.assert_not_called()
+        website_candidate.assert_not_called()
         self.assertEqual(
             list(
                 SiteLocale.objects.filter(site=self.site)
@@ -941,6 +948,39 @@ class ContentRouteCapabilityTests(TestCase):
         self.assertIn("connect-src 'none'", unavailable['Content-Security-Policy'])
         self.assertNotContains(unavailable, 'artifact_file_changed', status_code=503)
 
+    def test_website_candidate_build_requires_all_three_exact_capabilities(self):
+        self.grant(CONTENT_READ)
+        self.grant(RELEASES_READ)
+        self.client.force_login(self.content_user)
+        candidate_result = {
+            'fileCount': 32,
+            'version': '2' * 64,
+            'recordId': 44,
+        }
+        url = reverse('console:website_candidate_build', args=[71])
+
+        with patch(
+            'console.views.build_website_candidate', return_value=candidate_result
+        ) as builder:
+            denied = self.client.post(url)
+            self.assertEqual(denied.status_code, 403)
+            builder.assert_not_called()
+
+            self.grant(RELEASES_CANDIDATE_BUILD)
+            allowed = self.client.post(url)
+
+        self.assertEqual(allowed.status_code, 302)
+        self.assertEqual(allowed.url, reverse('console:releases'))
+        builder.assert_called_once_with(
+            site=self.site,
+            preview_record_id=71,
+            actor=self.content_user.get_username(),
+        )
+        messages = list(allowed.wsgi_request._messages)
+        self.assertEqual(len(messages), 1)
+        self.assertIn('32 个文件', str(messages[0]))
+        self.assertIn('未选择、未部署', str(messages[0]))
+
     def test_system_admin_keeps_representative_read_write_and_high_risk_routes_without_grants(self):
         self.client.force_login(self.admin_user)
         workspace = {'locale': {'code': 'en'}}
@@ -984,12 +1024,16 @@ class ContentRouteCapabilityTests(TestCase):
             patch('console.views.articles') as articles,
             patch('console.views.run_preview_build') as preview_build,
             patch('console.views.build_private_article_preview') as article_preview,
+            patch('console.views.build_website_candidate') as website_candidate,
             patch('console.views.read_private_preview') as preview_reader,
             patch('console.views.disable_locale') as disable_locale,
         ):
             alias_post = self.client.post(reverse('console:content_articles'))
             preview_get = self.client.get(reverse('console:release_build_preview'))
             article_preview_get = self.client.get(reverse('console:article_release_preview'))
+            candidate_get = self.client.get(
+                reverse('console:website_candidate_build', args=[1])
+            )
             article_file_post = self.client.post(
                 reverse(
                     'console:article_preview_file',
@@ -1003,10 +1047,12 @@ class ContentRouteCapabilityTests(TestCase):
         self.assertEqual(alias_post.status_code, 405)
         self.assertEqual(preview_get.status_code, 405)
         self.assertEqual(article_preview_get.status_code, 405)
+        self.assertEqual(candidate_get.status_code, 405)
         self.assertEqual(article_file_post.status_code, 405)
         self.assertEqual(locale_get.status_code, 405)
         articles.assert_not_called()
         preview_build.assert_not_called()
         article_preview.assert_not_called()
+        website_candidate.assert_not_called()
         preview_reader.assert_not_called()
         disable_locale.assert_not_called()

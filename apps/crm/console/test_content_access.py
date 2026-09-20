@@ -24,6 +24,7 @@ from console.content_access import (
     CONTENT_WRITE,
     HIGH_RISK_CONTENT_CAPABILITIES,
     RELEASES_PREVIEW_BUILD,
+    RELEASES_CANDIDATE_BUILD,
     RELEASES_READ,
     effective_content_capabilities,
     has_content_capability,
@@ -45,6 +46,7 @@ class ContentCapabilityConstantsTests(SimpleTestCase):
             'assets.import_local',
             'releases.read',
             'releases.preview_build',
+            'releases.candidate_build',
         })
 
         self.assertIsInstance(ALL_CONTENT_CAPABILITIES, frozenset)
@@ -55,7 +57,11 @@ class ContentCapabilityConstantsTests(SimpleTestCase):
         )
         self.assertEqual(
             HIGH_RISK_CONTENT_CAPABILITIES,
-            frozenset({ASSETS_IMPORT_LOCAL, RELEASES_PREVIEW_BUILD}),
+            frozenset({
+                ASSETS_IMPORT_LOCAL,
+                RELEASES_PREVIEW_BUILD,
+                RELEASES_CANDIDATE_BUILD,
+            }),
         )
 
 

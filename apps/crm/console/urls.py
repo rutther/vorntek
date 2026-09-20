@@ -155,6 +155,11 @@ urlpatterns = [
     path('releases/build-preview/', views.release_build_preview, name='release_build_preview'),
     path('releases/articles/preview/', views.article_release_preview, name='article_release_preview'),
     path(
+        'releases/website-candidates/from-preview/<int:preview_record_id>/',
+        views.website_candidate_build,
+        name='website_candidate_build',
+    ),
+    path(
         'releases/articles/preview/<str:version>/<path:artifact>',
         views.article_preview_file,
         name='article_preview_file',

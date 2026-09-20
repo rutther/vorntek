@@ -84,6 +84,7 @@ from .content_access import (
     CONTENT_READ,
     CONTENT_SET_PUBLISHED,
     CONTENT_WRITE,
+    RELEASES_CANDIDATE_BUILD,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
     effective_content_capabilities,
@@ -147,6 +148,7 @@ from .three_d_forms import ThreeDPlacementForm, ThreeDViewProfileForm
 from .three_d_payloads import three_d_asset_detail_context, three_d_asset_page_payload, three_d_page_payload, three_d_workspace_context
 from .system_forms import ConsoleUserForm, SalesTeamForm
 from .system_versions import sales_team_version_matches, system_user_version_matches
+from .website_candidate import build_website_candidate
 
 
 User = get_user_model()
@@ -187,6 +189,9 @@ CONTENT_ROUTE_CAPABILITIES: dict[str, frozenset[str]] = {
     ),
     'article_preview_file': frozenset(
         {CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD}
+    ),
+    'website_candidate_build': frozenset(
+        {CONTENT_READ, RELEASES_READ, RELEASES_CANDIDATE_BUILD}
     ),
 }
 
@@ -3277,6 +3282,30 @@ def article_release_preview(request):
         messages.success(
             request,
             f'文章私有预览已生成：{result["articleCount"]} 篇；未发布到公开网站。',
+        )
+    return redirect('console:releases')
+
+
+@login_required
+@require_POST
+def website_candidate_build(request, preview_record_id: int):
+    site, _locale, _capabilities = content_site_scope(request, 'website_candidate_build')
+    actor = request.user.get_username() or 'django-console'
+    try:
+        result = build_website_candidate(
+            site=site,
+            preview_record_id=preview_record_id,
+            actor=actor,
+        )
+    except (ArticleDeliveryError, OSError):
+        messages.error(
+            request,
+            '整站候选未生成；请重新审查文章预览并检查候选存储配置。',
+        )
+    else:
+        messages.success(
+            request,
+            f'整站候选已固化：{result["fileCount"]} 个文件；未选择、未部署。',
         )
     return redirect('console:releases')
 

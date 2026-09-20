@@ -21,6 +21,7 @@ from .content_access import (
     ASSETS_READ,
     ASSETS_WRITE,
     CONTENT_READ,
+    RELEASES_CANDIDATE_BUILD,
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
 )
@@ -1029,6 +1030,11 @@ def releases_payload(
         RELEASES_READ,
         RELEASES_PREVIEW_BUILD,
     }.issubset(capabilities)
+    can_candidate_build = {
+        CONTENT_READ,
+        RELEASES_READ,
+        RELEASES_CANDIDATE_BUILD,
+    }.issubset(capabilities)
 
     build_rows = []
     for item in builds:
@@ -1088,6 +1094,22 @@ def releases_payload(
                     ),
                 )
             )
+        if (
+            can_candidate_build
+            and article_preview_version
+            and snapshot.get('scope') == 'sitePublished'
+            and snapshot.get('sourceVersion')
+        ):
+            preview_actions.append(
+                post_action(
+                    '固化整站候选',
+                    reverse(
+                        'console:website_candidate_build',
+                        kwargs={'preview_record_id': item.id},
+                    ),
+                    tone='secondary',
+                )
+            )
         release_rows.append(
             build_row(
                 row_id=f'release-{item.id}',
@@ -1123,10 +1145,10 @@ def releases_payload(
     payload = make_page(
         section_key='releases',
         title='预览与快照',
-        description='这里生成预览构建并管理内容快照。生产发布由受控部署流程执行，后台不直接上线生产。',
+        description='这里生成预览构建、审查文章快照并固化完整站点候选。候选不会被自动选择或部署；生产发布由受控部署流程执行，后台不直接上线生产。',
         page_type='list',
         workspace_label='预览与快照',
-        workspace_meta='先产出内容快照，再构建预览并完成核验；生产发布由受控部署流程执行。',
+        workspace_meta='先审查文章私有预览，再从指定预览固化完整站点候选；生产发布另走受控部署流程。',
         search_placeholder=build_search_placeholder,
     )
     payload['tabs'] = [
@@ -1202,7 +1224,7 @@ def releases_payload(
     payload['notes'] = [
         {
             'title': '生产发布边界',
-            'body': 'Django 后台只生成预览构建和内容快照；生产发布由受控部署流程执行，公开网站始终读取经过部署的构建产物。',
+            'body': 'Django 后台可以生成预览、内容快照和完整站点候选，但候选不会自动成为公开网站；生产发布由受控部署流程执行，选择、部署、切换和回滚由后续受控发布层负责。',
         }
     ]
     return _apply_table_contract(payload)

@@ -31,10 +31,15 @@ certifications.
 - An immutable whole-site candidate store that freezes the checked-in website and
   live-mode article artifact, verifies internal links and records exact source
   versions without selecting or deploying the candidate.
+- An authenticated, site-scoped release-center action that requires the separate
+  `releases.candidate_build` capability and builds only from an explicit reviewed
+  article preview; it cannot select or deploy the result.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be
   paired and site-consistent.
+- Append-only migration 0030, which extends the content-grant database constraint
+  with the high-risk whole-site candidate-build capability.
 
 ### Changed
 
@@ -50,7 +55,7 @@ certifications.
 - Python dependency evidence is bound to the exact lock-file hash; the earlier
   Linux image inventory is retained as historical evidence instead of being
   relabeled after Markdown dependencies were added.
-- The packaging regression now verifies the complete 29-migration chain.
+- The packaging regression now verifies the complete 30-migration chain.
 
 ## [0.1.0-rc.1] - 2026-09-13
 
