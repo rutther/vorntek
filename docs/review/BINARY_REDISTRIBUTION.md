@@ -30,6 +30,11 @@ downloaded and checksum-verified for this release. No recipe was executed.
 
 Actual CRM-image files were hashed, not inferred only from requirements.lock:
 
+This image predates the article renderer dependency addition. Its Python
+inventory is bound to the preceding 24-package lock hash and does not establish
+that MarkdownIt-py or mdurl are present in a future image. Rebuild and repeat the
+inventory/native-library review for the final lock before publication.
+
 | Installed distribution | Native files | License files | Upstream SBOM observations |
 | --- | --- | --- | --- |
 | psycopg-binary 3.3.3 | 17 (15 bundled libraries, two extensions) | One LICENSE.txt | CycloneDX: ten component entries, duplicates and missing license fields |

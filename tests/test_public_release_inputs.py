@@ -75,8 +75,10 @@ class PublicReleaseInputTests(unittest.TestCase):
 
     def test_python_inventory_covers_current_lock_without_private_machine_paths(self):
         manifest = json.loads((ROOT/'docs/review/python-dependencies.json').read_text(encoding='utf-8'))
-        expected = dict(line.split('==', 1) for line in (ROOT/'apps/crm/requirements.lock').read_text().splitlines()
+        lock_bytes = (ROOT/'apps/crm/requirements.lock').read_bytes()
+        expected = dict(line.split('==', 1) for line in lock_bytes.decode().splitlines()
                         if line and not line.startswith('#'))
+        self.assertEqual(manifest['requirements_lock_sha256'], hashlib.sha256(lock_bytes).hexdigest())
         self.assertEqual({p['name']: p['version'] for p in manifest['packages']}, expected)
         for package in manifest['packages']:
             self.assertTrue(package['license_file_evidence'])
@@ -94,9 +96,9 @@ class PublicReleaseInputTests(unittest.TestCase):
 
     def test_linux_python_inventory_is_version_bound_and_has_license_evidence(self):
         manifest = json.loads((ROOT/'docs/review/python-dependencies-linux.json').read_text(encoding='utf-8'))
-        expected = dict(line.split('==', 1) for line in (ROOT/'apps/crm/requirements.lock').read_text().splitlines()
-                        if line and not line.startswith('#'))
-        self.assertEqual({p['name']: p['version'] for p in manifest['packages']}, expected)
+        current_lock = hashlib.sha256((ROOT/'apps/crm/requirements.lock').read_bytes()).hexdigest()
+        self.assertRegex(manifest['requirements_lock_sha256'], r'^[a-f0-9]{64}$')
+        self.assertNotEqual(manifest['requirements_lock_sha256'], current_lock)
         self.assertRegex(manifest['image_id'], r'^sha256:[a-f0-9]{64}$')
         for package in manifest['packages']:
             self.assertTrue(package['license_file_evidence'])

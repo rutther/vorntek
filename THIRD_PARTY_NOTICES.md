@@ -35,24 +35,26 @@ Upstream projects: [Lucide](https://github.com/lucide-icons/lucide),
 
 ## Python runtime dependencies
 
-Follow-up: [actual Linux image inventory](docs/review/python-dependencies-linux.json)
-records all 24 matching locked distributions and installed license-file hashes
-inside the f7 CRM image, identified by its immutable image ID. The original Windows
-inventory remains for comparison. This closes the missing Linux Python observation,
-not the separate OS/bundled-native-library redistribution review. No Python package
-is relicensed to MIT by this project; image publication remains gated on those terms.
-
-All 24 installed package versions matched `apps/crm/requirements.lock`. Their
-declared license metadata and actual installed license-file hashes are recorded
-in [python-dependencies.json](docs/review/python-dependencies.json), reproducible
+The current source lock contains 26 distributions. The current-host inventory is
+bound to that lock's SHA-256 and includes the new MIT-declared MarkdownIt-py 4.2.0
+and mdurl 0.1.2 license-file hashes. It is recorded in
+[python-dependencies.json](docs/review/python-dependencies.json) and reproducible
 with `python scripts/inventory_dependencies.py` in that interpreter.
+
+The [actual Linux image inventory](docs/review/python-dependencies-linux.json)
+records all 24 distributions from the preceding lock inside the f7 CRM image,
+identified by its immutable image ID and preceding lock hash. It is retained as
+historical image evidence, not relabeled to cover the two packages added later.
+A new Linux image must be rebuilt and inventoried before binary publication. No
+Python package is relicensed to MIT by this project; image publication remains
+gated on the applicable terms and native/OS component review.
 
 The inventory includes BSD/MIT/Apache/PSF declarations and dependencies declaring
 MPL or LGPL; **do not label every dependency MIT**. Some packages also carry
 additional notices or bundled-library obligations. Preserve distribution license
 files in built images and verify the actual Linux wheels, OS packages and image
-layers before publication. This Windows-interpreter inventory is not proof of
-those future image contents or a license-compatibility opinion.
+layers before publication. This current-host interpreter inventory is not proof
+of those future image contents or a license-compatibility opinion.
 
 ## Fonts, photographs, brand and historical evidence
 

@@ -32,7 +32,7 @@ See [installation and version mapping](PUBLIC_DELIVERY.md).
 | Inherited QA screenshots/comparison | Kept privately, excluded from source/build; not assumed to depict synthetic people |
 | Historical host/content/reset helpers | Retired or made refusing; original sources preserved; [exact disposition](LEGACY_TOOLS.md) |
 | Browser libraries | Lucide ISC/Feather MIT, Bootstrap/Popper MIT notices checked against exact packages; Tabler's existing MIT notice retained with the upstream-fetch limitation recorded |
-| Python dependencies | 24 locked installed distributions and actual license-file hashes recorded, including Linux-image observations |
+| Python dependencies | Current 26-package lock and host license-file evidence are hash-bound; the previous 24-package Linux image inventory remains version-bound historical evidence and must be regenerated |
 | Images and fonts | [AI prompts/hashes](vorntekDemo/README.md); no claim of trademark clearance, exclusive AI rights, engineering certification or exhaustive dynamic font inspection |
 
 The old 123/125-raster counts describe superseded private inputs; they are not the

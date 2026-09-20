@@ -16,7 +16,7 @@ from siteos_admin.schema_install import Migration, load_chain, pending_migration
 class PackagingTests(SimpleTestCase):
     def test_entire_real_chain_is_verified(self):
         chain = load_chain(settings.BASE_DIR / 'db' / 'migrations')
-        self.assertEqual(len(chain), 27)
+        self.assertEqual(len(chain), 29)
 
     def test_new_install_and_contiguous_upgrade(self):
         chain = [Migration('0001_a.sql', 'a', ''), Migration('0002_b.sql', 'b', '')]

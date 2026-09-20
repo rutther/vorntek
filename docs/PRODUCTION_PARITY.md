@@ -63,34 +63,37 @@ host paths or regional research records may enter this repository.
 ## ARTICLE REVIEW — reusable CMS delivery candidate (25)
 
 - `console/article_build_input.py`
-- `console/article_delivery.py`
+- `console/article_delivery.py` — adapted: product-neutral deterministic release contract; no host or brand coupling.
 - `console/article_exports.py`
 - `console/article_imports.py`
 - `console/article_isolated_publish.py`
 - `console/article_preview.py`
 - `console/article_preview_reader.py`
 - `console/article_release_store.py`
-- `console/article_rendering.py`
+- `console/article_rendering.py` — adapted: safe Markdown/JSON-LD renderer with no marketing-script injection.
 - `console/article_workspace.py`
 - `console/static/console/article-workspace.js`
 - `console/templates/console/_article_editor_workspace.html`
 - `console/templates/console/_article_import_workspace.html`
 - `console/templates/console/_article_release_preview.html`
 - `console/templates/console/_article_workspace.html`
-- `console/templates/console/article_delivery_page.html`
+- `console/templates/console/article_delivery_page.html` — adapted: configured site identity and locale navigation; no production brand or Pixel script.
 - `console/test_article_build_input.py`
-- `console/test_article_delivery.py`
+- `console/test_article_delivery.py` — adapted and expanded contract/security coverage.
 - `console/test_article_delivery_cms.py`
 - `console/test_article_release_store.py`
-- `console/test_article_rendering.py`
+- `console/test_article_rendering.py` — adapted and expanded rendering/injection coverage.
 - `console/test_content_route_permissions.py`
 - `console/views.py`
-- `requirements.lock`
-- `requirements.txt`
+- `requirements.lock` — accepted only with locked Markdown parser, current-host license evidence and tests; Linux image reinventory remains required.
+- `requirements.txt` — accepted only with the renderer slice.
 
-These paths are reviewed as one candidate slice. The Markdown dependency must
-be accepted only with the renderer and
-its security tests, never as an unexplained lock-file drift.
+The five implementation/test paths and their dependency change above form the
+accepted pure snapshot/rendering sub-slice. Release storage, preview reader,
+build input, activation, workspace and shared view/router changes remain under
+review. See [`ARTICLE_DELIVERY.md`](ARTICLE_DELIVERY.md). The Markdown dependency
+is accepted only with the renderer and its security tests, never as unexplained
+lock-file drift.
 
 ## PRIVATE EXCLUDE — source-specific research and retained evidence (45)
 

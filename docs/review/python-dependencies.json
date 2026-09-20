@@ -1,5 +1,6 @@
 {
   "scope": "installed locked Python distributions; not license approval or image verification",
+  "requirements_lock_sha256": "29173d57d0f6850676ea16c6f939515165158f5611971d032a544dea44a80df6",
   "packages": [
     {
       "name": "asgiref",
@@ -168,6 +169,37 @@
         {
           "path_in_dist_info": "licenses/LICENSE.md",
           "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+        }
+      ]
+    },
+    {
+      "name": "markdown-it-py",
+      "version": "4.2.0",
+      "license_metadata": "OSI Approved :: MIT License",
+      "declared_license_files": [
+        "LICENSE",
+        "LICENSE.markdown-it"
+      ],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "licenses/LICENSE",
+          "sha256": "4a2260d6e2cd0f5a151a1e86dbfe7d3ed552b1e2beabf9941c1ba5c49cbce484"
+        },
+        {
+          "path_in_dist_info": "licenses/LICENSE.markdown-it",
+          "sha256": "792c48c5a849a15fdf9e37e8bcf9e6d1dd13b32b46c642a748a0a46a9919d473"
+        }
+      ]
+    },
+    {
+      "name": "mdurl",
+      "version": "0.1.2",
+      "license_metadata": "OSI Approved :: MIT License",
+      "declared_license_files": [],
+      "license_file_evidence": [
+        {
+          "path_in_dist_info": "LICENSE",
+          "sha256": "7c605df6e28667a9603118e98274f64a49ce3eed0d26fccce9534a345e0ef955"
         }
       ]
     },

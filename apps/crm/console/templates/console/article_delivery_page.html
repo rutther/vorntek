@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="{{ language }}" dir="{{ direction }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title }} | {{ siteName }}</title>
+  <meta name="description" content="{{ description }}">
+  <meta name="robots" content="{% if preview %}noindex,nofollow{% elif row %}{{ row.robots }}{% else %}index,follow,max-image-preview:large{% endif %}">
+  <link rel="canonical" href="{{ canonical }}">
+  {% for alternate in alternates %}<link rel="alternate" hreflang="{{ alternate.language }}" href="{{ alternate.url }}">{% endfor %}
+  <meta property="og:title" content="{% if row %}{{ row.ogTitle }}{% else %}{{ title }}{% endif %}">
+  <meta property="og:description" content="{% if row %}{{ row.ogDescription }}{% else %}{{ description }}{% endif %}">
+  <meta property="og:url" content="{{ canonical }}">
+  <meta property="og:type" content="{% if row %}article{% else %}website{% endif %}">
+  {% if ogImage %}<meta property="og:image" content="{{ ogImage }}">{% endif %}
+  <script type="application/ld+json">{{ schemaJson }}</script>
+  <link rel="stylesheet" href="/styles.css?v={{ releaseHash }}">
+</head>
+<body data-article-page="{% if row %}{{ row.contentKey }}{% else %}articleIndex{% endif %}" data-release-version="{{ releaseHash }}">
+  <a class="skip locale-skip" href="#main">{{ t.skip }}</a>
+  <header class="site-header locale-header">
+    <a class="brand locale-brand" href="{{ prefix }}/" aria-label="{{ siteName }} {{ t.home }}">{% if brandLogoUrl %}<img src="{{ brandLogoUrl }}" alt="{{ siteName }}">{% else %}<strong>{{ siteName }}</strong>{% endif %}</a>
+    <nav class="article-desktop-nav" aria-label="{{ t.home }}">{% for item in nav %}<a href="{{ item.href }}">{{ item.label }}</a>{% endfor %}</nav>
+    <details class="nc-language-switcher">
+      <summary class="nc-language-button"><span class="nc-language-code">{{ language|upper }}</span><span class="nc-language-name" lang="{{ language }}">{{ languageLabel }}</span></summary>
+      <nav class="nc-language-menu" aria-label="{{ t.language }}">{% for item in languages %}<a href="{{ item.href }}" lang="{{ item.code }}" hreflang="{{ item.code }}"{% if item.current %} aria-current="page"{% endif %}><span>{{ item.code|upper }}</span><strong>{{ item.label }}</strong></a>{% endfor %}</nav>
+    </details>
+    <details class="article-mobile-nav">
+      <summary aria-label="Menu"><span aria-hidden="true">☰</span></summary>
+      <nav aria-label="{{ t.home }}">{% for item in nav %}<a href="{{ item.href }}">{{ item.label }}</a>{% endfor %}</nav>
+    </details>
+  </header>
+  <main id="main">
+    {% if preview %}<p class="article-preview-note" role="status">{{ t.preview }}</p>{% endif %}
+    <section class="locale-hero locale-hero--article">
+      <p><a href="{{ prefix }}/articles/">{{ t.articles }}</a></p>
+      <h1>{{ title }}</h1>
+      {% if row %}<p class="locale-lead">{{ row.excerpt }}</p>{% if row.author %}<p class="locale-meta">{{ row.author }}</p>{% endif %}{% endif %}
+    </section>
+    {% if row %}
+    <div class="locale-reading locale-reading--single"><article class="article-body" lang="{{ language }}" dir="{{ direction }}">
+      {% if row.coverUrl %}<img class="article-cover" src="{{ row.coverUrl }}" alt="{{ row.title }}" decoding="async">{% endif %}
+      {{ bodyHtml }}
+      <section class="locale-callout"><a class="button primary locale-button" href="{{ prefix }}/contact/">{{ t.discuss }}</a></section>
+    </article></div>
+    {% else %}
+    <section class="locale-card-grid">{% for article in rows %}<a class="locale-card locale-card--article" href="{{ article.path }}">{% if article.coverUrl %}<img src="{{ article.coverUrl }}" alt="{{ article.title }}" loading="lazy">{% endif %}{% if article.category %}<span>{{ article.category.label }}</span>{% endif %}<h2>{{ article.title }}</h2><p>{{ article.excerpt }}</p><strong>{{ t.read }}</strong></a>{% empty %}<p>{{ t.empty }}</p>{% endfor %}</section>
+    {% endif %}
+  </main>
+  <footer class="locale-footer"><strong>{{ siteName }}</strong><nav><a href="{{ prefix }}/products/">{{ t.products }}</a><a href="{{ prefix }}/articles/">{{ t.articles }}</a><a href="{{ prefix }}/contact/">{{ t.contact }}</a><a href="{{ prefix }}/privacy/">{{ t.privacy }}</a></nav></footer>
+</body>
+</html>

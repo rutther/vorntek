@@ -64,8 +64,12 @@ the classifications above; unknown files are not silently shipped.
   per-company transactions, itemized failures and role-denial coverage.
 - [x] Complete customer-pool filtering, dense view and controlled column
   selection without importing private research adapters.
+- [x] Add the product-neutral article snapshot and safe-rendering core, with
+  deterministic digests, explicit translations, no raw HTML and no injected
+  marketing scripts; see [`ARTICLE_DELIVERY.md`](ARTICLE_DELIVERY.md).
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; port only independently useful behavior.
+  public abstractions; next review immutable storage, private preview, build input
+  and activation as separate lifecycle layers.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 
 Exit condition: generic Hong Kong capabilities selected for the public product

@@ -22,6 +22,8 @@ certifications.
 - A role-bounded customer-pool query layer plus dense standard-21 and company
   views, multi-country/value/state filters, sortable columns and numeric phone
   ordering.
+- A product-neutral, digest-bound article release and safe Markdown rendering
+  core with explicit locale relationships and no marketing-script injection.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be
@@ -38,6 +40,10 @@ certifications.
   explicit standard-21 column picker while keeping phone and email as required keys.
 - Customer detail pages now show value, all standard-21 routes in deterministic
   order, hard-restriction warnings and neutral contact provenance labels.
+- Python dependency evidence is bound to the exact lock-file hash; the earlier
+  Linux image inventory is retained as historical evidence instead of being
+  relabeled after Markdown dependencies were added.
+- The packaging regression now verifies the complete 29-migration chain.
 
 ## [0.1.0-rc.1] - 2026-09-13
 
