@@ -62,7 +62,7 @@ current images and Compose stack have run successfully on Linux.
 - `python -m pip_audit -r apps/crm/requirements.lock --progress-spinner off`:
   no known vulnerabilities after the upgrade.
 - 55 root distribution/CI/recovery checks passed.
-- 808 Django synthetic SQLite tests passed with eight explicit environment
+- 811 Django synthetic SQLite tests passed with eight explicit environment
   skips; Django system checks reported no issues.
 - 57 focused workbench/lead/marketing/packaging tests passed after the redactor
   was isolated into its own boundary module.

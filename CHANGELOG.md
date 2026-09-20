@@ -90,6 +90,10 @@ certifications.
 - Django is updated within the 5.2 LTS line from 5.2.13 to the 5.2.17 security
   patch. Provider errors and default access logs are consistently redacted, and
   gateway/parser upload limits now match each accepted application route.
+- Article, whole-site candidate and serving stores now share a POSIX advisory
+  lock that the kernel releases after process termination, so a stale lock file
+  cannot permanently block crash recovery. Article staging also removes failed
+  temporary trees and rejects hardlinked artifact files.
 
 ## [0.1.0-rc.1] - 2026-09-13
 

@@ -90,6 +90,16 @@ same-filesystem rename. Unknown owners, stale expected versions, changed/extra
 files, unsafe pointers, links and source drift fail closed. The deployment
 manifest is dot-prefixed and the existing Nginx hidden-path rule denies it.
 
+The article artifact, whole-site candidate and serving stores use one shared
+non-blocking POSIX advisory-lock implementation. The lock file is deliberately
+persistent: process termination releases the kernel lock, allowing the original
+request to resume without deleting or guessing ownership of a stale PID file.
+Regular-file and single-link checks reject substituted lock paths. Windows keeps
+an exclusive-file fallback only for local tests because the real serving path
+requires POSIX relative symlinks. Article staging now removes failed temporary
+trees, and verification rejects hardlinked artifact files as well as symlinks,
+changed bytes and unexpected files.
+
 This adapter cannot authorize itself merely because a candidate directory exists;
 only the database-gated deployment service may call it.
 
@@ -212,8 +222,9 @@ rejection, candidate source-drift refusal, site scoping and tamper detection.
 Route-policy tests separately cover the exact three-capability gate, HTTP methods
 for both private preview and candidate build, plus private security headers;
 selection service tests cover CAS, replay, rollback, site isolation, immutable
-history and artifact/record mismatch refusal. Four cross-platform serving-store
-tests cover materialization, stale CAS, tamper/extra-file refusal and rollback;
+history and artifact/record mismatch refusal. Six cross-platform serving-store
+tests cover materialization, stale CAS, tamper/extra-file refusal, rollback,
+stale-file recovery and live-lock contention;
 the actual POSIX relative-symlink case is explicitly left for Linux CI/container
 acceptance because this Windows host cannot create it.
 Eight deployment-service tests cover current-selection binding, stale conditions,
@@ -237,6 +248,8 @@ commit.
 是两项独立高风险权限；部署另有精确权限、数据库门禁、可恢复操作状态和独立部署收据，
 已经接通只读挂载/不可变复制/原子指针 serving store 的实际切换与回滚路径。恢复命令可根据
 恢复后的最新有效部署收据，从候选存储重建派生 serving cache，不伪造或修改数据库历史。
+文章制品、整站候选和 serving store 已统一使用由内核在进程退出时释放的 POSIX 文件锁，
+陈旧 PID 文件不会永久阻断恢复；文章暂存失败会清理半成品，硬链接制品也会被拒绝。
 系统没有后台自动部署，且这些首次卷初始化、真实原子切换、中断续办、回滚、重启持久化
 和 cache 重建路径虽然已写入 PostgreSQL/Compose/Nginx 验收门禁，尚未在当前候选提交的
 Linux CI 中成功执行；在该验收前仍不能称为发布完成，也不得把 artifact、私有预览或候选
