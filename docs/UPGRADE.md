@@ -19,6 +19,7 @@ preflight against the existing database:
 ```sh
 git status --short
 cat VERSION
+python3 scripts/release_manifest.py --require-clean
 docker compose build crm initialize exports scheduler website
 docker compose run --rm --no-deps crm python manage.py release_preflight --strict
 ```

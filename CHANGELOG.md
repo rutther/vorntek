@@ -11,6 +11,8 @@ certifications.
 - A canonical `VERSION` file and runtime version reporting in `/healthz/`.
 - A read-only `release_preflight` command for version, migration ledger, storage
   and outbound-writer readiness, enforced by container CI.
+- A deterministic, non-secret source release manifest tying the Git tree, version,
+  website tree, migration tip, Compose file and dependency lock together.
 - The standard 21-column customer-pool CSV workflow: strict parsing, value
   reconciliation, preview/commit, row-level persistence and authorized CSV export.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing

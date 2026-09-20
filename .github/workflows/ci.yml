@@ -34,6 +34,8 @@ jobs:
         run: python -m pip check
       - name: Distribution and private recovery guards
         run: python -m unittest discover -s tests -v
+      - name: Deterministic source release manifest
+        run: python scripts/release_manifest.py --require-clean
       - name: Browser script contracts (no real platform requests)
         run: node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
       - name: Complete synthetic SQLite compatibility regression

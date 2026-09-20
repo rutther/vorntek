@@ -76,7 +76,7 @@ inputs have documented extension boundaries.
   mutating state.
 - [ ] Prove empty PostgreSQL 18 installation, 0.1.0-rc.1-to-current upgrade,
   repeat execution and rejected downgrade/unknown-ledger behavior.
-- [ ] Add a release manifest tying source version, migration tip and website asset
+- [x] Add a release manifest tying source version, migration tip and website asset
   build together.
 - [x] Document stop-writers, backup, upgrade, health verification and
   rollback/restore as one operator runbook.

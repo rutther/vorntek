@@ -52,6 +52,7 @@ class CIContractTests(unittest.TestCase):
         commands = '\n'.join(step.get('run', '') for job in workflow['jobs'].values() for step in job['steps'])
         for required in ('scripts/run_application_tests.py', 'scripts/test_postgres_install.py', '--http',
                          'docker compose build', 'scripts/check_local_stack.py',
+                         'scripts/release_manifest.py --require-clean',
                          'release_preflight --strict', 'maintenance --help'):
             self.assertIn(required, commands)
 
