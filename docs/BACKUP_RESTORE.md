@@ -223,8 +223,10 @@ delete the ledger, candidate store or serving directory to force a retry.
 After a successful apply, start the stack, verify the public pages through the
 loopback entrypoint, restart CRM and website, and verify again. This source path
 has local unit coverage and is included in the new Linux synthetic acceptance
-gate, but it must not be called runtime-accepted until that gate succeeds for the
-exact release commit.
+gate. The standalone PostgreSQL lifecycle additionally restores both the database
+and a `crm_runtime` file snapshot to new targets, runs this public command, and
+requires the database fingerprint to remain unchanged. Neither encoded gate may
+be called runtime-accepted until it succeeds for the exact release commit.
 
 ## Rollback / 回退
 

@@ -59,6 +59,15 @@ class CIContractTests(unittest.TestCase):
                          'docker compose restart crm website',
                          '/articles/acceptance-guide/'):
             self.assertIn(required, commands)
+        postgres_runner = (ROOT/'scripts'/'test_postgres_install.py').read_text(
+            encoding='utf-8'
+        )
+        for required in (
+            'file_archive.py',
+            'reconcile_website_serving_cache',
+            'restored_database_and_runtime_rebuild_serving_cache_without_database_writes',
+        ):
+            self.assertIn(required, postgres_runner)
 
     def test_socket_guard_recognizes_only_loopback(self):
         runner = load_script('run_application_tests')

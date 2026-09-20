@@ -51,6 +51,14 @@ through Nginx before and after restarting CRM and Nginx. Adding this step is not
 evidence that it passed; status documents must cite the exact remote run before
 claiming Linux acceptance.
 
+The standalone PostgreSQL lifecycle now also snapshots the real synthetic
+`crm_runtime` candidate tree with `file_archive.py`, restores it to a new root,
+restores the database to a separate database, and invokes the public
+`reconcile_website_serving_cache` command against a third empty serving root. It
+requires an unchanged full database fingerprint, a relative target pointer and a
+verified target version. This is encoded current-source coverage, not a claim that
+the unpushed Linux job has already succeeded.
+
 ## Current local evidence
 
 - `run_application_tests.py`: 805 tests in 659.008s, 797 passed, eight skipped,

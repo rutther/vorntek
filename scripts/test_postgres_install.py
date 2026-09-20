@@ -73,8 +73,8 @@ def main():
         'SITEOS_ADMIN_SECURE_SSL_REDIRECT': '0', 'NEWCROWN_ALLOW_EXTERNAL_IO': '0',
         'NEWCROWN_SITE_URL': 'http://localhost:8088',
         'NEWCROWN_SYNTHETIC_ACCEPTANCE': '1',
-        'SITEOS_ARTICLE_RELEASE_ROOT': str(runtime / 'acceptance-article-releases'),
-        'SITEOS_WEBSITE_RELEASE_ROOT': str(runtime / 'acceptance-website-releases'),
+        'SITEOS_ARTICLE_RELEASE_ROOT': str(runtime / 'acceptance-crm-runtime' / 'article-releases'),
+        'SITEOS_WEBSITE_RELEASE_ROOT': str(runtime / 'acceptance-crm-runtime' / 'website-releases'),
         'SITEOS_WEBSITE_SERVING_ROOT': str(runtime / 'acceptance-website-serving'),
         'SITEOS_WEBSITE_SOURCE_ROOT': str(ROOT / 'apps' / 'website'),
         'PYTHONIOENCODING': 'utf-8',
@@ -83,8 +83,16 @@ def main():
               'scope': 'unique local cluster; synthetic data only; no external integrations',
               'runtime_directory': str(runtime), 'checks': []}
 
-    def run(command, *, db='newcrown_install', expected=0, contains=None):
+    def run(
+        command,
+        *,
+        db='newcrown_install',
+        expected=0,
+        contains=None,
+        env_overrides=None,
+    ):
         child_env = dict(env, SITEOS_ADMIN_DATABASE_NAME=db, PGDATABASE=db)
+        child_env.update(env_overrides or {})
         # A Windows postgres child can inherit pg_ctl's pipe handles after
         # pg_ctl exits. Files avoid waiting for the server to close those pipes.
         with tempfile.TemporaryFile() as output_file:
@@ -187,6 +195,7 @@ def main():
             assert conn.execute("SELECT name FROM site WHERE code='siteos_demo'").fetchone()[0] == 'SYNTHETIC preserved configuration'
         checked('bootstrap_preserves_custom_site_settings')
 
+        restored_acceptance_runtime = None
         if os.name != 'nt':
             acceptance_output = manage(
                 'run_synthetic_website_deployment_acceptance',
@@ -210,6 +219,48 @@ def main():
                 'synthetic_website_selection_deploy_recovery_rollback_and_postgres_guards',
                 acceptance,
             )
+            acceptance_runtime = runtime / 'acceptance-crm-runtime'
+            runtime_snapshot = runtime / 'acceptance-runtime-snapshot'
+            restored_acceptance_runtime = runtime / 'restored-crm-runtime'
+            restored_acceptance_runtime.mkdir()
+            file_archive = ROOT / 'scripts' / 'file_archive.py'
+            run([
+                sys.executable,
+                file_archive,
+                'backup',
+                '--volume',
+                'crm-runtime',
+                '--root',
+                acceptance_runtime,
+                '--bundle',
+                runtime_snapshot,
+                '--writers-stopped',
+                '--apply',
+            ], contains='file_snapshot_created')
+            run([
+                sys.executable,
+                file_archive,
+                'verify',
+                '--volume',
+                'crm-runtime',
+                '--bundle',
+                runtime_snapshot,
+            ], contains='file_integrity_verified')
+            run([
+                sys.executable,
+                file_archive,
+                'restore',
+                '--volume',
+                'crm-runtime',
+                '--root',
+                restored_acceptance_runtime,
+                '--bundle',
+                runtime_snapshot,
+                '--trusted-snapshot',
+                '--writers-stopped',
+                '--apply',
+            ], contains='file_snapshot_restored')
+            checked('website_candidate_runtime_snapshot_restored_to_new_root')
         else:
             report['checks'].append({
                 'name': 'synthetic_website_deployment_posix_filesystem',
@@ -297,6 +348,73 @@ with patch('console.management.commands.initialize_database.load_chain', return_
         manage('check_unmanaged_schema', db='newcrown_restore')
         manage('shell', '-c', "from console.secret_store import load_secret; "
                "assert load_secret('synthetic.recovery') == 'synthetic-test-only'", db='newcrown_restore')
+        if restored_acceptance_runtime is not None:
+            recovery_serving = runtime / 'restored-website-serving'
+            recovery_env = {
+                'SITEOS_ARTICLE_RELEASE_ROOT': str(
+                    restored_acceptance_runtime / 'article-releases'
+                ),
+                'SITEOS_WEBSITE_RELEASE_ROOT': str(
+                    restored_acceptance_runtime / 'website-releases'
+                ),
+                'SITEOS_WEBSITE_SERVING_ROOT': str(recovery_serving),
+            }
+            manage(
+                'shell',
+                '-c',
+                'from django.conf import settings; '
+                'from console.website_serving_store import WebsiteServingStore; '
+                'WebsiteServingStore.initialize(settings.SITEOS_WEBSITE_SERVING_ROOT)',
+                db='newcrown_restore',
+                env_overrides=recovery_env,
+            )
+            before_reconcile = fingerprint('newcrown_restore')
+            plan_output = manage(
+                'reconcile_website_serving_cache',
+                '--site-code',
+                'siteos_demo',
+                '--expect-database',
+                'newcrown_restore',
+                db='newcrown_restore',
+                env_overrides=recovery_env,
+                contains='"result": "plan_only"',
+            )
+            plan = json.loads(
+                next(line for line in reversed(plan_output.splitlines()) if line.strip())
+            )
+            assert plan['action'] == 'rebuild_required'
+            apply_output = manage(
+                'reconcile_website_serving_cache',
+                '--site-code',
+                'siteos_demo',
+                '--expect-database',
+                'newcrown_restore',
+                '--expect-deployment-id',
+                str(plan['deploymentId']),
+                '--expect-serving-version',
+                plan['observedServingVersion'],
+                '--writers-stopped',
+                '--apply',
+                db='newcrown_restore',
+                env_overrides=recovery_env,
+                contains='"result": "reconciled"',
+            )
+            reconciled = json.loads(
+                next(line for line in reversed(apply_output.splitlines()) if line.strip())
+            )
+            assert reconciled['action'] == 'rebuilt'
+            assert reconciled['databaseRowsChanged'] is False
+            assert fingerprint('newcrown_restore') == before_reconcile
+            assert os.readlink(recovery_serving / 'current') == (
+                'releases/' + reconciled['targetVersion']
+            )
+            checked(
+                'restored_database_and_runtime_rebuild_serving_cache_without_database_writes',
+                {
+                    'deployment_id': reconciled['deploymentId'],
+                    'target_version': reconciled['targetVersion'],
+                },
+            )
         checked('custom_backup_restore_all_table_rows_and_schema',
                 {'sha256': hashlib.sha256(dump.read_bytes()).hexdigest(), 'bytes': dump.stat().st_size,
                  'tables': len(fingerprint('newcrown_install')),

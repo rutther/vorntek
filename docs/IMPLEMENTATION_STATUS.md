@@ -52,8 +52,10 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   and restart persistence. A separate plan-first recovery command can reconstruct
   a lost derived serving cache from the exact latest receipt and restored verified
   candidate without adding database history; its stale receipt/pointer and
-  stopped-writer guards are locally tested. The gate has not yet run for this
-  unpushed commit, so
+  stopped-writer guards are locally tested. The PostgreSQL lifecycle now encodes
+  a separate database restore plus `crm_runtime` snapshot/restore into new roots,
+  then applies this command while requiring a byte-stable database fingerprint.
+  The gate has not yet run for this unpushed commit, so
   Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
 - Post-change local validation passes 49 repository checks, 23 JavaScript
@@ -94,7 +96,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
 | Sales and roles | Assignment, qualification, conversion, follow-up task, handover and denied cross-user paths tested over actual HTTP | [Deployed role checks](review/DEPLOYED_ROLES_20260913.md); temporary accounts disabled |
 | Accounts | Hashed passwords, restricted admin management, one-time credential receipt, session invalidation and redaction | [Account security](ACCOUNT_SECURITY.md); no fixed default password |
 | Database lifecycle | 32 canonical SQL migrations in the working source; guarded initialization, upgrade, locks, failure rollback, independent restore | Migrations 0028–0032 are locally checked but still need PostgreSQL/Compose upgrade acceptance; prior evidence: [PostgreSQL acceptance](POSTGRES_ACCEPTANCE.md), [container acceptance](CONTAINER_ACCEPTANCE.md) |
-| Recovery | Actual prior synthetic 70-table restore, schema/sequence checks, vault decryption and independent file-volume recovery; current source adds receipt-bound serving-cache reconstruction without fake deployment rows | [Recovery guide](BACKUP_RESTORE.md), [image/recovery evidence](review/IMAGE_SECURITY_20260913.md); new serving-cache path still needs current-commit Linux execution and this is not original-company data migration |
+| Recovery | Actual prior synthetic 70-table restore, schema/sequence checks, vault decryption and independent file-volume recovery; current source adds a combined new-database/new-runtime-root receipt-bound serving-cache reconstruction gate without fake deployment rows | [Recovery guide](BACKUP_RESTORE.md), [image/recovery evidence](review/IMAGE_SECURITY_20260913.md); the new combined path still needs current-commit Linux execution and this is not original-company data migration |
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
 | Export | Authenticated XLSX bytes, hash, sheets and expected records checked | Actual browser save-to-disk remains unconfirmed |
 | Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
