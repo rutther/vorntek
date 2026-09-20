@@ -15,6 +15,8 @@ The complete source and [v0.1.0-rc.1](https://github.com/rutther/vorntek/release
 are public. Both [release CI jobs](https://github.com/rutther/vorntek/actions/runs/34712023363)
 passed; independent clone installation, inquiry/login and restart checks passed.
 See [delivery evidence and remaining limits](docs/PUBLIC_DELIVERY.md).
+The current development version is recorded in [`VERSION`](VERSION) and returned
+by `/healthz/`; it is not a release until the acceptance ledger is complete.
 
 ## Included
 
@@ -23,7 +25,8 @@ See [delivery evidence and remaining limits](docs/PUBLIC_DELIVERY.md).
 - One inquiry controller for homepage and contact page, preserving business area,
   requirements and application context in the CRM.
 - Staff accounts/roles, leads, customer pool, assignments, tasks, opportunities,
-  import templates and background XLSX exports.
+  import templates, strict 21-column customer-pool CSV round trips and background
+  XLSX exports.
 - Canonical SQL installation, persistent database/files, health checks, guarded
   backup/restore and a default-paused integration scheduler.
 - Optional measurement contracts. Meta, Google advertising measurement, email and

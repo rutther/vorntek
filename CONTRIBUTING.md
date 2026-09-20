@@ -1,8 +1,10 @@
 # Contributing / 开发协作
 
-This candidate is not yet published and has no selected open-source license.
-Do not assume permission to redistribute included media or third-party material.
-The owner must confirm the license and public content before GitHub publication.
+This source repository is public under the project [MIT license](LICENSE). That
+license covers project code only: third-party components and media retain their
+own terms in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Do not add private
+company data, production configuration, or material without redistribution
+evidence.
 
 ## Local development
 
@@ -20,7 +22,7 @@ selects versions. Review updates rather than silently refreshing all packages.
 python -m pip install -r apps/crm/requirements.lock -r requirements-dev.txt
 python -m pip check
 python -m unittest discover -s tests -v
-node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs
+node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
 python scripts/run_application_tests.py
 ```
 
@@ -31,7 +33,8 @@ not an OS network sandbox or real platform acceptance. Use a credential-free tes
 process; actual PostgreSQL/Compose checks are described in [CI](docs/CI.md).
 
 开发与测试只使用合成数据。未经单独授权，不部署服务器、不提交真实表单、不迁移
-客户文件、不操作 Meta/广告、不恢复 WhatsApp、不公开 GitHub 或上传镜像。
+客户文件、不操作 Meta/广告、不恢复 WhatsApp、不上传预构建镜像。向现有 GitHub
+仓库提交源码必须先通过本文件规定的审查与测试；生产部署仍需单独授权。
 
 ## Changes and review
 

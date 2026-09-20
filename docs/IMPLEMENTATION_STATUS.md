@@ -1,6 +1,20 @@
 # Implementation status / 实现状态
 
-Observed 2026-09-13. **Public source pre-release; full goal acceptance remains open.**
+Observed 2026-09-20. **Public source pre-release; full goal acceptance remains open.**
+
+## Active engineering baseline
+
+- The working source version is `0.2.0-dev.1`; `/healthz/` now reports the
+  service and source version. This is not a release tag.
+- Migrations 0028–0029 and the generic standard 21-column customer-pool import/export
+  workflow are under active verification. Eleven focused tests and 42 existing
+  customer-pool/navigation tests pass locally.
+- The pre-change baseline remains 44 repository checks, 23 JavaScript contracts
+  and 669 Django tests with seven explicit skips. Full post-change, PostgreSQL 18,
+  Compose and clean-clone acceptance are still required.
+- Read-only production comparison uses the Hong Kong `filline.com` stack as the
+  business reference. No Hong Kong service or data was changed. See the active
+  [engineering plan](ENGINEERING_PLAN.md).
 
 ## Current delivery
 
@@ -25,7 +39,7 @@ Observed 2026-09-13. **Public source pre-release; full goal acceptance remains o
 | Forms and CRM | Invalid input refused, successful inquiry persisted once, replay deduplicated; business context visible in authenticated CRM | [HTTP evidence](HTTP_ACCEPTANCE.md), [deployed evidence](VORNTEK_DEPLOYMENT.md); synthetic only |
 | Sales and roles | Assignment, qualification, conversion, follow-up task, handover and denied cross-user paths tested over actual HTTP | [Deployed role checks](review/DEPLOYED_ROLES_20260913.md); temporary accounts disabled |
 | Accounts | Hashed passwords, restricted admin management, one-time credential receipt, session invalidation and redaction | [Account security](ACCOUNT_SECURITY.md); no fixed default password |
-| Database lifecycle | 27 canonical SQL migrations; guarded initialization, upgrade, locks, failure rollback, independent restore | [PostgreSQL acceptance](POSTGRES_ACCEPTANCE.md), [container acceptance](CONTAINER_ACCEPTANCE.md) |
+| Database lifecycle | 29 canonical SQL migrations in the working source; guarded initialization, upgrade, locks, failure rollback, independent restore | Migrations 0028–0029 are locally checked but still need PostgreSQL/Compose upgrade acceptance; prior evidence: [PostgreSQL acceptance](POSTGRES_ACCEPTANCE.md), [container acceptance](CONTAINER_ACCEPTANCE.md) |
 | Recovery | Actual synthetic 70-table restore, schema/sequence checks, vault decryption and independent file-volume recovery | [Recovery guide](BACKUP_RESTORE.md), [image/recovery evidence](review/IMAGE_SECURITY_20260913.md); not original-company data migration |
 | Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
 | Export | Authenticated XLSX bytes, hash, sheets and expected records checked | Actual browser save-to-disk remains unconfirmed |
