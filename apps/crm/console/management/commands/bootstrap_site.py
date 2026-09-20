@@ -22,6 +22,12 @@ class Command(BaseCommand):
         # Keep the existing single-site lookup contract. Changing this requires a separate migration.
         site, created = Site.objects.get_or_create(code='siteos_demo', defaults={
             'name': os.getenv('VORNTEK_SITE_NAME', os.getenv('NEWCROWN_SITE_NAME', 'Vorntek')), 'base_url': url, 'default_locale': 'en',
+            'config_json': {
+                'articleDelivery': {
+                    'baseRouteMode': 'shared',
+                    'brandLogoUrl': '/assets/vorntek/vorntekLogo.png',
+                }
+            },
         })
         for code, label, direction in [('en', 'English', 'ltr'), ('zh', '中文', 'ltr')]:
             SiteLocale.objects.get_or_create(site=site, locale_code=code, defaults={

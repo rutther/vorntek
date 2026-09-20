@@ -49,6 +49,7 @@ def render_markdown(
     article_links: dict | None = None,
     public_origin: str = '',
     default_locale: str = 'en',
+    base_route_mode: str = 'localized',
 ) -> str:
     parser = MarkdownIt('commonmark', {'html': False}).enable('table')
     parser.validateLink = _safe_markdown_link
@@ -99,7 +100,11 @@ def render_markdown(
                     in ('products', 'company', 'technology', 'solutions', 'service', 'contact', 'privacy')
                     or destination.path == '/articles/'
                 ):
-                    prefix = '' if locale == default_locale else '/' + locale
+                    prefix = (
+                        ''
+                        if base_route_mode == 'shared' or locale == default_locale
+                        else '/' + locale
+                    )
                     child.attrSet('href', prefix + href)
     rendered = parser.renderer.render(tokens, parser.options, {})
     return rendered.replace(
@@ -146,12 +151,16 @@ def render_article_documents(release: dict, *, preview: bool = True) -> dict[str
     documents = {}
     locale_rows = release['locales']
     default_locale = release['defaultLocale']
+    base_route_mode = release.get('baseRouteMode', 'localized')
+    if base_route_mode not in {'localized', 'shared'}:
+        raise ArticleDeliveryError('invalid_base_route_mode')
     for locale_row in locale_rows:
         language = locale_row['code']
         direction = locale_row['direction']
         label = locale_row['label']
         t = _copy(language)
         prefix = '' if language == default_locale else '/' + language
+        base_prefix = '' if base_route_mode == 'shared' else prefix
         rows = [row for row in release['articles'] if row['language'] == language]
         article_links = {}
         for source in release['articles']:
@@ -170,10 +179,11 @@ def render_article_documents(release: dict, *, preview: bool = True) -> dict[str
             'brandLogoUrl': release['brandLogoUrl'],
             't': t,
             'prefix': prefix,
+            'basePrefix': base_prefix,
             'preview': preview,
             'releaseHash': release['releaseSha256'],
             'nav': [
-                {'label': t[key], 'href': prefix + '/' + key + '/'}
+                {'label': t[key], 'href': base_prefix + '/' + key + '/'}
                 for key in (
                     'company',
                     'products',
@@ -229,7 +239,7 @@ def render_article_documents(release: dict, *, preview: bool = True) -> dict[str
                                 '@type': 'ListItem',
                                 'position': 1,
                                 'name': release['siteName'],
-                                'item': release['publicOrigin'] + prefix + '/',
+                                'item': release['publicOrigin'] + base_prefix + '/',
                             },
                             {
                                 '@type': 'ListItem',
@@ -284,6 +294,7 @@ def render_article_documents(release: dict, *, preview: bool = True) -> dict[str
                             article_links=article_links,
                             public_origin=release['publicOrigin'],
                             default_locale=default_locale,
+                            base_route_mode=base_route_mode,
                         )
                     )
                     if row

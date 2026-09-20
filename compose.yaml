@@ -21,7 +21,10 @@ x-crm: &crm
     NEWCROWN_SITE_URL: ${NEWCROWN_SITE_URL:-http://localhost:8088}
     SITEOS_ADMIN_STATIC_ROOT: /app/staticfiles
     SITEOS_ARTICLE_PREVIEW_ROOT: /app/.runtime/article-previews
-    SITEOS_ARTICLE_PREVIEW_ASSET_ROOT: /app/article-preview-assets
+    SITEOS_ARTICLE_PREVIEW_ASSET_ROOT: /app/website-source
+    SITEOS_ARTICLE_RELEASE_ROOT: /app/.runtime/article-releases
+    SITEOS_WEBSITE_SOURCE_ROOT: /app/website-source
+    SITEOS_WEBSITE_RELEASE_ROOT: /app/.runtime/website-releases
     SITEOS_ARTICLE_PUBLIC_ORIGIN: ${NEWCROWN_ARTICLE_PUBLIC_ORIGIN:-https://vorntek.example}
     SITEOS_ASSET_STORAGE_ROOTS: /data/assets
     SITEOS_CRM_ATTACHMENT_STORAGE_ROOT: /data/crm-attachments

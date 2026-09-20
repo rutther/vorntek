@@ -150,6 +150,13 @@ class ArticleDeliveryContractTests(unittest.TestCase):
             with self.subTest(code=code):
                 self.assert_invalid(code, [], locales=locales)
 
+    def test_base_route_mode_is_digest_bound_and_validated(self):
+        localized = self.build([self.version()], base_route_mode='localized')
+        shared = self.build([self.version()], base_route_mode='shared')
+        self.assertEqual(shared['baseRouteMode'], 'shared')
+        self.assertNotEqual(localized['releaseSha256'], shared['releaseSha256'])
+        self.assert_invalid('invalid_base_route_mode', [], base_route_mode='unknown')
+
     def test_release_contains_no_editor_or_model_configuration(self):
         release = self.build([self.version()])
         serialized = json.dumps(release)

@@ -139,6 +139,32 @@ class ArticleRenderingTests(unittest.TestCase):
             self.assertNotIn('meta-pixel', text)
             self.assertEqual(text.count('<script'), 1)
 
+    def test_shared_base_routes_keep_translated_articles_on_valid_vorntek_pages(self):
+        release = build_article_release(
+            [
+                ArticleVersion(
+                    content_key='guide',
+                    locale=language,
+                    slug='guide',
+                    title='Guide',
+                    markdown='[Product](/products/)',
+                    status='published',
+                    route_status='published',
+                )
+                for language in ('en', 'zh')
+            ],
+            locales=self.locales,
+            site_code='testSite',
+            site_name='Vorntek',
+            public_origin='https://example.invalid',
+            base_route_mode='shared',
+        )
+        text = render_article_documents(release)['zh/articles/guide/index.html']
+        self.assertIn('href="/company/"', text)
+        self.assertIn('href="/products/">Product', text)
+        self.assertIn('href="/zh/articles/"', text)
+        self.assertNotIn('href="/zh/company/"', text)
+
     def test_title_and_schema_json_cannot_break_out_of_script(self):
         release = build_article_release(
             [

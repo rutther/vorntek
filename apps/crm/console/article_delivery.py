@@ -160,6 +160,7 @@ def build_article_release(
     site_name: str,
     public_origin: str,
     brand_logo_url: str = '',
+    base_route_mode: str = 'localized',
 ) -> dict:
     """Freeze public versions and explicit language relationships.
 
@@ -176,6 +177,8 @@ def build_article_release(
     locale_map, default_locale = _validate_locales(locales)
     origin = _public_origin(public_origin)
     logo = _public_asset_url(brand_logo_url)
+    if base_route_mode not in {'localized', 'shared'}:
+        raise ArticleDeliveryError('invalid_base_route_mode')
     articles, identities, paths, redirects = [], set(), set(), {}
     groups: dict[str, dict[str, str]] = {}
 
@@ -255,6 +258,7 @@ def build_article_release(
         'siteCode': site_code,
         'siteName': clean_site_name,
         'brandLogoUrl': logo,
+        'baseRouteMode': base_route_mode,
         'publicOrigin': origin,
         'defaultLocale': default_locale,
         'locales': [
@@ -349,4 +353,5 @@ def snapshot_cms_articles(*, site, public_origin: str) -> dict:
         site_name=site.name,
         public_origin=public_origin,
         brand_logo_url=str(delivery_config.get('brandLogoUrl') or ''),
+        base_route_mode=str(delivery_config.get('baseRouteMode') or 'localized'),
     )

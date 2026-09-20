@@ -66,7 +66,7 @@ host paths or regional research records may enter this repository.
 - `console/article_delivery.py` — adapted: product-neutral deterministic release contract; no host or brand coupling.
 - `console/article_exports.py`
 - `console/article_imports.py`
-- `console/article_isolated_publish.py`
+- `console/article_isolated_publish.py` — not copied: its preview-store pointer is not a whole-site deployment; replaced by a separately tested whole-site candidate/store design.
 - `console/article_preview.py` — adapted: server-configured whole-published-site private preview, version-bound review record and no activation.
 - `console/article_preview_reader.py` — adapted and hardened: strict HTML rewrite, manifest-known links, referenced Vorntek assets only and network-silent CSS.
 - `console/article_release_store.py` — adapted: product-neutral locale paths, owner-marked private roots, immutable artifacts and CAS activation.
@@ -88,11 +88,11 @@ host paths or regional research records may enter this repository.
 - `requirements.lock` — accepted only with locked Markdown parser, current-host license evidence and tests; Linux image reinventory remains required.
 - `requirements.txt` — accepted only with the renderer slice.
 
-The snapshot/rendering, private immutable store, pinned build-input and
-authenticated network-silent preview paths above form the accepted article
-artifact sub-slice. Operator approval, whole-site composition with frozen assets,
-activation, workspace and remaining shared view/router changes remain under
-review. The internal artifact pointer is not a production deployment.
+The snapshot/rendering, private immutable store, pinned build-input,
+authenticated network-silent preview and exact whole-site candidate paths form
+the accepted delivery sub-slice. Operator approval/selection, a verified Nginx
+serving switch/rollback, workspace and remaining shared view/router changes remain
+under review. Internal artifact pointers are not a production deployment.
 See [`ARTICLE_DELIVERY.md`](ARTICLE_DELIVERY.md). The Markdown dependency is
 accepted only with the renderer and its security tests, never as unexplained
 lock-file drift.
@@ -178,8 +178,8 @@ The lists above are mechanically compared with `git diff --name-only
 d44dfdb..7ed9c56`; no changed path may be unclassified or appear twice. The
 next implementation slices are:
 
-1. operator-approved whole-site composition, asset freezing and activation as
-   distinct article-delivery lifecycle layers;
+1. operator-approved candidate selection and a verified Nginx serving
+   switch/rollback as distinct article-delivery lifecycle layers;
 2. a new guided-loop state model, if retained, rather than copying current
    production semantics;
 3. a documented extension boundary for user-supplied research data, without any

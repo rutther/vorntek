@@ -147,6 +147,15 @@ SITEOS_ARTICLE_PREVIEW_ROOT = Path(
 SITEOS_ARTICLE_PREVIEW_ASSET_ROOT = Path(
     os.getenv('SITEOS_ARTICLE_PREVIEW_ASSET_ROOT', BASE_DIR.parent / 'website')
 )
+SITEOS_ARTICLE_RELEASE_ROOT = Path(
+    os.getenv('SITEOS_ARTICLE_RELEASE_ROOT', BASE_DIR / '.runtime' / 'article-releases')
+)
+SITEOS_WEBSITE_SOURCE_ROOT = Path(
+    os.getenv('SITEOS_WEBSITE_SOURCE_ROOT', BASE_DIR.parent / 'website')
+)
+SITEOS_WEBSITE_RELEASE_ROOT = Path(
+    os.getenv('SITEOS_WEBSITE_RELEASE_ROOT', BASE_DIR / '.runtime' / 'website-releases')
+)
 SITEOS_ARTICLE_PUBLIC_ORIGIN = os.getenv(
     'SITEOS_ARTICLE_PUBLIC_ORIGIN', 'https://vorntek.example'
 )

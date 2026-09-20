@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from .article_build_input import read_active_article_build_input
+from .article_build_input import read_active_article_build_input, read_article_build_input
 from .article_delivery import (
     ArticleDeliveryError,
     ArticleLocale,
@@ -31,14 +31,14 @@ class ArticleBuildInputTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def release(self, *, empty=False):
+    def release(self, *, empty=False, body='Complete public body'):
         versions = [] if empty else [
             ArticleVersion(
                 content_key='guide',
                 locale=language,
                 slug='guide',
                 title='Guide',
-                markdown='Complete public body',
+                markdown=body,
                 status='published',
                 route_status='published',
             )
@@ -70,6 +70,19 @@ class ArticleBuildInputTests(unittest.TestCase):
             read_active_article_build_input(
                 self.store, expected_version=self.version, release_mode=True
             )
+
+    def test_explicit_verified_version_can_feed_composer_without_activation(self):
+        other = self.store.stage(self.release(body='Changed complete public body'))
+        self.assertNotEqual(other, self.version)
+
+        result = read_article_build_input(
+            self.store,
+            version=other,
+            release_mode=False,
+        )
+
+        self.assertEqual(result['version'], other)
+        self.assertEqual(self.store.current(), self.version)
 
     def test_stale_or_changing_pointer_is_rejected(self):
         with self.assertRaisesRegex(ArticleDeliveryError, 'active_version_changed'):

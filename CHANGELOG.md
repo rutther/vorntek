@@ -28,6 +28,9 @@ certifications.
   compare-and-swap activation, withdrawal/rollback and pinned read-only build input.
 - Authenticated, site-scoped article private preview with version-bound review records,
   traversal-safe referenced assets and network-silent no-store/CSP responses.
+- An immutable whole-site candidate store that freezes the checked-in website and
+  live-mode article artifact, verifies internal links and records exact source
+  versions without selecting or deploying the candidate.
 - Migration `0028_customer_pool_standard21.sql` without rewriting the existing
   27-migration history.
 - Append-only migration 0029, which requires pool-row batch/row references to be

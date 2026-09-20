@@ -73,9 +73,12 @@ the classifications above; unknown files are not silently shipped.
 - [x] Add authenticated, site-scoped private article preview with immutable
   artifacts, version-bound review records, traversal-safe referenced assets and a network-silent response
   policy; preview generation never changes an active pointer.
+- [x] Compose the complete checked-in website and live-mode article artifact into
+  one immutable candidate, with frozen CSS/JS/images, internal-link verification,
+  source-drift refusal and audited version bindings; no pointer is selected.
 - [ ] Compare remaining generic article delivery and CRM improvements against the
-  public abstractions; next review operator approval plus whole-site composition,
-  asset freezing and activation as separate lifecycle layers.
+  public abstractions; next review operator approval/selection and a verified
+  Nginx serving switch/rollback as separate lifecycle layers.
 - [ ] Correct the guided-loop semantics before considering any public inclusion.
 
 Exit condition: generic Hong Kong capabilities selected for the public product
