@@ -61,7 +61,7 @@ the unpushed Linux job has already succeeded.
 
 ## Current local evidence
 
-- `run_application_tests.py`: 806 tests in 519.131s, 798 passed, eight skipped,
+- `run_application_tests.py`: 808 tests in 525.532s, 800 passed, eight skipped,
   zero failures. Django system checks reported no issues. The existing Windows
   virtual environment was used, not the CI job's declared Python3.12.12/Linux
   environment.
@@ -72,13 +72,13 @@ the unpushed Linux job has already succeeded.
   pip could use its download cache, and the source was local rather than an
   anonymous GitHub clone. See the
   [clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md).
-- A clean history audit from `v0.1.0-rc.1` through `e971f9c` inspected 32 commits,
-  609 introduced objects and 359 blob/path bindings, including objects later
+- A clean history audit from `v0.1.0-rc.1` through `6faa136` inspected 35 commits,
+  634 introduced objects and 369 blob/path bindings, including objects later
   deleted and content reused under more than one changed path. It found zero
   blocked secret/privacy/distribution inputs; the largest introduced blob was
   142,197 bytes. CI now fetches full history and repeats this gate. See the
   [source-history review](review/SOURCE_HISTORY_REVIEW_20260921.md).
-- Unit/distribution/CI/documentation checks: 63 passed. Four distribution
+- Unit/distribution/CI/documentation checks: 66 passed. Four distribution
   checks bind the 45-path private-exclusion ledger and reject tracked secret,
   backup/key and known production-identifier inputs; another binds Nginx route
   and privacy-minimal access-log contracts. Five documentation checks bind the

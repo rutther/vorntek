@@ -59,9 +59,12 @@ the classifications above; unknown files are not silently shipped.
   21-column data model.
 - [x] Add strict CSV parsing, deterministic value reconciliation, bounded upload,
   idempotent preview/commit and persisted source rows.
-- [x] Add authorized deterministic CSV export and round-trip tests.
+- [x] Add authorized deterministic CSV export, round-trip tests and formula-prefix
+  neutralization that preserves valid international phone text.
 - [x] Add safe bulk review/publish with deterministic route selection,
-  per-company transactions, itemized failures and role-denial coverage.
+  per-company transactions, itemized failures and role-denial coverage; when a
+  standard-21 ledger exists, route selection fails closed instead of falling back
+  to older unmapped contact evidence.
 - [x] Complete customer-pool filtering, dense view and controlled column
   selection without importing private research adapters.
 - [x] Add the product-neutral article snapshot and safe-rendering core, with

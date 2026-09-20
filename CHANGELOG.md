@@ -75,9 +75,12 @@ certifications.
   batch when the same file is previewed again.
 - The customer import page accepts the standard CSV format with bounded reads.
 - The review queue can publish explicit selections without bypassing the existing
-  single-record review gate; restricted routes stay in review for manual handling.
+  single-record review gate; standard-21 rows are authoritative and restricted
+  routes cannot fall back to older unmapped contact evidence.
 - Customer-pool exports now preserve the active neutral filters and offer an
-  explicit standard-21 column picker while keeping phone and email as required keys.
+  explicit standard-21 column picker while keeping phone and email as required
+  keys. CSV output neutralizes spreadsheet-formula prefixes without rewriting
+  syntactically valid international phone text.
 - Customer detail pages now show value, all standard-21 routes in deterministic
   order, hard-restriction warnings and neutral contact provenance labels.
 - Python dependency evidence is bound to the exact lock-file hash; the earlier

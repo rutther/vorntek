@@ -58,8 +58,11 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   The gate has not yet run for this unpushed commit, so
   Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
-- Post-change local validation passes 63 repository checks, 23 JavaScript
-  contracts and 806 Django tests with eight explicit skips. A separate no-local,
+- Post-change local validation passes 66 repository checks, 23 JavaScript
+  contracts and 808 Django tests with eight explicit skips. The latest security
+  regressions prove that restricted standard-21 rows cannot fall back to older
+  unmapped contact evidence and that CSV formula prefixes are neutralized while
+  valid international phone text remains stable. A separate no-local,
   no-hardlink clone of exact commit `ac83ca4` also passed a fresh locked dependency
   install, `pip check`, the same 63 + 23 checks and all 806 Django tests in
   520.232 seconds, then remained Git-clean. This proves source reconstruction on
@@ -97,7 +100,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   UI evidence and still requires packaged Linux repetition; see the
   [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
 - Candidate history now has a repeatable fail-closed audit from the trusted RC1
-  tag. The clean `e971f9c` run covered 32 commits, 609 introduced objects and 359
+  tag. The clean `6faa136` run covered 35 commits, 634 introduced objects and 369
   blob/path bindings (including later-deleted objects and reused content under
   every changed path), found zero blocked secret/privacy or distribution inputs,
   and is repeated by full-history CI. Pattern scanning is
