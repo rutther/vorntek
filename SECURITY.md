@@ -36,7 +36,8 @@ authorized owner rather than relying on deleting a Git commit or chat message.
 
 Account, socket-guard and recovery tests are useful but limited. Current evidence
 and unresolved requirements are recorded in [implementation status](docs/IMPLEMENTATION_STATUS.md),
-[account security](docs/ACCOUNT_SECURITY.md), and [backup/recovery](docs/BACKUP_RESTORE.md).
+[account security](docs/ACCOUNT_SECURITY.md), [backup/recovery](docs/BACKUP_RESTORE.md),
+and the current candidate's [source security review](docs/review/SECURITY_REVIEW_20260921.md).
 
 ## Release requirements
 

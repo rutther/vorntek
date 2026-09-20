@@ -57,6 +57,7 @@ certifications.
   capability and immutable site/candidate selection ledger.
 - Append-only migration 0032, which adds deployment permission, recoverable
   operation transitions, selection/deployment binding and immutable receipts.
+- A pinned Python dependency vulnerability audit in candidate CI.
 
 ### Changed
 
@@ -73,6 +74,9 @@ certifications.
   Linux image inventory is retained as historical evidence instead of being
   relabeled after Markdown dependencies were added.
 - The packaging regression now verifies the complete 32-migration chain.
+- Django is updated within the 5.2 LTS line from 5.2.13 to the 5.2.17 security
+  patch. Provider errors and default access logs are consistently redacted, and
+  gateway/parser upload limits now match each accepted application route.
 
 ## [0.1.0-rc.1] - 2026-09-13
 

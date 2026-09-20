@@ -1,6 +1,6 @@
 {
   "scope": "installed locked Python distributions; not license approval or image verification",
-  "requirements_lock_sha256": "29173d57d0f6850676ea16c6f939515165158f5611971d032a544dea44a80df6",
+  "requirements_lock_sha256": "a5c672798d1d6be45bb9614f34aed6e2fb04759d86d9c64fe152f24f423dde69",
   "packages": [
     {
       "name": "asgiref",
@@ -84,7 +84,7 @@
     },
     {
       "name": "Django",
-      "version": "5.2.13",
+      "version": "5.2.17",
       "license_metadata": "BSD-3-Clause",
       "declared_license_files": [
         "LICENSE",

@@ -625,6 +625,13 @@ class RoleWorkbenchQueryTests(TestCase):
         self.assertNotIn('+1 415 555 0100', rendered_payload)
         self.assertIn('[邮箱已隐藏]', rendered_payload)
 
+        admin_payload = repr(self._build(self.admin, params={'limit': '10'}))
+        self.assertNotIn('private@example.com', admin_payload)
+        self.assertNotIn('+65 9123 4567', admin_payload)
+        self.assertNotIn('another@example.com', admin_payload)
+        self.assertNotIn('+1 415 555 0100', admin_payload)
+        self.assertIn('[邮箱已隐藏]', admin_payload)
+
     def test_marketing_overview_counts_unscheduled_failed_event_as_due_retry(self):
         from .marketing_queries import build_marketing_overview
 

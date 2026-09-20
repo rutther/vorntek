@@ -138,6 +138,14 @@ TIME_ZONE = 'Asia/Shanghai'
 USE_I18N = True
 USE_TZ = True
 
+# Keep ordinary form/JSON parsing bounded and stream uploaded files to the
+# temporary-file handler. Nginx applies tighter per-route request-body limits;
+# endpoint services still enforce their own content and uncompressed-size caps.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 1 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+DATA_UPLOAD_MAX_NUMBER_FILES = 20
+
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATIC_ROOT = Path(os.getenv('SITEOS_ADMIN_STATIC_ROOT', BASE_DIR / 'staticfiles'))
@@ -187,7 +195,7 @@ EMAIL_BACKEND = os.getenv('SITEOS_EMAIL_BACKEND', 'django.core.mail.backends.smt
 EMAIL_HOST = os.getenv('SITEOS_EMAIL_HOST', 'localhost')
 EMAIL_PORT = int(os.getenv('SITEOS_EMAIL_PORT', '25'))
 EMAIL_HOST_USER = os.getenv('SITEOS_EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('SITEOS_EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_PASSWORD = secret_value('SITEOS_EMAIL_HOST_PASSWORD')
 EMAIL_USE_TLS = env_bool('SITEOS_EMAIL_USE_TLS')
 EMAIL_USE_SSL = env_bool('SITEOS_EMAIL_USE_SSL')
 EMAIL_TIMEOUT = int(os.getenv('SITEOS_EMAIL_TIMEOUT', '8'))

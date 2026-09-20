@@ -136,8 +136,11 @@ completes consistently or stops without concealing partial state.
   verify record counts, sequences, file hashes and vault decryption.
 - [ ] Verify restart persistence, worker shutdown/restart and scheduler-disabled
   defaults with actual containers.
-- [ ] Review permissions, input limits, audit/log redaction, secret mounts and
-  dependency advisories for the release commit.
+- [x] Review permissions, input limits, audit/log redaction, secret mounts and
+  Python dependency advisories. The source review fixed stale Django, raw
+  provider-error/access-log exposure and mismatched upload limits; exact Linux
+  container privilege, Nginx and image-layer evidence remains part of the
+  runtime/release gates. See [`review/SECURITY_REVIEW_20260921.md`](review/SECURITY_REVIEW_20260921.md).
 - [x] Add static distribution checks that bind the 45-path private-exclusion
   ledger and reject its re-entry, secret/token shapes, credential URLs, key or
   backup artifacts, known production identifiers and retired-host scripts from

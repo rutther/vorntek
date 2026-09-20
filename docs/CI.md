@@ -61,13 +61,18 @@ the unpushed Linux job has already succeeded.
 
 ## Current local evidence
 
-- `run_application_tests.py`: 805 tests in 659.008s, 797 passed, eight skipped,
+- `run_application_tests.py`: 806 tests in 519.131s, 798 passed, eight skipped,
   zero failures. Django system checks reported no issues. The existing Windows
   virtual environment was used, not the CI job's declared Python3.12.12/Linux
   environment.
-- Unit/distribution/CI configuration checks: 53 passed. Four new distribution
+- Unit/distribution/CI configuration checks: 55 passed. Four distribution
   checks bind the 45-path private-exclusion ledger and reject tracked secret,
-  backup/key and known production-identifier inputs. Node VM tests: 23 passed.
+  backup/key and known production-identifier inputs; another binds Nginx route
+  and privacy-minimal access-log contracts. Node VM tests: 23 passed.
+- `pip check` passed after upgrading the locked Django patch to 5.2.17. A local
+  `pip-audit 2.10.1` run against the exact lock returned no known vulnerabilities;
+  CI now repeats the same audit. This result is time-bound and does not scan OS
+  packages or container layers.
 - PG17.11 `test_postgres_install.py --http`: 23 aggregate checks passed, including
   the actual smoke script. The HTTP server and unique cluster stopped. Private
   synthetic evidence is retained outside Git in the operator's private test directory.

@@ -14,6 +14,12 @@ from siteos_admin.schema_install import Migration, load_chain, pending_migration
 
 
 class PackagingTests(SimpleTestCase):
+    def test_request_parsing_and_in_memory_uploads_are_bounded(self):
+        self.assertEqual(settings.DATA_UPLOAD_MAX_MEMORY_SIZE, 2 * 1024 * 1024)
+        self.assertEqual(settings.FILE_UPLOAD_MAX_MEMORY_SIZE, 1 * 1024 * 1024)
+        self.assertEqual(settings.DATA_UPLOAD_MAX_NUMBER_FIELDS, 1000)
+        self.assertEqual(settings.DATA_UPLOAD_MAX_NUMBER_FILES, 20)
+
     def test_entire_real_chain_is_verified(self):
         chain = load_chain(settings.BASE_DIR / 'db' / 'migrations')
         self.assertEqual(len(chain), 32)

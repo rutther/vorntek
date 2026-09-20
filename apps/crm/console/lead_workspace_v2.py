@@ -40,6 +40,7 @@ from .access import (
     task_queryset_for_user,
 )
 from .leads_payload import lead_stage_label, lead_stage_tone
+from .error_redaction import redact_event_error
 from .payloads import admin_locale_label, format_admin_datetime
 
 
@@ -878,7 +879,7 @@ def _lead_detail(lead: LeadSubmission, *, now, reminder_delta) -> dict:
             'attempts': event.attempts,
             'match_status': event.match_status,
             'provider_request_id': event.provider_request_id or '未返回',
-            'last_error': event.last_error,
+            'last_error': redact_event_error(event.last_error) if event.last_error else '',
             'updated_at_label': format_admin_datetime(event.updated_at),
         }
         for event in LeadEventOutbox.objects.filter(submission=lead).order_by('-created_at', '-id')[:20]

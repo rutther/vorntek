@@ -25,7 +25,7 @@ from marketing.models import IntegrationCheck, MarketingIntegration
 
 from .access import MARKETING_ROLES, SYSTEM_ROLES, safe_next_url, user_has_any_role
 from .audit import outbox_snapshot, privacy_request_snapshot, record_audit
-from .marketing_event_queries import redact_event_error
+from .error_redaction import redact_event_error
 from .marketing_queries import (
     INTEGRATION_DIRECTIONS,
     build_marketing_overview,

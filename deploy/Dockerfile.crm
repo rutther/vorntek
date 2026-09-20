@@ -17,4 +17,4 @@ RUN mkdir -p /app/staticfiles /app/.runtime/customer-exports /data/assets /data/
     && chown -h 10001:10001 /srv/website/current
 USER 10001:10001
 EXPOSE 8000
-CMD ["gunicorn", "siteos_admin.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "60", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["gunicorn", "siteos_admin.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "60", "--access-logfile", "-", "--access-logformat", "%(t)s \"%(m)s %(U)s %(H)s\" %(s)s %(b)s", "--error-logfile", "-"]

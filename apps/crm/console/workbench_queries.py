@@ -39,7 +39,7 @@ from .content_access import (
     RELEASES_READ,
     effective_content_capabilities,
 )
-from .marketing_event_queries import redact_event_error
+from .error_redaction import redact_event_error
 from .marketing_queries import retryable_outbox_q
 
 
@@ -724,7 +724,7 @@ def _build_system_workbench(*, site, limit: int) -> dict[str, Any]:
                 item_id=row.id,
                 title=f'{_text(row.integration.provider.name, fallback=row.provider_code, limit=60)} 入站事件',
                 meta=_text(row.event_type, fallback=row.external_event_id, limit=100),
-                detail=_text(row.last_error, fallback='入站处理失败，尚无错误摘要。'),
+                detail=redact_event_error(row.last_error),
                 status_label='入站失败',
                 status_tone='danger',
                 href=f'{event_attention_href}&direction=inbound',

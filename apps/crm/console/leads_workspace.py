@@ -15,6 +15,7 @@ from leads.notifications import email_delivery_configured
 from sitecore.models import SiteLocale
 
 from .payloads import admin_locale_label, default_site_locale, format_admin_datetime
+from .error_redaction import redact_event_error
 from .access import (
     MARKETING_ROLES,
     SALES_ROLES,
@@ -544,7 +545,7 @@ def _build_outbox_context(site, request, locale_code: str | None) -> dict:
                 'status': _status_meta(item.status),
                 'attempts': item.attempts,
                 'updated_at': format_admin_datetime(item.updated_at),
-                'error': item.last_error or '',
+                'error': redact_event_error(item.last_error) if item.last_error else '',
                 'note': note,
                 'actions': actions,
             }

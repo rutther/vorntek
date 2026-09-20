@@ -14,10 +14,10 @@ from leads.models import LeadInboundEvent
 
 from .access import MARKETING_ROLES, primary_role_label, safe_next_url, user_has_any_role
 from .audit import record_audit
+from .error_redaction import redact_event_error
 from .marketing_event_queries import (
     build_marketing_event_workspace,
     canonical_marketing_event_query,
-    redact_event_error,
 )
 from .marketing_queries import marketing_retry_max_attempts
 from .navigation import build_navigation

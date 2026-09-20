@@ -58,8 +58,8 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   The gate has not yet run for this unpushed commit, so
   Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
-- Post-change local validation passes 53 repository checks, 23 JavaScript
-  contracts and 805 Django tests with eight explicit skips. The four new public
+- Post-change local validation passes 55 repository checks, 23 JavaScript
+  contracts and 806 Django tests with eight explicit skips. The four public
   input guards bind the 45-path private-exclusion ledger and reject tracked
   secret/token shapes, credential URLs outside test fixtures, key/backup artifacts
   and known production identifiers. Three command-guard
@@ -68,6 +68,14 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   packaging assertion now verifies all 32 canonical migrations. PostgreSQL 18,
   Compose and clean-clone acceptance remain required because Docker/PostgreSQL
   are unavailable on this Windows host.
+- The current source security review upgraded Django 5.2.13 to the supported
+  5.2.17 security patch, added a pinned CI dependency audit, and returned no
+  known Python vulnerabilities after the upgrade. It also unified provider-error
+  redaction across legacy/current consoles and audit snapshots, removed query and
+  client metadata from default access logs, aligned per-route Nginx upload caps
+  with application contracts, bounded Django parsing and enabled file-backed SMTP
+  passwords. Exact Nginx/Compose/image behavior still requires current-commit
+  Linux execution; see [security review](review/SECURITY_REVIEW_20260921.md).
 - Read-only production comparison uses the Hong Kong `filline.com` stack as the
   business reference. The [106-path parity ledger](PRODUCTION_PARITY.md)
   classifies every post-baseline production change as generic, pending article

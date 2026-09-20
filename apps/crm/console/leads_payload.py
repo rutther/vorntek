@@ -5,6 +5,7 @@ from django.urls import reverse
 
 from leads.models import LeadEventOutbox, LeadFormDefinition, LeadSubmission
 
+from .error_redaction import redact_event_error
 from .payloads import (
     admin_locale_label,
     badge,
@@ -162,12 +163,13 @@ def leads_payload(locale_code: str | None = None) -> dict:
         submission = row.submission
         provider_code = getattr(row.integration.provider, 'code', 'meta')
         provider_name = getattr(row.integration.provider, 'name', 'Meta')
+        safe_error = redact_event_error(row.last_error) if row.last_error else ''
         outbox_rows.append(
             build_row(
                 row_id=f'lead-outbox-{row.id}',
                 tab_key='outbox',
                 filter_keys=[row.status, provider_code],
-                search=' '.join([row.event_name, row.integration.name, row.status, row.last_error]),
+                search=' '.join([row.event_name, row.integration.name, row.status, safe_error]),
                 title=f'{row.event_name} / {submission.form.code}',
                 subtitle=f'线索 #{submission.id} / {row.integration.name}',
                 cells={
@@ -181,7 +183,7 @@ def leads_payload(locale_code: str | None = None) -> dict:
                     {'label': '事件名', 'value': row.event_name},
                     {'label': '事件 ID', 'value': row.event_id},
                     {'label': '动作来源', 'value': row.action_source},
-                    {'label': '最后错误', 'value': row.last_error or '无'},
+                    {'label': '最后错误', 'value': safe_error or '无'},
                 ],
                 actions=[
                     post_action('重试回传', reverse('console:lead_outbox_dispatch', args=[row.id])),

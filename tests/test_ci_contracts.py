@@ -52,6 +52,7 @@ class CIContractTests(unittest.TestCase):
         commands = '\n'.join(step.get('run', '') for job in workflow['jobs'].values() for step in job['steps'])
         for required in ('scripts/run_application_tests.py', 'scripts/test_postgres_install.py', '--http',
                          'docker compose build', 'scripts/check_local_stack.py',
+                         'python -m pip_audit -r apps/crm/requirements.lock',
                          'scripts/release_manifest.py --require-clean',
                          'release_preflight --strict', 'maintenance --help',
                          'run_synthetic_website_deployment_acceptance',
@@ -59,6 +60,7 @@ class CIContractTests(unittest.TestCase):
                          'docker compose restart crm website',
                          '/articles/acceptance-guide/'):
             self.assertIn(required, commands)
+        self.assertIn('pip-audit==2.10.1', (ROOT/'requirements-dev.txt').read_text())
         postgres_runner = (ROOT/'scripts'/'test_postgres_install.py').read_text(
             encoding='utf-8'
         )

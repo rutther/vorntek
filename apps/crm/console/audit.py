@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from uuid import uuid4
 
+from .error_redaction import redact_event_error
 from .models import AuditLog
 
 
@@ -83,7 +84,7 @@ def outbox_snapshot(outbox) -> dict:
         'status': outbox.status,
         'delivery_mode': outbox.delivery_mode,
         'attempts': outbox.attempts,
-        'last_error': outbox.last_error,
+        'last_error': redact_event_error(outbox.last_error) if outbox.last_error else '',
         'provider_request_id': outbox.provider_request_id,
         'provider_received_at': _json_value(outbox.provider_received_at),
         'provider_processed_at': _json_value(outbox.provider_processed_at),

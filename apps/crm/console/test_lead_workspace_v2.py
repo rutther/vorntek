@@ -472,6 +472,7 @@ class LeadWorkspaceV2DatabaseTests(TestCase):
             delivery_mode='validation',
             attempts=1,
             match_status='received',
+            last_error='token=lead-secret private@example.com +65 9123 4567',
             payload_json={},
         )
         self.factory = RequestFactory()
@@ -560,6 +561,13 @@ class LeadWorkspaceV2DatabaseTests(TestCase):
         self.assertEqual(context['selected']['consent']['records'][0]['purpose'], 'contact')
         self.assertEqual(context['selected']['technical']['event_deliveries'][0]['event_name'], 'Lead')
         self.assertEqual(context['selected']['technical']['event_deliveries'][0]['status'], 'sent')
+        event_error = context['selected']['technical']['event_deliveries'][0]['last_error']
+        self.assertIn('[已隐藏]', event_error)
+        self.assertIn('[邮箱已隐藏]', event_error)
+        self.assertIn('[电话已隐藏]', event_error)
+        self.assertNotIn('lead-secret', event_error)
+        self.assertNotIn('private@example.com', event_error)
+        self.assertNotIn('+65 9123 4567', event_error)
         self.assertEqual(context['selected']['sla']['code'], 'due_soon')
         self.assertEqual(context['selected']['next_step']['source'], 'task')
         self.assertEqual(context['selected']['next_step']['title'], 'Confirm target capacity')

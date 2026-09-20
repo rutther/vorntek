@@ -42,6 +42,37 @@ class DistributionTests(unittest.TestCase):
         self.assertIn('location ~ /\\.', nginx)
         self.assertNotIn('root /usr/share/nginx/html;', nginx)
 
+    def test_nginx_request_limits_match_bounded_upload_routes(self):
+        nginx = (ROOT/'deploy/nginx.conf').read_text(encoding='utf-8')
+        self.assertIn('client_max_body_size 2m;', nginx)
+        expected = {
+            'location = /admin/assets/upload/': 'client_max_body_size 129m;',
+            'location = /admin/api/sales/attachments/': 'client_max_body_size 51m;',
+            'location ~ ^/admin/api/sales/whatsapp/[0-9]+/send/$': 'client_max_body_size 26m;',
+            'location = /admin/articles/import/': 'client_max_body_size 17m;',
+            'location = /admin/sales/customer-pool/import/': 'client_max_body_size 11m;',
+            'location = /admin/articles/new/': 'client_max_body_size 9m;',
+            'location ~ ^/admin/articles/[0-9]+/$': 'client_max_body_size 9m;',
+        }
+        for location, body_limit in expected.items():
+            with self.subTest(location=location):
+                block = nginx.split(location + ' {', 1)[1].split('}', 1)[0]
+                self.assertIn(body_limit, block)
+
+    def test_default_access_logs_omit_query_contact_and_client_metadata(self):
+        nginx = (ROOT/'deploy/nginx.conf').read_text(encoding='utf-8')
+        log_format = nginx.split('log_format privacy_minimal', 1)[1].split(';', 1)[0]
+        self.assertIn('$request_method $uri $server_protocol', log_format)
+        for unsafe in ('$request ', '$args', '$query_string', '$remote_addr', '$http_referer', '$http_user_agent'):
+            self.assertNotIn(unsafe, log_format)
+
+        dockerfile = (ROOT/'deploy/Dockerfile.crm').read_text(encoding='utf-8')
+        command = dockerfile.split('CMD [', 1)[1]
+        self.assertIn('--access-logformat', command)
+        self.assertIn('%(m)s %(U)s %(H)s', command)
+        for unsafe in ('%(r)s', '%(q)s', '%(h)s', '%(f)s', '%(a)s'):
+            self.assertNotIn(unsafe, command)
+
     def setUp(self):
         self.compose = yaml.safe_load((ROOT/'compose.yaml').read_text(encoding='utf-8'))
 
