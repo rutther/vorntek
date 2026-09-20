@@ -58,7 +58,7 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   The gate has not yet run for this unpushed commit, so
   Linux PostgreSQL/container acceptance remains open; see
   [article delivery architecture](ARTICLE_DELIVERY.md).
-- Post-change local validation passes 55 repository checks, 23 JavaScript
+- Post-change local validation passes 60 repository checks, 23 JavaScript
   contracts and 806 Django tests with eight explicit skips. The four public
   input guards bind the 45-path private-exclusion ledger and reject tracked
   secret/token shapes, credential URLs outside test fixtures, key/backup artifacts
@@ -76,6 +76,13 @@ Observed 2026-09-21. **Public source pre-release; full goal acceptance remains o
   with application contracts, bounded Django parsing and enabled file-backed SMTP
   passwords. Exact Nginx/Compose/image behavior still requires current-commit
   Linux execution; see [security review](review/SECURITY_REVIEW_20260921.md).
+- Bilingual [configuration](CONFIGURATION.md),
+  [administration](ADMINISTRATION.md), [development](DEVELOPMENT.md) and
+  [troubleshooting](TROUBLESHOOTING.md) guides now join the existing install,
+  upgrade and recovery material. Repository contracts verify both README entry
+  points, referenced commands, configuration inputs and local links. The guides
+  explicitly preserve the distinction between source contracts and pending Linux
+  container acceptance.
 - Read-only production comparison uses the Hong Kong `filline.com` stack as the
   business reference. The [106-path parity ledger](PRODUCTION_PARITY.md)
   classifies every post-baseline production change as generic, pending article

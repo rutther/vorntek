@@ -21,6 +21,7 @@ selects versions. Review updates rather than silently refreshing all packages.
 ```sh
 python -m pip install -r apps/crm/requirements.lock -r requirements-dev.txt
 python -m pip check
+python -m pip_audit -r apps/crm/requirements.lock --progress-spinner off
 python -m unittest discover -s tests -v
 node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
 python scripts/run_application_tests.py

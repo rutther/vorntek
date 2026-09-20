@@ -58,6 +58,8 @@ certifications.
 - Append-only migration 0032, which adds deployment permission, recoverable
   operation transitions, selection/deployment binding and immutable receipts.
 - A pinned Python dependency vulnerability audit in candidate CI.
+- Bilingual configuration, administration, development and troubleshooting
+  guides with repository checks for operator entry points, commands and links.
 
 ### Changed
 

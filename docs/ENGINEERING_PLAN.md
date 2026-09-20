@@ -151,8 +151,13 @@ external sending is enabled by default.
 
 ### 5. Documentation and clean-clone acceptance
 
-- [ ] Align English/Chinese install, configuration, administration, upgrade,
+- [x] Align English/Chinese install, configuration, administration, upgrade,
   backup/restore, development and troubleshooting documentation with commands.
+  The README pair now routes operators through bilingual
+  [configuration](CONFIGURATION.md), [administration](ADMINISTRATION.md),
+  [upgrade](UPGRADE.md), [backup/restore](BACKUP_RESTORE.md),
+  [development](DEVELOPMENT.md) and [troubleshooting](TROUBLESHOOTING.md) guides;
+  root contracts verify their commands, management-command targets and local links.
 - [ ] Validate desktop/mobile browser paths including inquiry, login, customer
   import/export and an actual browser file save.
 - [ ] Run all local suites, PostgreSQL lifecycle/HTTP acceptance and Compose

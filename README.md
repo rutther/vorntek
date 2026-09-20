@@ -119,6 +119,12 @@ or styles to update content-hash cache keys.
 
 ## Operations and license
 
+- [Configuration](docs/CONFIGURATION.md): origins, public settings, file-backed
+  secrets, HTTPS and default-disabled external channels.
+- [Administration](docs/ADMINISTRATION.md): startup, accounts, roles, business
+  operation, workers and safe stopping.
+- [Development](docs/DEVELOPMENT.md) and
+  [troubleshooting](docs/TROUBLESHOOTING.md): reproducible checks and fail-closed diagnosis.
 - [Backup/restore](docs/BACKUP_RESTORE.md): database, file volumes and secrets belong
   together; stop writers and pause external queues during recovery.
 - [Background tasks](docs/BACKGROUND_TASKS.md): export worker versus integration scheduler.

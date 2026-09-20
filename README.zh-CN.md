@@ -97,6 +97,9 @@ Node 仅用于 JS 测试。应用运行器使用合成 SQLite 并阻断非回环
 
 ## 运维与许可
 
+- [配置参考](docs/CONFIGURATION.md)：来源地址、公开设置、文件秘密、HTTPS 与默认关闭的外部通道。
+- [日常管理](docs/ADMINISTRATION.md)：启动、账号角色、业务操作、worker 与安全停止。
+- [开发规范](docs/DEVELOPMENT.md)及[故障排查](docs/TROUBLESHOOTING.md)：可复现检查和失败关闭诊断。
 - [备份恢复](docs/BACKUP_RESTORE.md)：数据库、文件卷与秘密配套恢复；恢复时停止写入方并暂停外部队列。
 - [后台任务](docs/BACKGROUND_TASKS.md)：区分导出 worker 与外部集成调度。
 - [账号安全](docs/ACCOUNT_SECURITY.md)、[安全政策](SECURITY.md)、
