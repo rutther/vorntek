@@ -205,6 +205,7 @@ def main():
             assert acceptance['selectionEvents'] == 4
             assert acceptance['deploymentReceipts'] == 4
             assert acceptance['relativePointer'].startswith('releases/')
+            assert acceptance['recoveryCacheRebuilt'] is True
             checked(
                 'synthetic_website_selection_deploy_recovery_rollback_and_postgres_guards',
                 acceptance,

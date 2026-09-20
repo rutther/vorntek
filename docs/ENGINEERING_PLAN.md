@@ -126,6 +126,11 @@ completes consistently or stops without concealing partial state.
 
 ### 4. Recovery, operations and security
 
+- [x] Add a plan-first, stale-safe serving-cache reconciliation command that
+  reconstructs only the latest durable deployment receipt from the restored
+  candidate store, changes no database rows and refuses pending/mismatched state.
+  Its real PostgreSQL/POSIX cache-loss path is included in the synthetic lifecycle
+  gate but remains runtime-unaccepted until current-commit CI succeeds.
 - [ ] Repeat database and file-volume restore into an independent environment and
   verify record counts, sequences, file hashes and vault decryption.
 - [ ] Verify restart persistence, worker shutdown/restart and scheduler-disabled

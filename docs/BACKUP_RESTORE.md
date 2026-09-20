@@ -20,7 +20,7 @@ A complete New Crown recovery set additionally requires:
 | Database | `postgres_data` | Logical archive; table/relationship/sequence/constraint verification |
 | Assets and attachments | `crm_files` (`/data`) | Separate private file snapshot, hash manifest, correct ownership |
 | Generated exports/runtime | `crm_runtime` | Inventory and authorized snapshot, including private article-preview artifacts; never replay restored jobs or treat a preview as a public activation |
-| Derived website serving cache | `website_runtime` | Do not archive its controlled symlink with the regular-file tool; reconstruct only from the restored deployment ledger and verified candidate artifacts, then re-verify before serving |
+| Derived website serving cache | `website_runtime` | Do not archive its controlled symlink with the regular-file tool; reconstruct only with `reconcile_website_serving_cache` from the restored deployment ledger and verified candidate artifacts, then re-verify before serving |
 | Secret vault and app secrets | `.secrets` | Separate encrypted/controlled transfer; matching vault key is essential |
 | Version/configuration | immutable images, source, private `.env` | Match application/migration version, site URL and storage mapping |
 | Collected static assets | `crm_static` | Rebuild from the recorded application version, not from arbitrary old files |
@@ -180,6 +180,51 @@ connecting later. The operator must actually isolate the target and stop writers
   outbox/email work. Approve a quarantine/release policy before any worker starts.
 - A safe local/SSH-tunnel or HTTPS entry, selected business/browser tests, and
   restart persistence. Record snapshot time; this is not ongoing two-server sync.
+
+## Rebuild the derived website cache / 重建官网运行缓存
+
+Do this only after the database and `crm_runtime` candidate files have both been
+restored and verified. Keep website, CRM, initializer, export worker and scheduler
+stopped; leave only PostgreSQL running. First seed the new `website_runtime` named
+volume from the exact candidate CRM image without starting the application:
+
+```sh
+docker compose run --rm --no-deps --entrypoint /bin/true crm
+```
+
+The reconciliation command defaults to a read-only plan. It verifies the latest
+immutable deployment receipt, its activated operation and selection bindings, and
+the restored candidate bytes. It reports `deploymentId`, `targetVersion` and the
+observed serving version (`bundled` means the image baseline):
+
+```sh
+docker compose run --rm --no-deps crm python manage.py reconcile_website_serving_cache \
+  --site-code siteos_demo --expect-database newcrown
+```
+
+Review that output. Apply only with those exact stale-state values; replace `42`
+with the reported ID. A normal fresh derived volume expects `bundled`:
+
+```sh
+docker compose run --rm --no-deps crm python manage.py reconcile_website_serving_cache \
+  --site-code siteos_demo --expect-database newcrown \
+  --expect-deployment-id 42 --expect-serving-version bundled \
+  --writers-stopped --apply
+```
+
+The command changes no database row and does not manufacture a second deployment
+receipt. It holds the site row lock while copying and atomically switching the
+cache. It refuses PostgreSQL/database identity mismatches, enabled outbound or
+scheduled work, a pending deployment, changed receipt/pointer, invalid ledger
+bindings or changed candidate bytes. If it fails after a pointer switch, preserve
+the target, run the plan again, and use the newly observed exact state; do not
+delete the ledger, candidate store or serving directory to force a retry.
+
+After a successful apply, start the stack, verify the public pages through the
+loopback entrypoint, restart CRM and website, and verify again. This source path
+has local unit coverage and is included in the new Linux synthetic acceptance
+gate, but it must not be called runtime-accepted until that gate succeeds for the
+exact release commit.
 
 ## Rollback / 回退
 

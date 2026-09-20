@@ -45,14 +45,15 @@ The current unpushed workflow also runs
 stack. It requires explicit synthetic acknowledgement, disabled outbound and
 scheduled work, an exact database identity, an empty release ledger and the
 image-bundled website baseline. It exercises deployment, update, crash recovery,
-rollback and PostgreSQL trigger refusals. CI then reads the generated article
+rollback, PostgreSQL trigger refusals and receipt-bound reconstruction into a
+second empty derived serving cache without adding a deployment receipt. CI then reads the generated article
 through Nginx before and after restarting CRM and Nginx. Adding this step is not
 evidence that it passed; status documents must cite the exact remote run before
 claiming Linux acceptance.
 
 ## Current local evidence
 
-- `run_application_tests.py`: 797 tests in 569.654s, 789 passed, eight skipped,
+- `run_application_tests.py`: 805 tests in 659.008s, 797 passed, eight skipped,
   zero failures. Django system checks reported no issues. The existing Windows
   virtual environment was used, not the CI job's declared Python3.12.12/Linux
   environment.

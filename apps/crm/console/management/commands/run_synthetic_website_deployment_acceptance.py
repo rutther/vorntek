@@ -19,14 +19,14 @@ from console.article_delivery import (
     ArticleVersion,
     build_article_release,
 )
-from console.article_release_store import ArticleReleaseStore
 from console.models import (
     WebsiteDeploymentOperation,
     WebsiteReleaseDeployment,
     WebsiteReleaseSelection,
 )
 from console.website_deployment import deploy_selected_website
-from console.website_release_store import WebsiteReleaseStore
+from console.website_candidate import article_live_store, website_release_store
+from console.website_recovery import reconcile_website_serving_cache
 from console.website_selection import select_website_candidate
 from console.website_serving_store import WebsiteServingStore
 from sitecore.models import Release, Site
@@ -109,25 +109,16 @@ class Command(BaseCommand):
         if urlparse(site.base_url).hostname not in {'localhost', '127.0.0.1', '::1'}:
             raise CommandError('Initialized site is not an isolated loopback installation.')
 
-        article_root = Path(settings.SITEOS_ARTICLE_RELEASE_ROOT)
-        candidate_root = Path(settings.SITEOS_WEBSITE_RELEASE_ROOT)
         serving_root = Path(settings.SITEOS_WEBSITE_SERVING_ROOT)
         source_root = Path(settings.SITEOS_WEBSITE_SOURCE_ROOT)
-        for root in (article_root, candidate_root, serving_root, source_root):
+        for root in (serving_root, source_root):
             if not root.is_absolute() or root == Path(root.anchor):
                 raise CommandError('Acceptance storage roots must be explicit absolute paths.')
         if not source_root.is_dir():
             raise CommandError('Website source root is unavailable.')
 
-        article_store = ArticleReleaseStore.initialize(
-            article_root,
-            site_code=site.code,
-            preview=False,
-        )
-        candidate_store = WebsiteReleaseStore.initialize(
-            candidate_root,
-            site_code=site.code,
-        )
+        article_store = article_live_store(site, initialize=True)
+        candidate_store = website_release_store(site, initialize=True)
         if serving_root.exists() and any(serving_root.iterdir()):
             serving_store = WebsiteServingStore(serving_root)
         else:
@@ -419,6 +410,31 @@ class Command(BaseCommand):
             completed_at=timezone.now(),
         )
 
+        recovery_root = serving_root / 'synthetic-recovery-cache'
+        recovery_store = WebsiteServingStore.initialize(recovery_root)
+        receipts_before_recovery = WebsiteReleaseDeployment.objects.count()
+        with patch(
+            'console.website_recovery.website_serving_store',
+            return_value=recovery_store,
+        ):
+            recovery_plan = reconcile_website_serving_cache(
+                site=site,
+                apply=False,
+            )
+            recovery = reconcile_website_serving_cache(
+                site=site,
+                apply=True,
+                expected_deployment_id=receipt.pk,
+                expected_serving_version='',
+            )
+        if (
+            recovery_plan['action'] != 'rebuild_required'
+            or recovery['action'] != 'rebuilt'
+            or recovery_store.current() != first_version
+            or WebsiteReleaseDeployment.objects.count() != receipts_before_recovery
+        ):
+            raise CommandError('Derived serving-cache reconstruction failed.')
+
         result = {
             'result': 'passed',
             'scope': 'synthetic isolated deployment lifecycle',
@@ -429,6 +445,7 @@ class Command(BaseCommand):
             'finalRoute': '/articles/acceptance-guide/',
             'finalMarker': 'Synthetic deployment marker',
             'relativePointer': os.readlink(serving_root / 'current'),
+            'recoveryCacheRebuilt': True,
             'externalIoEnabled': False,
         }
         self.stdout.write(json.dumps(result, sort_keys=True))

@@ -164,7 +164,18 @@ CRM image copies the complete checked-in Vorntek website into a read-only source
 root for deterministic composition. The separate `website_runtime` volume is a
 derived serving cache: Nginx mounts it read-only, and it must be reconstructed
 from the restored database ledger plus the backed-up verified candidate store
-rather than treated as original business data. The private preview reader still exposes
+rather than treated as original business data.
+
+`console/website_recovery.py` and the plan-first
+`reconcile_website_serving_cache` command implement that reconstruction without
+appending a fake deployment receipt. They accept only the latest immutable
+deployment receipt, require its activated operation/selection/release fields to
+match exactly, reject a pending deployment, re-verify the restored candidate and
+hold the site row lock across an applied copy/switch. Apply requires the exact
+receipt ID, the observed serving version, stopped-writer acknowledgement,
+PostgreSQL and disabled outbound/scheduled work. A changed receipt or serving
+pointer fails closed. Re-running against an already matching cache verifies bytes
+and is idempotent. The private preview reader still exposes
 only referenced CSS/bitmaps and strips executable or external behavior; candidate
 composition, by contrast, hashes the exact JS/CSS/image source intended for a
 future serving adapter. A real installation must set
@@ -213,6 +224,9 @@ reason/UUID form, current-selection binding, original-request recovery and safe
 error wording.
 Three additional command-guard tests prove that missing acknowledgement,
 live/scheduled execution and non-PostgreSQL targets are rejected before writes.
+Five recovery-service tests and three recovery-command guard tests cover plan-only
+inspection, exact stale-state apply, idempotent verification, no fabricated
+database history, pending/mismatched ledger refusal and early safety rejection.
 The PostgreSQL/Compose trigger and Nginx assertions are now executable CI gates,
 but remain unaccepted until that job runs successfully for the exact candidate
 commit.
