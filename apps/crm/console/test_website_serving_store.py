@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
+import stat
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -188,6 +189,32 @@ class WebsiteServingStoreTests(unittest.TestCase):
             os.readlink(self.root / 'current'),
             f'releases/{candidate.version}',
         )
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX public-mode acceptance runs in Linux CI.')
+    def test_materialized_public_tree_is_readable_by_the_separate_web_uid(self):
+        candidate = FakeCandidateStore(files={
+            'index.html': b'<!doctype html><p>public</p>',
+            'articles/guide/index.html': b'<!doctype html><p>guide</p>',
+        })
+
+        self.deploy(candidate)
+
+        release = self.root / 'releases' / candidate.version
+        for directory in (
+            self.root,
+            self.root / 'releases',
+            release,
+            release / 'articles',
+            release / 'articles' / 'guide',
+        ):
+            self.assertEqual(stat.S_IMODE(directory.stat().st_mode), 0o755)
+        for path in (
+            self.root / 'owner.json',
+            release / 'index.html',
+            release / 'articles' / 'guide' / 'index.html',
+            release / '.newcrown-deployment.json',
+        ):
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o644)
 
 
 if __name__ == '__main__':

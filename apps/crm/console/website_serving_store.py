@@ -31,6 +31,8 @@ _VERSION = re.compile(r'^[a-f0-9]{64}$')
 _OWNER = {'schemaVersion': 1, 'kind': 'websiteServingStore'}
 _BUNDLED_TARGET = 'releases/bundled'
 _DEPLOYMENT_MANIFEST = '.newcrown-deployment.json'
+_PUBLIC_DIRECTORY_MODE = 0o755
+_PUBLIC_FILE_MODE = 0o644
 
 
 def _safe_root(root: Path) -> Path:
@@ -62,14 +64,15 @@ class WebsiteServingStore:
         """Initialize an empty test/installation store without selecting content."""
 
         root = _safe_root(root)
-        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        root.mkdir(mode=_PUBLIC_DIRECTORY_MODE, parents=True, exist_ok=True)
         if any(root.iterdir()):
             return cls(root)
         with (root / 'owner.json').open('xb') as handle:
             handle.write(_json(_OWNER))
             handle.flush()
             os.fsync(handle.fileno())
-        (root / 'releases').mkdir(mode=0o700)
+        (root / 'owner.json').chmod(_PUBLIC_FILE_MODE)
+        (root / 'releases').mkdir(mode=_PUBLIC_DIRECTORY_MODE)
         return cls(root)
 
     @contextmanager
@@ -216,16 +219,21 @@ class WebsiteServingStore:
                 self.verify(version, expected_manifest=source_manifest)
             else:
                 stage = self.root / ('stage-' + secrets.token_hex(12))
-                stage.mkdir(mode=0o700)
+                stage.mkdir(mode=_PUBLIC_DIRECTORY_MODE)
                 try:
                     for name, digest in source_manifest['files'].items():
                         raw = source_store.read_version_file(version, name)
                         if _sha(raw) != digest:
                             raise ArticleDeliveryError('website_deployment_source_changed')
                         output = stage.joinpath(*PurePosixPath(name).parts)
-                        output.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                        output.parent.mkdir(
+                            mode=_PUBLIC_DIRECTORY_MODE,
+                            parents=True,
+                            exist_ok=True,
+                        )
                         with output.open('xb') as handle:
                             handle.write(raw)
+                        output.chmod(_PUBLIC_FILE_MODE)
                     deployment_manifest = {
                         'schemaVersion': 1,
                         'kind': 'websiteDeploymentArtifact',
@@ -236,7 +244,9 @@ class WebsiteServingStore:
                         'articleVersion': source_manifest['articleVersion'],
                         'files': source_manifest['files'],
                     }
-                    (stage / _DEPLOYMENT_MANIFEST).write_bytes(_json(deployment_manifest))
+                    deployment_manifest_path = stage / _DEPLOYMENT_MANIFEST
+                    deployment_manifest_path.write_bytes(_json(deployment_manifest))
+                    deployment_manifest_path.chmod(_PUBLIC_FILE_MODE)
                     os.replace(stage, destination)
                 finally:
                     if stage.exists():
