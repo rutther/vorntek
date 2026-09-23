@@ -24,6 +24,20 @@ from psycopg import sql
 
 ROOT = Path(__file__).resolve().parents[1]
 CRM = ROOT / 'apps' / 'crm'
+HISTORICAL_RELEASE_MIGRATION_COUNT = 26
+
+
+def migration_count(directory):
+    """Return the current numbered SQL-chain length for upgrade assertions."""
+    return len(list(directory.glob('[0-9][0-9][0-9][0-9]_*.sql')))
+
+
+def pending_migration_count(directory, applied_count):
+    """Return a positive upgrade span without baking in the current chain tip."""
+    pending = migration_count(directory) - applied_count
+    if pending <= 0:
+        raise RuntimeError('Current migration chain no longer extends the historical release fixture')
+    return pending
 
 
 def postgres_start_options(runtime, port, platform=None):
@@ -300,13 +314,22 @@ from siteos_admin.schema_install import load_chain
 chain=load_chain(settings.BASE_DIR/'db'/'migrations')
 def historical_check(name, *a, **kw):
     if name != 'check_unmanaged_schema': return call_command(name, *a, **kw)
-with patch('console.management.commands.initialize_database.load_chain', return_value=chain[:26]), patch('console.management.commands.initialize_database.call_command', side_effect=historical_check):
+with patch('console.management.commands.initialize_database.load_chain', return_value=chain[:{HISTORICAL_RELEASE_MIGRATION_COUNT}]), patch('console.management.commands.initialize_database.call_command', side_effect=historical_check):
     call_command('initialize_database', apply=True)
-'''
+'''.format(HISTORICAL_RELEASE_MIGRATION_COUNT=HISTORICAL_RELEASE_MIGRATION_COUNT)
         run([sys.executable, '-c', fixture], db='newcrown_upgrade')
-        manage('initialize_database', '--apply', db='newcrown_upgrade', contains='pending: 1')
+        pending_upgrade_count = pending_migration_count(
+            CRM / 'db' / 'migrations',
+            HISTORICAL_RELEASE_MIGRATION_COUNT,
+        )
+        manage(
+            'initialize_database',
+            '--apply',
+            db='newcrown_upgrade',
+            contains=f'pending: {pending_upgrade_count}',
+        )
         manage('check_unmanaged_schema', db='newcrown_upgrade')
-        checked('upgrade_from_real_0026_schema_to_0027')
+        checked('upgrade_from_real_0026_schema_to_current')
 
         failure = '''import os; os.environ['DJANGO_SETTINGS_MODULE']='siteos_admin.settings'
 import django; django.setup()
@@ -316,7 +339,7 @@ from django.core.management import call_command
 from django.db import DatabaseError
 from siteos_admin.schema_install import load_chain, Migration
 chain=load_chain(settings.BASE_DIR/'db'/'migrations')
-chain.append(Migration('0028_synthetic_failure.sql', 'a'*64, 'CREATE TABLE synthetic_rollback (id int); SELECT 1/0;'))
+chain.append(Migration(f'{len(chain) + 1:04d}_synthetic_failure.sql', 'a'*64, 'CREATE TABLE synthetic_rollback (id int); SELECT 1/0;'))
 with patch('console.management.commands.initialize_database.load_chain', return_value=chain):
     try: call_command('initialize_database', apply=True)
     except DatabaseError: print('EXPECTED_TRANSACTION_FAILURE')

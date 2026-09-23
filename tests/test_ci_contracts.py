@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import re
 import shlex
+import tempfile
 import unittest
 
 import yaml
@@ -28,6 +29,17 @@ class CIContractTests(unittest.TestCase):
         runner = load_script('test_postgres_install')
         self.assertEqual(runner.postgres_start_options(Path('C:/test'), 18543, platform='nt'),
                          '-h 127.0.0.1 -p 18543')
+
+    def test_postgres_upgrade_span_tracks_the_current_chain(self):
+        runner = load_script('test_postgres_install')
+        with tempfile.TemporaryDirectory() as directory:
+            migration_dir = Path(directory)
+            for name in ('0001_one.sql', '0002_two.sql', '0003_three.sql'):
+                (migration_dir / name).touch()
+            (migration_dir / 'README.md').touch()
+            self.assertEqual(runner.pending_migration_count(migration_dir, 1), 2)
+            with self.assertRaisesRegex(RuntimeError, 'no longer extends'):
+                runner.pending_migration_count(migration_dir, 3)
 
     def test_read_only_ephemeral_workflows_have_pinned_actions_and_no_publish_steps(self):
         text = (ROOT/'.github/workflows/ci.yml').read_text(encoding='utf-8')
