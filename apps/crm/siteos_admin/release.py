@@ -15,6 +15,11 @@ VERSION_PATTERN = re.compile(
 )
 
 
+def _version_candidates(base_dir: Path) -> tuple[Path, Path]:
+    """Support both a source checkout and the shallow ``/app`` image layout."""
+    return base_dir / 'VERSION', base_dir.parent.parent / 'VERSION'
+
+
 @lru_cache(maxsize=1)
 def release_version() -> str:
     override = str(os.getenv('VORNTEK_VERSION') or '').strip()
@@ -23,8 +28,7 @@ def release_version() -> str:
             raise RuntimeError('VORNTEK_VERSION must be a semantic version.')
         return override
     base_dir = Path(settings.BASE_DIR).resolve()
-    candidates = (base_dir / 'VERSION', base_dir.parents[1] / 'VERSION')
-    for candidate in candidates:
+    for candidate in _version_candidates(base_dir):
         if candidate.is_file():
             value = candidate.read_text(encoding='ascii').strip()
             if not VERSION_PATTERN.fullmatch(value):

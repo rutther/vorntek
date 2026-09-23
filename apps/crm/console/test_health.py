@@ -1,6 +1,17 @@
-from django.test import TestCase
+from pathlib import PurePosixPath
 
-from siteos_admin.release import release_version
+from django.test import SimpleTestCase, TestCase
+
+from siteos_admin.release import _version_candidates, release_version
+
+
+class ReleaseVersionLayoutTests(SimpleTestCase):
+    def test_container_root_depth_has_safe_version_candidates(self):
+        base_dir = PurePosixPath('/app')
+        self.assertEqual(
+            _version_candidates(base_dir),
+            (PurePosixPath('/app/VERSION'), PurePosixPath('/VERSION')),
+        )
 
 
 class HealthEndpointTests(TestCase):
