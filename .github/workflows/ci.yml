@@ -106,9 +106,15 @@ jobs:
           docker compose stop exports
           test "$(docker inspect --format '{{.State.ExitCode}}' "$(docker compose ps -a -q exports)")" = "0"
           docker compose up -d --no-deps exports
-      - name: Show only container state
+      - name: Show bounded container diagnostics without environment values
         if: always()
-        run: docker compose ps -a
+        run: |
+          docker compose ps -a
+          crm_container="$(docker compose ps -a -q crm)"
+          if [ -n "$crm_container" ]; then
+            docker inspect --format '{{json .State.Health}}' "$crm_container" || true
+          fi
+          docker compose logs --no-color --tail 200 db initialize crm scheduler website || true
       - name: Stop only this disposable runner's project (keep volumes until runner disposal)
         if: always()
         run: docker compose down

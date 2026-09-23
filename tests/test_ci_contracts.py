@@ -76,8 +76,11 @@ class CIContractTests(unittest.TestCase):
                          'run_synthetic_website_deployment_acceptance',
                          '--require-bundled-baseline',
                          'docker compose restart crm website',
+                         "docker inspect --format '{{json .State.Health}}'",
+                         'docker compose logs --no-color --tail 200',
                          '/articles/acceptance-guide/'):
             self.assertIn(required, commands)
+        self.assertNotIn('.Config.Env', commands)
         self.assertIn('pip-audit==2.10.1', (ROOT/'requirements-dev.txt').read_text())
         postgres_runner = (ROOT/'scripts'/'test_postgres_install.py').read_text(
             encoding='utf-8'
