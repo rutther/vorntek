@@ -62,7 +62,9 @@ test('real HTTP body timeout releases App save lock and retry confirms the same 
   const input=document.querySelector('#guide-panel-website input');
   await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set.call(input,'https://example.test/timeout-retained');input.dispatchEvent(new window.Event('input',{bubbles:true}));});
   const save=()=>[...document.querySelectorAll('#guide-panel-website button')].find(b=>b.textContent==='保存本步');
-  await click(save());
+  // Observe the synchronous pending render before yielding to the real HTTP
+  // deadline. Async act can drain the timeout too on a busy build host.
+  act(()=>save().click());
   assert.equal(document.querySelector('.app-shell').getAttribute('aria-busy'),'true');
   await eventually(()=>Boolean(document.querySelector('.global-error')?.textContent.includes('请求超时')));
   assert.notEqual(document.querySelector('.app-shell').getAttribute('aria-busy'),'true');

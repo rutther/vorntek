@@ -64,6 +64,15 @@ The earlier observations below describe the prior public source baseline.
   regression and deployment acceptance. Existing publishing/serving capabilities
   and disabled-by-default external-I/O safeguards remain part of the contract.
 
+The candidate scheduler now refreshes local published page/form evidence at
+startup and every minute, including in silent mode. Its read-only serving-volume
+mount matches Nginx; absent published content cannot fall back to a source tree.
+Queued first notifications and outbox delivery are checked every minute when
+both external scheduling switches permit it, without shortening known-refusal
+retry delays or enabling WhatsApp. Seventeen focused catalogue/scheduler checks,
+all195 frontend checks and77 repository checks passed locally. Final native
+PostgreSQL/package and actual deployment acceptance remain open.
+
 Observed 2026-09-21. **Public source pre-release; full goal acceptance remains open.**
 
 ## Active engineering baseline

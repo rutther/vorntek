@@ -8,13 +8,17 @@ class Job:
     interval: int
     kwargs: dict = field(default_factory=dict)
     due_at: float = 0
+    requires_external_io: bool = True
 
 
 def jobs(now):
     return [
+        Job('refresh_pixel_page_catalog', 60, {}, now, requires_external_io=False),
         Job('retry_inbound_leads', 300, {'provider': 'meta'}, now + 300),
-        Job('dispatch_lead_outbox', 300, {}, now + 300),
-        Job('send_lead_reminders', 900, {}, now + 900),
+        Job('dispatch_lead_outbox', 60, {}, now + 60),
+        # The command itself preserves the known-refusal retry cadence and
+        # overdue reminder windows; only fresh queued delivery runs sooner.
+        Job('send_lead_reminders', 60, {}, now + 60),
     ]
 
 
@@ -27,7 +31,7 @@ def tick(schedule, *, now, enabled, execute, clock, force=False, stop_requested=
             continue
         result = {'job': job.name, 'status': 'paused'}
         try:
-            if enabled:
+            if enabled or not job.requires_external_io:
                 execute(job)
                 # Completed command != proof of successful external delivery.
                 result['status'] = 'completed'
