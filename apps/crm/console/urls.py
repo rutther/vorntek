@@ -10,6 +10,8 @@ from . import lead_views_v2
 from . import opportunity_views_v2
 from . import account_views_v2
 from . import marketing_event_views
+from . import marketing_review_views
+from . import notification_views
 from . import task_views_v2
 from . import workbench_views
 from . import whatsapp_views_v2
@@ -34,6 +36,10 @@ urlpatterns = [
     path('api/marketing/flows/<uuid:loop_key>/runtime/', flow_runtime_views.flow_runtime_item, name='flow_runtime_item'),
     path('api/marketing/flows/<uuid:loop_key>/runtime/checks/', flow_runtime_views.flow_runtime_checks, name='flow_runtime_checks'),
     path('marketing/events/', marketing_event_views.marketing_events, name='marketing_events'),
+    path('marketing/events/outbound/<int:outbox_id>/review/', marketing_review_views.marketing_outbox_review, name='marketing_outbox_review'),
+    path('marketing/events/outbound/<int:outbox_id>/reconcile/', marketing_review_views.marketing_outbox_reconcile, name='marketing_outbox_reconcile'),
+    path('sales/leads/<int:submission_id>/notifications/', notification_views.notification_review, name='notification_review'),
+    path('sales/leads/<int:submission_id>/notifications/<uuid:attempt_id>/reconcile/', notification_views.notification_reconcile, name='notification_reconcile'),
     path('marketing/forms/', views.marketing_forms, name='marketing_forms'),
     path('marketing/forms/new/', views.lead_form_create, name='marketing_form_create'),
     path('marketing/forms/<int:form_id>/', views.lead_form_edit, name='marketing_form_edit'),

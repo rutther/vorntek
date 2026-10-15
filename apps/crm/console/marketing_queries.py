@@ -34,6 +34,8 @@ def marketing_retry_max_attempts() -> int:
 def retryable_outbox_q(*, now=None, max_attempts: int | None = None) -> Q:
     """Return the single database contract for an exact safe retry."""
 
+    if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
+        return Q(pk__in=[])
     cutoff = now or timezone.now()
     attempts = max_attempts or marketing_retry_max_attempts()
     return (
@@ -50,6 +52,8 @@ def outbox_retry_contract(
 ) -> tuple[bool, str]:
     """Mirror :func:`retryable_outbox_q` with an operator-readable reason."""
 
+    if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
+        return False, '当前环境已关闭外发；记录保留，未发起新的发送。'
     cutoff = now or timezone.now()
     attempts = max_attempts or marketing_retry_max_attempts()
     if item.submission.trashed_at is not None:

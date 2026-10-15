@@ -1,0 +1,54 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+{% block title %}事件接收核对 · {{ brand_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/v2/marketing-review.css' %}">{% endblock %}
+{% block breadcrumb %}<a href="{{ back_url }}">营销</a><i data-lucide="chevron-right" aria-hidden="true"></i><strong>事件接收核对</strong>{% endblock %}
+{% block content %}
+<div class="nc-marketing-review">
+  <a class="btn btn-outline-secondary" href="{{ back_url }}"><i data-lucide="arrow-left" aria-hidden="true"></i>返回事件队列</a>
+  <header class="nc-review-heading"><div><h1>事件接收核对</h1><p>{{ event.integration.provider.name }} · {{ event.integration.name }} · Outbox #{{ event.pk }}</p></div><span class="nc-review-status">{{ status_label }}{% if current_manual %} · 人工核对{% endif %}</span></header>
+  {% if review_error %}<div class="alert alert-danger" role="alert">{{ review_error }}</div>{% endif %}
+  <p class="nc-review-boundary">这里只登记平台记录中的实际结果，不会立即外发，也不代表匹配、浏览器接收、去重或广告投放通过。</p>
+  <div class="nc-review-workbench">
+    <section class="nc-review-record" aria-label="本次事件和发送记录">
+      <h2>核对这一条事件</h2>
+      <dl class="nc-review-facts"><div><dt>事件</dt><dd>{{ event.event_name }}</dd></div><div><dt>原发送次数</dt><dd>{{ event.attempts }}</dd></div><div><dt>{% if is_google %}原 Google Ads 账号 ID{% else %}原 Meta 数据集 ID{% endif %}</dt><dd>{{ original_target_id }}</dd></div><div><dt>本次模式</dt><dd>{% if delivery_mode == 'test' %}测试事件{% elif delivery_mode == 'validation' %}仅验证{% else %}正式发送{% endif %}</dd></div><div><dt>线索记录</dt><dd>#{{ event.submission_id }}{% if event.submission.trashed_at %} · 回收站，发送暂停{% endif %}</dd></div><div><dt>接入状态</dt><dd>{% if event.integration.enabled %}已启用{% else %}已停用{% endif %}</dd></div></dl>
+      <dl class="nc-review-identifier"><dt>完整事件编号（与平台逐字核对）</dt><dd>{{ event.event_id }}</dd></dl>
+      {% if event.provider_request_id %}<dl class="nc-review-identifier"><dt>原平台请求编号</dt><dd>{{ event.provider_request_id }}</dd></dl>{% endif %}
+      <p class="nc-review-note">不要只核对编号的前几位。内部尝试编号不是平台事件编号；页面不展示客户个人资料。</p>
+      {% if error_summary %}<p class="nc-review-note">最近说明：{{ error_summary }}</p>{% endif %}
+      <h2 class="nc-review-history-heading">发送历史</h2>
+      {% for item in review_history %}<article class="nc-review-history-item"><div><strong>第 {{ item.attempt.generation }} 次尝试{% if forloop.first %} · 最新{% endif %}</strong><span>{{ item.label }}{% if item.manual %} · 人工核对{% endif %}</span></div><dl><dt>尝试编号</dt><dd>{{ item.attempt.pk }}</dd><dt>交接时间</dt><dd>{{ item.attempt.handoff_at|date:'Y-m-d H:i:s'|default:'尚未交接' }}</dd></dl></article>{% empty %}<p class="nc-review-note">这是旧版记录，没有完整的发送尝试历史。请用原事件、平台日志和最后活动时间核对；系统不会补造历史尝试。</p>{% endfor %}
+    </section>
+    <section class="nc-review-decision" aria-label="核对步骤和结果登记">
+      <h2>先看平台记录，再保存结论</h2>
+      <ol class="nc-review-steps">
+        {% if is_google %}<li>在 Google Data Manager 的原上传日志，按左侧原账号 ID 找到这条事件及完整 <strong>requestId</strong>。有编号只说明可查询，不等于处理成功。</li>{% elif delivery_mode == 'test' %}<li>打开 Meta 事件管理工具 → 左侧原数据集 ID → 测试事件，展开对应事件，核对完整事件编号、来源与时间；不是 PageView。</li>{% else %}<li>这是正式发送，不要把“测试事件”列表当作接收证明。按左侧原数据集 ID、完整事件编号和交接时间，核对原发送日志及平台接收记录；概览的聚合次数不是这一条事件的证明。</li>{% endif %}
+        <li>确认对应的是这一次发送，并核实发送已结束。无法确定是否接受时，保持待核对，不要猜选或直接重试。</li>
+        <li>选择实际结果并记录依据。确认接受：本次不再上传；确认未接受：按原资格、次数上限和等待时间恢复。</li>
+      </ol>
+      {% if review_form %}<form method="post" action="{{ save_url }}" class="nc-review-form">
+        {% csrf_token %}{{ review_form.version }}<input type="hidden" name="return_to" value="{{ back_url }}">
+        {% for field in review_form.visible_fields %}
+          {% if field.name == 'confirmed' or field.name == 'stopped' %}<div class="nc-review-check"><label for="{{ field.id_for_label }}">{{ field }}<span>{{ field.label }}</span></label>
+          {% else %}<div><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">必填</span>{% endif %}</label>{{ field }}{% if field.help_text %}<p class="form-hint" id="{{ field.id_for_label }}_help">{{ field.help_text }}</p>{% endif %}
+          {% endif %}
+          {% if field.errors %}<ul class="errorlist" id="{{ field.id_for_label }}_errors">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}</div>
+        {% endfor %}
+        <div class="nc-review-save"><p>只登记当前最新尝试，保留人工核对审计；不会直接外发。</p><button class="btn btn-primary" type="submit">保存核对结果</button></div>
+      </form>{% else %}
+      <div class="nc-review-next" role="status"><h3>现在该做什么</h3>
+        {% if event.status == 'sent' %}<p>本事件已记录平台接受，不再重发。浏览器接收、匹配与去重仍需按引导分别核对。</p>
+        {% elif event.status == 'processing' %}<p>已记录 Google 原上传接受。等待系统查询这一条 requestId 的处理结果，不需要重新提交询盘或重新上传。</p>
+        {% elif event.status == 'validated' %}<p>这里只记录验证模式接受，不是正式发送。正式运行仍按原接入配置处理。</p>
+        {% elif event.status == 'failed' %}<p>已记录本次未接受。{% if retryable %}可返回队列查看这条事件的精确重试入口。{% else %}{{ retry_reason }}{% endif %}本页没有立即外发。</p>
+        {% if event.next_attempt_at %}<p>下次允许重试时间：<time datetime="{{ event.next_attempt_at|date:'c' }}">{{ event.next_attempt_at|date:'Y-m-d H:i:s' }}</time>。仍须具备原接入、同意、线索状态和次数上限资格。</p>{% endif %}
+        {% elif event.status == 'partial' %}<p>已有部分记录成功，不允许整笔重新上传。请核对原请求里的失败记录。</p>
+        {% else %}<p>当前没有可登记的尝试。请等待发送结束或由营销运营核对最新状态；不要直接重试结果未确认的发送。</p>{% endif %}
+      </div>{% endif %}
+      {% if retained_evidence %}<details class="nc-review-retained" open><summary>本次未保存的输入已保留</summary><p>{{ retained_evidence }}</p></details>{% endif %}
+      {% if reviewed %}<p class="nc-review-note">最近人工登记：{{ reviewed.created_at|date:'Y-m-d H:i:s' }}。登记时间不是平台实际接收时间。{% if not current_manual %}这是历史登记，不代表新一轮发送已经核对。{% endif %}</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -25,6 +25,7 @@ from marketing.models import IntegrationCheck, MarketingIntegration
 
 from .access import MARKETING_ROLES, SYSTEM_ROLES, safe_next_url, user_has_any_role
 from .audit import outbox_snapshot, privacy_request_snapshot, record_audit
+from .commit_authorization import current_actor_for_commit
 from .error_redaction import redact_event_error
 from .marketing_queries import (
     INTEGRATION_DIRECTIONS,
@@ -244,6 +245,9 @@ def marketing_outbox_retry(request, outbox_id: int):
     before = snapshot(outbox)
     claimed_at = timezone.now()
     with transaction.atomic():
+        actor = current_actor_for_commit(request.user.pk, request.session.session_key, MARKETING_ROLES)
+        # Keep the same lead -> outbox ordering as worker and trash commands.
+        LeadSubmission.objects.select_for_update(of=('self',)).get(pk=outbox.submission_id)
         claimed = (
             LeadEventOutbox.objects.filter(
                 id=outbox.id,
@@ -262,7 +266,7 @@ def marketing_outbox_retry(request, outbox_id: int):
             outbox.status = 'sending'
             outbox.updated_at = claimed_at
             record_audit(
-                actor=request.user,
+                actor=actor,
                 action='outbox_retry_claimed',
                 entity_table='lead_event_outbox',
                 entity_id=outbox.id,

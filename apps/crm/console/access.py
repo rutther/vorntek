@@ -104,6 +104,7 @@ MARKETING_VIEW_NAMES = frozenset({
     'marketing_guided_loop_rename', 'marketing_guided_loop_dataset',
     'marketing_attribution',
     'marketing_events', 'marketing_inbound_retry',
+    'marketing_outbox_review', 'marketing_outbox_reconcile',
     'marketing', 'marketing_integration_edit', 'marketing_forms',
     'marketing_form_create', 'marketing_form_edit', 'lead_form_create',
     'lead_form_edit', 'marketing_privacy',
@@ -112,6 +113,7 @@ MARKETING_VIEW_NAMES = frozenset({
     'privacy_request_update', 'privacy_request_register', 'privacy_request_manage',
 })
 SYSTEM_VIEW_NAMES = frozenset({
+    'notification_reconcile',
     'privacy_request_export', 'privacy_request_execute',
     'retention_policy_data', 'retention_policy_update', 'retention_policy_execute',
     'system_email', 'smtp_settings', 'system_data_governance',
@@ -121,6 +123,7 @@ SYSTEM_VIEW_NAMES = frozenset({
 SHARED_CONSOLE_VIEW_NAMES = frozenset({'home', 'workbench'})
 LEAD_ATTRIBUTION_VIEW_NAMES = frozenset()
 SALES_VIEW_NAMES = frozenset({
+    'notification_review',
     'sales_workspace', 'leads', 'lead_submission_edit', 'lead_submission_bulk_stage',
     'lead_submission_export_csv', 'lead_submission_export_xlsx',
     'workbench_data', 'pipeline_data', 'lead_convert', 'activity_create',

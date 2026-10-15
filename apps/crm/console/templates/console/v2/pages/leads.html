@@ -419,7 +419,7 @@
                                 <h2>技术追踪</h2>
                                 <dl>
                                     <div><dt>提交键</dt><dd>{{ workspace.selected.technical.submission_key }}</dd></div>
-                                    <div><dt>内部通知</dt><dd>{{ workspace.selected.technical.notification_status }}{% if workspace.selected.technical.notification_error %} · {{ workspace.selected.technical.notification_error }}{% endif %}</dd></div>
+                                    <div><dt>内部通知</dt><dd>{{ workspace.selected.technical.notification_status }} <a href="{% url 'console:notification_review' workspace.selected.id %}?next={{ request.get_full_path|urlencode }}">查看通知记录与核对</a>{% if workspace.selected.technical.notification_error %} · {{ workspace.selected.technical.notification_error }}{% endif %}</dd></div>
                                     <div><dt>重复记录</dt><dd>{% if workspace.selected.technical.duplicate_of_id %}原记录 #{{ workspace.selected.technical.duplicate_of_id }}{% else %}否{% endif %}</dd></div>
                                     <div><dt>安全检查</dt><dd>评分 {{ workspace.selected.technical.spam_score }}{% if workspace.selected.technical.spam_reason %} · {{ workspace.selected.technical.spam_reason }}{% endif %}</dd></div>
                                     {% for event in workspace.selected.technical.event_deliveries %}<div><dt>{{ event.event_name }} · {{ event.stage_key }}</dt><dd>{{ event.status }} / {{ event.delivery_mode }} · 尝试 {{ event.attempts }} 次 · 匹配 {{ event.match_status }} · {{ event.updated_at_label }}<br><small>事件 {{ event.event_id }} · 请求 {{ event.provider_request_id }}{% if event.last_error %} · {{ event.last_error }}{% endif %}</small></dd></div>{% empty %}<div><dt>Meta 回传</dt><dd>暂无事件队列记录</dd></div>{% endfor %}

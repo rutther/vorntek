@@ -9,6 +9,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone as datetime_timezone
 from typing import Any, Callable, Iterable
 
@@ -590,7 +591,7 @@ def fetch_meta_lead(integration: MarketingIntegration, leadgen_id: str) -> dict[
     return parsed
 
 
-def process_meta_lead_receipt(receipt: LeadInboundEvent) -> LeadSubmission:
+def process_meta_lead_receipt(receipt: LeadInboundEvent, *, claimed: bool = False) -> LeadSubmission:
     if receipt.submission_id:
         return receipt.submission
     payload = dict(receipt.payload_json or {})
@@ -635,7 +636,7 @@ def process_meta_lead_receipt(receipt: LeadInboundEvent) -> LeadSubmission:
         'meta_form_id': str(lead_data.get('form_id') or value.get('form_id') or ''),
         'meta_page_id': str(payload.get('page_id') or value.get('page_id') or receipt.integration.public_id),
     }
-    submission = _create_external_submission(
+    submission_values = dict(
         integration=receipt.integration,
         external_event_id=leadgen_id,
         submitted_at=_timestamp(created_time, fallback=receipt.received_at),
@@ -651,12 +652,26 @@ def process_meta_lead_receipt(receipt: LeadInboundEvent) -> LeadSubmission:
         payload_json={'origin': 'meta_instant_form', 'answers': fields, **extra_fields},
         identifiers_json=identifiers,
     )
-    initial_events_queued = _queue_initial_crm_event(submission, receipt.integration)
-    receipt.payload_json = {
-        **payload,
-        'lead_data': lead_data,
-        'initial_crm_events_queued': initial_events_queued,
-    }
+    with transaction.atomic() if claimed else nullcontext():
+        if claimed:
+            # Match the existing materialization lock order. Privacy writes
+            # lock the lead before its receipts; never hold a receipt while
+            # waiting for an already-created lead (or its dedupe owner).
+            dedupe_key = sha256_text(f'{receipt.integration.provider.code}|{receipt.integration.integration_type}|{leadgen_id}')
+            _acquire_external_submission_lock(dedupe_key)
+            LeadSubmission.objects.select_for_update().filter(
+                site_id=receipt.integration.site_id, dedupe_key=dedupe_key,
+            ).order_by('-submitted_at', '-id').first()
+            durable = LeadInboundEvent.objects.select_for_update().get(pk=receipt.pk)
+            if not _owns_meta_inbound_claim(durable, receipt):
+                raise InboundReceiptRetryConflict('本次入站认领已被回收或替换，旧结果未写入。')
+        submission = _create_external_submission(**submission_values)
+        initial_events_queued = _queue_initial_crm_event(submission, receipt.integration)
+        receipt.payload_json = {
+            **payload,
+            'lead_data': lead_data,
+            'initial_crm_events_queued': initial_events_queued,
+        }
     return submission
 
 
@@ -1261,13 +1276,54 @@ def inbound_receipt_retryability(
     return False, '当前入站事件类型没有安全重试适配器，必须人工核对。'
 
 
+def _owns_meta_inbound_claim(current: LeadInboundEvent, claimed: LeadInboundEvent) -> bool:
+    return (current.status == 'processing' and current.attempts == claimed.attempts
+            and current.updated_at == claimed.updated_at
+            and current.integration_id == claimed.integration_id)
+
+
+
+def _process_claimed_meta_inbound(receipt: LeadInboundEvent) -> bool:
+    try:
+        submission = process_meta_lead_receipt(receipt, claimed=True)
+    except Exception as exc:
+        # A late failure is not allowed to rewind the current owner's result,
+        # attempt number, fetched payload, linkage or processed timestamp.
+        LeadInboundEvent.objects.filter(pk=receipt.pk, status='processing',
+            attempts=receipt.attempts, updated_at=receipt.updated_at,
+            integration_id=receipt.integration_id).update(
+                status='failed', last_error=str(exc)[:1000], updated_at=timezone.now(),
+            )
+        receipt.refresh_from_db()
+        return False
+    with transaction.atomic():
+        # Keep lead -> receipt ordering for the link's FK and privacy writes.
+        if not LeadSubmission.objects.select_for_update().filter(pk=submission.pk).exists():
+            return False
+        durable = LeadInboundEvent.objects.select_for_update().get(pk=receipt.pk)
+        if not _owns_meta_inbound_claim(durable, receipt):
+            receipt.refresh_from_db()
+            return False
+        durable.submission = submission
+        durable.status = 'processed'
+        durable.last_error = ''
+        durable.payload_json = receipt.payload_json
+        durable.processed_at = timezone.now()
+        durable.save(update_fields=['submission', 'status', 'last_error', 'payload_json', 'processed_at', 'updated_at'])
+        transaction.on_commit(lambda submission_id=submission.pk:
+            _send_external_submission_notification_if_pending(submission_id))
+        receipt.refresh_from_db()
+    return True
+
+
+
 def process_claimed_inbound_receipt(receipt: LeadInboundEvent) -> bool:
     """Process a receipt that has already been atomically claimed."""
 
+    if receipt.provider_code == 'meta' and receipt.event_type == 'leadgen':
+        return _process_claimed_meta_inbound(receipt)
     try:
-        if receipt.provider_code == 'meta' and receipt.event_type == 'leadgen':
-            submission = process_meta_lead_receipt(receipt)
-        elif receipt.provider_code == 'whatsapp' and receipt.event_type == 'message':
+        if receipt.provider_code == 'whatsapp' and receipt.event_type == 'message':
             submission = process_whatsapp_receipt(receipt)
         elif receipt.provider_code == 'whatsapp' and receipt.event_type == 'message_echo':
             submission = process_whatsapp_echo_receipt(receipt)
@@ -1313,6 +1369,20 @@ def process_claimed_inbound_receipt(receipt: LeadInboundEvent) -> bool:
 def process_inbound_receipt(receipt: LeadInboundEvent) -> bool:
     """Claim and process a pending/failed receipt without double-processing."""
 
+    if receipt.provider_code == 'meta' and receipt.event_type == 'leadgen':
+        with transaction.atomic():
+            current = LeadInboundEvent.objects.select_for_update().filter(
+                pk=receipt.pk, status__in={'pending', 'failed'},
+            ).first()
+            if current is None:
+                return False
+            current.status = 'processing'
+            current.attempts += 1
+            current.save(update_fields=['status', 'attempts', 'updated_at'])
+            # Freeze the persisted generation while the claim is locked;
+            # a replacement cannot slip between CAS and snapshot refresh.
+            receipt.refresh_from_db()
+        return process_claimed_inbound_receipt(receipt)
     claimed_at = timezone.now()
     claimed = LeadInboundEvent.objects.filter(
         id=receipt.id,

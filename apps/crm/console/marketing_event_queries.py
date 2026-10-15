@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db.models import Q
+from django.http import Http404
 from django.urls import reverse
 from django.utils import timezone
 
@@ -19,8 +20,9 @@ from .marketing_queries import (
     outbox_retry_contract,
     retryable_outbox_q,
 )
-from .error_redaction import redact_event_error
 
+
+from .error_redaction import redact_event_error
 
 DEFAULT_PAGE_SIZE = 25
 PAGE_SIZE_OPTIONS = (25, 50, 100)
@@ -30,9 +32,10 @@ OUTBOUND_STATUS = {
     'pending': ('等待发送', 'secondary'),
     'sending': ('正在发送', 'info'),
     'processing': ('平台处理中', 'info'),
-    'validated': ('校验通过', 'success'),
+    'validated': ('仅验证', 'secondary'),
     'sent': ('平台已接收', 'success'),
     'partial': ('部分成功', 'warning'),
+    'unknown': ('结果待核对', 'warning'),
     'failed': ('发送失败', 'danger'),
     'skipped': ('已跳过', 'secondary'),
 }
@@ -55,6 +58,8 @@ def marketing_event_stale_minutes() -> int:
     return max(int(getattr(settings, 'SITEOS_MARKETING_EVENT_STALE_MINUTES', DEFAULT_STALE_MINUTES)), 1)
 
 
+
+
 def _bounded_query(params) -> str:
     return str(params.get('q') or '').strip()[:200]
 
@@ -70,6 +75,16 @@ def _positive_int(value, *, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return parsed if parsed > 0 else default
+
+
+def _integration_id(params) -> str:
+    value = str(params.get('integration') or '').strip()
+    if not value:
+        return ''
+    # Invalid explicit scope must never broaden to the entire site's queue.
+    if not re.fullmatch(r'[0-9]{1,18}', value) or int(value) < 1:
+        return '-1'
+    return str(int(value))
 
 
 def canonical_marketing_event_query(params) -> str:
@@ -90,6 +105,7 @@ def canonical_marketing_event_query(params) -> str:
         'q': query,
         'direction': direction,
         'provider': provider,
+        'integration': _integration_id(params),
         'status': status if status != 'needs_attention' else '',
         'retry': retry,
         'page': page if page > 1 else '',
@@ -99,7 +115,7 @@ def canonical_marketing_event_query(params) -> str:
 
 
 def _outbound_attention_q(*, stale_before) -> Q:
-    return Q(status__in={'failed', 'partial'}) | Q(
+    return Q(status__in={'failed', 'partial', 'unknown'}) | Q(
         status__in={'pending', 'sending', 'processing'},
         updated_at__lte=stale_before,
     )
@@ -114,10 +130,9 @@ def _inbound_attention_q(*, stale_before, claim_stale_before) -> Q:
 
 
 def _outbound_waiting_q(*, stale_before) -> Q:
-    return (
-        Q(status__in={'pending', 'sending', 'processing'}, updated_at__gt=stale_before)
-        | Q(status__in={'validated', 'sent'}, provider_processed_at__isnull=True)
-    )
+    # A missing platform match/processing timestamp is unknown evidence, not a
+    # job waiting to be sent. Validation-only and accepted jobs are terminal here.
+    return Q(status__in={'pending', 'sending', 'processing'}, updated_at__gt=stale_before)
 
 
 def _inbound_waiting_q(*, stale_before, claim_stale_before) -> Q:
@@ -176,6 +191,12 @@ def _apply_base_filters(*, site, params):
         integration__site=site,
     )
     inbound = LeadInboundEvent.objects.filter(integration__site=site)
+    integration_id = _integration_id(params)
+    if integration_id:
+        if not MarketingIntegration.objects.filter(id=integration_id, site=site).exists():
+            raise Http404('未找到当前站点的接入。')
+        outboxes = outboxes.filter(integration_id=integration_id)
+        inbound = inbound.filter(integration_id=integration_id)
     if direction == 'outbound':
         inbound = inbound.none()
     elif direction == 'inbound':
@@ -242,12 +263,16 @@ def _outbound_row(item: LeadEventOutbox, *, now) -> dict:
             'label': '精确重试',
             'url': reverse('console:marketing_outbox_retry', args=[item.id]),
         }
-    elif item.status in {'failed', 'partial'}:
+    elif item.status in {'failed', 'partial', 'unknown', 'sending'}:
         action = {
             'kind': 'manual',
             'label': '需人工核对',
             'reason': retry_reason or '部分成功不会自动重试。',
         }
+        if (item.integration.provider.code, item.integration.integration_type) in (('meta', 'pixel'), ('google', 'data_manager')):
+            action['url'] = reverse('console:marketing_outbox_review', args=[item.id])
+            if item.status == 'failed' and (item.response_json or {}).get('manual_review'):
+                action['label'] = '查看核对记录'
     return {
         'key': f'outbound-{item.id}',
         'id': item.id,
@@ -261,6 +286,7 @@ def _outbound_row(item: LeadEventOutbox, *, now) -> dict:
         'provider_name': item.integration.provider.name,
         'provider_code': item.integration.provider.code,
         'integration_name': item.integration.name,
+        'integration_url': reverse('console:marketing_integration_edit', args=[item.integration_id]),
         'integration_enabled': item.integration.enabled,
         'credential_label': _integration_credential_label(item.integration),
         'business_object': f'线索 #{item.submission_id}',
@@ -270,7 +296,7 @@ def _outbound_row(item: LeadEventOutbox, *, now) -> dict:
         'attempts': item.attempts,
         'last_activity_at': item.last_attempt_at or item.updated_at,
         'next_retry_at': item.next_attempt_at,
-        'error_summary': redact_event_error(item.last_error),
+        'error_summary': redact_event_error(item.last_error) if item.last_error or item.status in {'failed','partial'} else '—',
         'action': action,
         'demo': _is_demo_outbox(item),
         '_sort_at': item.updated_at,
@@ -313,6 +339,7 @@ def _inbound_row(item: LeadInboundEvent, *, now) -> dict:
         'provider_name': item.integration.provider.name,
         'provider_code': item.integration.provider.code,
         'integration_name': item.integration.name,
+        'integration_url': reverse('console:marketing_integration_edit', args=[item.integration_id]),
         'integration_enabled': item.integration.enabled,
         'credential_label': _integration_credential_label(item.integration),
         'business_object': (
@@ -324,7 +351,7 @@ def _inbound_row(item: LeadInboundEvent, *, now) -> dict:
         'attempts': item.attempts,
         'last_activity_at': item.updated_at or item.received_at,
         'next_retry_at': None,
-        'error_summary': redact_event_error(item.last_error),
+        'error_summary': redact_event_error(item.last_error) if item.last_error or item.status == 'failed' else '—',
         'action': action,
         'demo': _is_demo_inbound(item),
         '_sort_at': item.updated_at or item.received_at,
@@ -474,6 +501,7 @@ def build_marketing_event_workspace(*, site, params, now=None) -> dict:
         'q': query,
         'direction': direction,
         'provider': provider,
+        'integration': _integration_id(params),
         'status': explicit_status,
         'retry': retry_filter,
         'page_size': page_size if page_size != DEFAULT_PAGE_SIZE else '',
@@ -494,6 +522,10 @@ def build_marketing_event_workspace(*, site, params, now=None) -> dict:
         + LeadInboundEvent.objects.filter(integration__site=site).count()
     )
     active_filter_labels = []
+    integration_options = list(MarketingIntegration.objects.filter(site=site).order_by('name', 'id').values('id','name'))
+    selected_integration = next((item for item in integration_options if str(item['id']) == filters['integration']), None)
+    if selected_integration:
+        active_filter_labels.append(f'接入：{selected_integration["name"]}')
     if query:
         active_filter_labels.append(f'搜索“{query}”')
     if direction:
@@ -513,16 +545,19 @@ def build_marketing_event_workspace(*, site, params, now=None) -> dict:
         'site': site,
         'title': '事件运营',
         'description': '查看平台接收、发送与处理证据，并恢复可安全重试的失败。',
+        'selected_integration': selected_integration,
         'filters': {
             'q': query,
             'direction': direction,
             'provider': provider,
+            'integration': filters['integration'],
             'status': status,
             'explicit_status': explicit_status,
             'retry': retry_filter,
             'page_size': page_size,
         },
         'options': {
+            'integrations': [{'value':'', 'label':'全部接入'}, *[{'value':str(item['id']), 'label':item['name']} for item in integration_options]],
             'directions': [
                 {'value': '', 'label': '全部方向'},
                 {'value': 'outbound', 'label': '出站'},
@@ -544,7 +579,7 @@ def build_marketing_event_workspace(*, site, params, now=None) -> dict:
         'summary': [
             {
                 'label': '需要处理', 'value': attention_count,
-                'description': '失败、部分成功或处理超时', 'tone': 'danger',
+                'description': '失败、部分成功、结果待核对或处理超时', 'tone': 'danger',
                 'icon': 'circle-alert', 'href': build_url(status='needs_attention', retry='', page=1),
                 'active': status == 'needs_attention' and retry_filter != 'due',
             },
@@ -555,14 +590,14 @@ def build_marketing_event_workspace(*, site, params, now=None) -> dict:
                 'active': retry_filter == 'due',
             },
             {
-                'label': '等待平台', 'value': waiting_count,
-                'description': '仍在合理等待窗口内', 'tone': 'info',
+                'label': '等待与处理中', 'value': waiting_count,
+                'description': '队列等待或处理中，未超时', 'tone': 'info',
                 'icon': 'clock-3', 'href': build_url(status='waiting', retry='', page=1),
                 'active': status == 'waiting',
             },
             {
                 'label': '最近 24 小时恢复', 'value': recovered_count,
-                'description': '重试后进入完成状态', 'tone': 'success',
+                'description': '重试后校验、接收或处理完成', 'tone': 'success',
                 'icon': 'circle-check-big', 'href': build_url(status='recovered_24h', retry='', page=1),
                 'active': status == 'recovered_24h',
             },
@@ -573,7 +608,7 @@ def build_marketing_event_workspace(*, site, params, now=None) -> dict:
         'active_filter_labels': active_filter_labels,
         'clear_filters_url': reverse('console:marketing_events'),
         'view_all_url': build_url(status='all', retry='', page=1),
-        'platforms_url': f'{reverse("console:marketing")}?tab=integrations',
+        'platforms_url': reverse('console:marketing_integration_edit', args=[selected_integration['id']]) if selected_integration else reverse('console:marketing_integrations'),
         'attribution_url': reverse('console:marketing_attribution'),
         'current_url': build_url(page=page),
         'pagination': {
@@ -593,7 +628,8 @@ def _status_options() -> list[dict[str, str]]:
         {'value': 'all', 'label': '全部状态'},
         {'value': 'failed', 'label': '失败'},
         {'value': 'partial', 'label': '部分成功'},
-        {'value': 'waiting', 'label': '等待平台'},
+        {'value': 'unknown', 'label': '结果待核对'},
+        {'value': 'waiting', 'label': '等待与处理中'},
         {'value': 'pending', 'label': '等待处理'},
         {'value': 'processing', 'label': '处理中'},
         {'value': 'sent', 'label': '平台已接收'},

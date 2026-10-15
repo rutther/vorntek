@@ -43,6 +43,12 @@ The earlier observations below describe the prior public source baseline.
   into the message body or subject; explicit legacy-form context remains readable.
   This neutralization is locally verified; final merged-image verification remains
   required before deployment.
+- Inbound Meta claim ownership now rejects late responses from replaced workers.
+  Notification and marketing manual-review pages preserve exact identifiers,
+  original targets, pending/accepted/unknown boundaries, CSRF, fresh role/session
+  authority, conflict handling and atomic audit records. These pages do not send.
+  Real local UI checks covered input retention, save/reload and filtered return;
+  committed PostgreSQL review/ownership races remain a separate pending gate.
 - Full integration is still open: delivery and
   scheduler integration, generic website/detail/qualification content, the broad
   optional/idempotent/scoped-reset synthetic data pack, final recovery, complete

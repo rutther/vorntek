@@ -1,0 +1,47 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+{% block title %}邮件通知核对 · {{ brand_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/v2/notification-review.css' %}?v=20261014-desktop-1">{% endblock %}
+{% block breadcrumb %}<a href="{% url 'console:lead_workspace_v2' %}">销售</a><i data-lucide="chevron-right" aria-hidden="true"></i><strong>邮件通知核对</strong>{% endblock %}
+{% block content %}
+<div class="nc-notification-review">
+  <header class="nc-notification-heading"><div><h1>邮件通知核对</h1><p>{{ lead.full_name|default:lead.company|default:'未命名线索' }} · 线索 #{{ lead.pk }}</p></div><a class="btn btn-outline-secondary" href="{{ back_url }}"><i data-lucide="arrow-left" aria-hidden="true"></i>返回这条线索</a></header>
+  {% if review_error %}<div class="alert alert-danger" role="alert">{{ review_error }}</div>{% endif %}
+  <div class="nc-notification-boundary">
+    <strong>先核对，再登记；这里不会立即发送邮件。</strong>
+    <p>“平台已接受”不代表收件箱送达。{% if not can_review %}你可以查看这条线索的状态；只有系统管理员能登记核对结果。{% endif %}{% if lead.trashed_at %}这条线索在回收站，登记结果不会恢复线索或启用发送。{% endif %}</p>
+  </div>
+  <section aria-label="最近发送记录">
+  {% for item in review_items %}
+    <article class="nc-notification-attempt" id="attempt-{{ item.attempt.pk }}">
+      <div class="nc-notification-attempt-head"><h2>{% if item.attempt.kind == 'initial' %}初始通知{% else %}超时提醒{% endif %} · 第{{ item.attempt.generation }}次尝试{% if item.historical %}（历史）{% endif %}</h2><span class="nc-notification-state state-{{ item.attempt.state }}">{{ item.state_label }}{% if item.reviewed %} · 人工核对{% endif %}</span></div>
+      <div class="nc-notification-workbench">
+      <div class="nc-notification-record">
+      <h3>发送记录</h3>
+      <dl class="nc-notification-facts"><div><dt>尝试编号</dt><dd>{{ item.attempt.pk }}</dd></div><div><dt>交接时间</dt><dd>{{ item.attempt.handoff_at|date:'Y-m-d H:i:s'|default:'尚未交接' }}</dd></div></dl>
+      {% if item.attempt.message_id %}<dl class="nc-notification-message-id"><dt>邮件编号（Message-ID，用于平台核对）</dt><dd>{{ item.attempt.message_id }}</dd></dl>{% else %}<p class="nc-notification-note">这条旧记录没有保存邮件编号。请用发送日志与交接时间建立对应关系；不能唯一确认时，保持待核对。</p>{% endif %}
+      {% if item.form or forloop.first %}<div class="nc-notification-guidance"><h3>到哪里核对？</h3><p>到邮件平台或SMTP日志，优先按上方邮件编号（Message-ID）找到这次发送，再核对交接时间。</p><p>确认已接受：登记后不再重发。确认未接受：登记后按原配置和资格等待重试。无法确认：保留待核对，不要猜选。</p></div>{% endif %}
+      </div>
+      <div class="nc-notification-result">
+      {% if item.form %}
+      <h3>登记实际核对结果</h3>
+      <form method="post" action="{{ item.action_url }}" class="nc-notification-form">
+        {% csrf_token %}{{ item.form.version }}<input type="hidden" name="next" value="{{ back_url }}">
+        <div><label class="form-label" for="{{ item.form.outcome.id_for_label }}">{{ item.form.outcome.label }} <span class="text-danger">必选</span></label>{{ item.form.outcome }}{{ item.form.outcome.errors }}</div>
+        <div><label class="form-label" for="{{ item.form.evidence.id_for_label }}">{{ item.form.evidence.label }} <span class="text-danger">必填</span></label>{{ item.form.evidence }}<p class="form-hint">{{ item.form.evidence.help_text }}</p>{{ item.form.evidence.errors }}</div>
+        <div class="nc-notification-checks"><label>{{ item.form.confirmed }}<span>{{ item.form.confirmed.label }}</span></label>{{ item.form.confirmed.errors }}<label>{{ item.form.stopped }}<span>{{ item.form.stopped.label }}</span></label>{{ item.form.stopped.errors }}</div>
+        <div class="nc-notification-save"><span>只登记这一条尝试，保留核对审计。</span><button type="submit" class="btn btn-primary">保存核对结果</button></div>
+      </form>
+      {% else %}<h3>本次处理状态</h3>
+      {% if item.attempt.state == 'accepted' %}<p class="nc-notification-note">已记录平台接受，不会因页面刷新重复发送。</p>
+      {% elif item.attempt.policy_disabled %}<p class="nc-notification-note">当前没有自动重试资格，请先确认通知配置；本页不会自动启用通知。</p>
+      {% elif item.historical %}<p class="nc-notification-note">这是历史尝试；当前是否能重试，以最新记录、原配置和线索状态为准。</p>
+      {% elif item.attempt.state == 'failed' %}<p class="nc-notification-note">按原配置、线索状态和重试规则继续；若还有结果待核对的尝试，需先核对它。本页不触发发送。</p>
+      {% elif item.attempt.state == 'unknown' or item.attempt.state == 'handoff' %}<p class="nc-notification-note">请系统管理员核对平台记录。结果确认前不会自动重发。</p>{% endif %}{% endif %}
+      </div>
+      </div>
+    </article>
+  {% empty %}<div class="nc-notification-empty"><h2>还没有发送尝试记录</h2><p>旧版已保存的通知状态仍保留。新通知符合原配置和资格后，系统会记录尝试；不需要在这里手动补发。</p></div>{% endfor %}
+  </section>
+</div>
+{% endblock %}

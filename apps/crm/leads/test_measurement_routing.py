@@ -11,7 +11,8 @@ from marketing import models as mm
 from leads import models as lm
 
 
-@override_settings(SITEOS_META_RUNTIME_ENABLED=True, SITEOS_META_RUNTIME_ENVIRONMENT='production',
+@override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True, ALLOWED_HOSTS=['testserver', 'example.test'],
+                   SECURE_SSL_REDIRECT=False, SITEOS_META_RUNTIME_ENABLED=True, SITEOS_META_RUNTIME_ENVIRONMENT='production',
                    SITEOS_META_RUNTIME_LOADER_VERSION=2)
 class MeasurementRoutingTests(TestCase):
     unmanaged_models = Fixture.unmanaged_models + (mm.MarketingLoop, mm.MarketingLoopNode,
