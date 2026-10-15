@@ -74,6 +74,17 @@ class DurableMarketingDeliveryTests(TestCase):
         self.assertEqual((self.event.status, self.event.provider_request_id), ('sent', 'synthetic-ack'))
         self.assertEqual(transport.call_count, 1)
 
+    def test_recycled_lead_is_not_offered_a_manual_or_automatic_retry(self):
+        from console.marketing_queries import outbox_retry_contract, retryable_outbox_q
+        self.event.status = 'failed'
+        self.event.save(update_fields=['status'])
+        LeadSubmission.objects.filter(pk=self.event.submission_id).update(trashed_at=timezone.now())
+        self.event.submission.refresh_from_db()
+        allowed, reason = outbox_retry_contract(self.event)
+        self.assertFalse(allowed)
+        self.assertTrue(reason)
+        self.assertFalse(LeadEventOutbox.objects.filter(retryable_outbox_q(), pk=self.event.pk).exists())
+
 
 @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False)
 class SilentDeliveryBoundaryTests(SimpleTestCase):

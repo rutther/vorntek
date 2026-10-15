@@ -37,7 +37,7 @@ def retryable_outbox_q(*, now=None, max_attempts: int | None = None) -> Q:
     cutoff = now or timezone.now()
     attempts = max_attempts or marketing_retry_max_attempts()
     return (
-        Q(status='failed', attempts__lt=attempts, integration__enabled=True)
+        Q(status='failed', attempts__lt=attempts, integration__enabled=True, submission__trashed_at__isnull=True)
         & (Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=cutoff))
     )
 
@@ -52,6 +52,10 @@ def outbox_retry_contract(
 
     cutoff = now or timezone.now()
     attempts = max_attempts or marketing_retry_max_attempts()
+    if item.submission.trashed_at is not None:
+        return False, '线索已在回收站，恢复后按原接入与资格规则继续重试。'
+    if item.status == 'unknown':
+        return False, '本次可能已经提交；先按完整事件编号核对平台接收结果，不要直接重试。'
     if item.status != 'failed':
         return False, f'当前状态 {item.status} 已不能重试。'
     if not item.integration.enabled:
