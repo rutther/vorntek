@@ -10,9 +10,10 @@ from datetime import timedelta, timezone as datetime_timezone
 from typing import Any
 
 from django.conf import settings
+from django.db import DatabaseError, connection, transaction
 from django.utils import timezone
 
-from leads.models import LeadEventOutbox, LeadSubmission
+from leads.models import LeadEventAttempt, LeadEventOutbox, LeadEventResult, LeadSubmission
 from marketing.models import MarketingIntegration
 
 
@@ -287,94 +288,183 @@ def _google_request(*, method: str, url: str, token: str, payload: dict[str, Any
     return parsed
 
 
-def _save_google_failure(
-    outbox: LeadEventOutbox,
-    message: str,
-    response: dict[str, Any] | None = None,
-    *,
-    increment_attempt: bool = True,
-) -> bool:
-    attempted_at = getattr(outbox, 'last_attempt_at', None) or timezone.now()
-    outbox.status = 'failed'
-    if increment_attempt:
-        outbox.attempts += 1
-    outbox.last_error = message[:1000]
-    if response is not None:
-        outbox.response_json = response
-    delay_minutes = min(60, 2 ** min(max(outbox.attempts - 1, 0), 6))
-    outbox.last_attempt_at = attempted_at
-    outbox.next_attempt_at = attempted_at + timedelta(minutes=delay_minutes)
-    outbox.updated_at = attempted_at
-    outbox.save(
-        update_fields=[
-            'status', 'delivery_mode', 'attempts', 'last_error', 'response_json',
-            'last_attempt_at', 'next_attempt_at', 'updated_at',
-        ]
-    )
-    return False
-
-
-def dispatch_google_outbox_event(outbox: LeadEventOutbox) -> bool:
+def dispatch_google_outbox_event(outbox: LeadEventOutbox, *, claimed: bool = False) -> bool:
     if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
         return False
-    if outbox.status == 'processing':
-        return refresh_google_outbox_status(outbox)
-    attempted_at = timezone.now()
-    outbox.delivery_mode = 'validation' if bool((outbox.payload_json or {}).get('validateOnly')) else 'live'
-    outbox.last_attempt_at = attempted_at
-    try:
-        token = _load_google_credentials(outbox.integration)
-        parsed = _google_request(
-            method='POST',
-            url=DATA_MANAGER_INGEST_URL,
-            token=token,
-            payload=outbox.payload_json,
-        )
-    except GoogleDataManagerError as exc:
-        return _save_google_failure(outbox, str(exc))
-    if bool((outbox.payload_json or {}).get('validateOnly')):
-        outbox.status = 'validated'
-        outbox.attempts += 1
-        outbox.last_error = ''
-        outbox.response_json = {**parsed, 'validationOnly': True}
-        outbox.provider_received_at = attempted_at
-        outbox.provider_processed_at = attempted_at
-        outbox.match_status = 'not_available'
-        outbox.next_attempt_at = None
-        outbox.updated_at = attempted_at
-        outbox.save(
-            update_fields=[
-                'status', 'delivery_mode', 'attempts', 'last_error', 'response_json',
-                'provider_received_at', 'provider_processed_at', 'match_status',
-                'last_attempt_at', 'next_attempt_at', 'updated_at',
-            ]
-        )
-        return True
+    claimed_at = outbox.updated_at if claimed else None
+    if connection.in_atomic_block:
+        pk = outbox.pk
+        transaction.on_commit(lambda: dispatch_google_now(
+            LeadEventOutbox.objects.get(pk=pk), legacy_claimed_at=claimed_at), robust=True)
+        return False
+    return dispatch_google_now(outbox, legacy_claimed_at=claimed_at)
 
-    request_id = str(parsed.get('requestId') or '').strip()
-    if not request_id:
-        return _save_google_failure(outbox, 'Google Data Manager 未返回 requestId。', parsed)
-    outbox.status = 'processing'
-    outbox.attempts += 1
-    outbox.last_error = ''
-    outbox.response_json = parsed
-    outbox.provider_request_id = request_id
-    outbox.provider_received_at = attempted_at
-    outbox.next_attempt_at = attempted_at
-    outbox.dispatched_at = attempted_at
-    outbox.updated_at = attempted_at
-    outbox.save(
-        update_fields=[
-            'status', 'delivery_mode', 'attempts', 'last_error', 'response_json',
-            'provider_request_id', 'provider_received_at', 'last_attempt_at',
-            'next_attempt_at', 'dispatched_at', 'updated_at',
-        ]
-    )
-    return refresh_google_outbox_status(outbox, token=token)
+
+def dispatch_google_now(outbox: LeadEventOutbox, *, legacy_claimed_at=None) -> bool:
+    if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
+        return False
+    from leads.marketing_delivery import claim_meta_event, begin_meta_handoff, finish_meta_attempt, _repair_safely
+    current = LeadEventOutbox.objects.select_related('submission', 'integration__provider').get(pk=outbox.pk)
+    if current.submission.trashed_at is not None:
+        return False  # Preserve accepted processing, never turn it into a new pending upload.
+    latest = LeadEventAttempt.objects.filter(outbox=current).first()
+    if latest and latest.state == 'accepted':
+        known_failure = LeadEventResult.objects.filter(attempt=latest, status='failed').exists()
+        if not known_failure:
+            _repair_safely(latest)
+            current.refresh_from_db()
+    if current.status == 'processing':
+        result = LeadEventResult.objects.filter(outbox=current, attempt_number=current.attempts,
+            provider_request_id=current.provider_request_id).first()
+        if result:
+            repair_google_result(result)
+            outbox.refresh_from_db()
+            return result.status == 'sent'
+        success = refresh_google_outbox_status(current)
+        outbox.refresh_from_db()
+        return success
+    if not latest and current.status == 'failed' and current.provider_request_id and not LeadEventResult.objects.filter(
+            outbox=current, attempt_number=current.attempts, provider_request_id=current.provider_request_id,
+            status='failed').exists():
+        # Old-version failed summaries are not durable proof of non-acceptance.
+        # Read the original request before ever opening a new POST generation.
+        with transaction.atomic():
+            LeadSubmission.objects.select_for_update().get(pk=current.submission_id)
+            locked = LeadEventOutbox.objects.select_for_update().get(pk=current.pk)
+            if locked.status != 'failed' or _google_poll_binding(locked) != _google_poll_binding(current):
+                return False
+            locked.status = 'processing'
+            locked.save(update_fields=['status', 'updated_at'])
+        success = refresh_google_outbox_status(locked)
+        outbox.refresh_from_db()
+        return success
+    claimed = claim_meta_event(current.pk, legacy_claimed_at=legacy_claimed_at, google=True)
+    if claimed is None:
+        outbox.refresh_from_db()
+        return False
+    current, attempt = claimed
+    validation = bool((current.payload_json or {}).get('validateOnly'))
+    try:
+        token = _load_google_credentials(current.integration)
+        json.dumps(current.payload_json)  # Serialization is preparation, not a provider handoff.
+    except Exception as exc:
+        finish_meta_attempt(attempt.pk, 'failed', error=f'Google发送前准备失败：{type(exc).__name__}', google=True)
+        outbox.refresh_from_db()
+        return False
+    if not begin_meta_handoff(attempt.pk, google=True):
+        outbox.refresh_from_db()
+        return False
+    try:
+        parsed = _google_request(method='POST', url=DATA_MANAGER_INGEST_URL, token=token, payload=current.payload_json)
+    except Exception as exc:
+        cause = exc.__cause__
+        known = isinstance(cause, urllib.error.HTTPError) and cause.code in (400, 401, 403, 404, 405, 413, 415, 422, 429)
+        finish_meta_attempt(attempt.pk, 'failed' if known else 'unknown', google=True,
+            error='Google明确拒绝本次上传。' if known else f'Google交接结果待核对：{type(exc).__name__}')
+        outbox.refresh_from_db()
+        return False
+    if not isinstance(parsed, dict) or parsed.get('error'):
+        finish_meta_attempt(attempt.pk, 'unknown', error='Google上传响应未确认接收。', google=True)
+        outbox.refresh_from_db()
+        return False
+    request_id = parsed.get('requestId')
+    if not validation and (not isinstance(request_id, str) or not request_id.strip()):
+        finish_meta_attempt(attempt.pk, 'unknown', error='Google未返回requestId，接收结果待核对。',
+            response=parsed, google=True)
+        outbox.refresh_from_db()
+        return False
+    receipt = {**parsed, 'validationOnly': True} if validation else parsed
+    accepted = finish_meta_attempt(attempt.pk, 'accepted', response=receipt, google=True, validation=validation)
+    outbox.refresh_from_db()
+    if validation:
+        return accepted
+    if not accepted or outbox.status != 'processing':
+        return False
+    success = refresh_google_outbox_status(outbox, token=token)
+    outbox.refresh_from_db()
+    return success
+
+
+def _google_poll_binding(outbox: LeadEventOutbox) -> tuple:
+    """Identity of this accepted request, not the latest mutable poll timestamp."""
+    request_id = str(outbox.provider_request_id or (outbox.response_json or {}).get('requestId') or '').strip()
+    return (request_id, outbox.attempts, outbox.provider_received_at,
+            outbox.integration_id, outbox.event_id, outbox.stage_key,
+            json.dumps(outbox.payload_json, sort_keys=True, ensure_ascii=False))
+
+
+def apply_google_result(outbox: LeadEventOutbox, result: LeadEventResult) -> list[str]:
+    outbox.status = result.status
+    outbox.response_json = result.response_json
+    outbox.last_error = result.error
+    outbox.provider_processed_at = result.completed_at
+    outbox.last_attempt_at = result.completed_at
+    outbox.match_status = 'not_available'
+    outbox.next_attempt_at = None
+    if result.status == 'failed':
+        delay = min(60, 2 ** min(max(result.attempt_number - 1, 0), 6))
+        outbox.next_attempt_at = result.completed_at + timedelta(minutes=delay)
+    fields = ['status', 'response_json', 'last_error', 'provider_processed_at', 'last_attempt_at',
+              'match_status', 'next_attempt_at', 'updated_at']
+    if result.status == 'sent':
+        outbox.dispatched_at = result.completed_at
+        fields += ['dispatched_at']
+    return fields
+
+
+def repair_google_result(result: LeadEventResult) -> None:
+    with transaction.atomic():
+        identity = LeadEventOutbox.objects.only('submission_id').get(pk=result.outbox_id)
+        LeadSubmission.objects.select_for_update().get(pk=identity.submission_id)
+        current = LeadEventOutbox.objects.select_for_update().get(pk=result.outbox_id)
+        latest = LeadEventAttempt.objects.filter(outbox=current).first()
+        generation = latest.generation if latest else 0
+        if (generation != result.generation or current.attempts != result.attempt_number
+                or current.provider_request_id != result.provider_request_id
+                or current.status not in ('processing', result.status)):
+            return
+        if current.status == result.status and current.response_json == result.response_json:
+            return
+        current.save(update_fields=apply_google_result(current, result))
+
+
+def _commit_google_poll(outbox: LeadEventOutbox, binding: tuple, version, fields: list[str]) -> bool:
+    # No lock spans OAuth or provider I/O. Match the accepted request again
+    # while committing; an old GET is not authority over a later upload.
+    with transaction.atomic():
+        LeadSubmission.objects.select_for_update().get(pk=outbox.submission_id)
+        current = LeadEventOutbox.objects.select_for_update().get(pk=outbox.pk)
+        if current.status != 'processing' or _google_poll_binding(current) != binding:
+            return False
+        if outbox.status not in ('sent', 'failed', 'partial') and current.updated_at != version:
+            return False  # Stale PROCESSING/read error cannot replace newer evidence.
+        if 'response_json' in fields:
+            outbox.response_json = {**(current.response_json or {}),
+                                    'request_status': outbox.response_json['request_status']}
+        if outbox.status not in ('sent', 'failed', 'partial'):
+            outbox.save(update_fields=fields)
+            return False
+        latest = LeadEventAttempt.objects.filter(outbox=current).first()
+        generation = latest.generation if latest else 0
+        if latest and (latest.state != 'accepted' or latest.provider_request_id != binding[0]):
+            return False
+        result, _ = LeadEventResult.objects.get_or_create(outbox=current, generation=generation,
+            attempt_number=current.attempts, provider_request_id=binding[0], defaults={
+                'attempt': latest, 'status': outbox.status, 'error': outbox.last_error,
+                'response_json': outbox.response_json, 'completed_at': timezone.now()})
+    # Preserve the final provider fact even if the old outbox projection fails.
+    try:
+        repair_google_result(result)
+    except DatabaseError:
+        pass
+    return result.status == 'sent'
 
 
 def refresh_google_outbox_status(outbox: LeadEventOutbox, *, token: str = '') -> bool:
     if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
+        return False
+    binding, version = _google_poll_binding(outbox), outbox.updated_at
+    if outbox.status != 'processing':
         return False
     attempted_at = timezone.now()
     outbox.last_attempt_at = attempted_at
@@ -384,11 +474,11 @@ def refresh_google_outbox_status(outbox: LeadEventOutbox, *, token: str = '') ->
         or ''
     ).strip()
     if not request_id:
-        return _save_google_failure(
-            outbox,
-            'Google Data Manager requestId 缺失。',
-            increment_attempt=False,
-        )
+        outbox.status = 'unknown'
+        outbox.last_error = 'Google原请求编号缺失，接收结果待核对；不要直接重传。'
+        outbox.next_attempt_at = None
+        return _commit_google_poll(outbox, binding, version,
+            ['status', 'last_error', 'next_attempt_at', 'updated_at'])
     try:
         access_token = token or _load_google_credentials(outbox.integration)
         status_url = f'{DATA_MANAGER_STATUS_URL}?{urllib.parse.urlencode({"requestId": request_id})}'
@@ -397,8 +487,8 @@ def refresh_google_outbox_status(outbox: LeadEventOutbox, *, token: str = '') ->
         outbox.last_error = str(exc)[:1000]
         outbox.next_attempt_at = attempted_at + timedelta(minutes=5)
         outbox.updated_at = attempted_at
-        outbox.save(update_fields=['last_error', 'last_attempt_at', 'next_attempt_at', 'updated_at'])
-        return False
+        return _commit_google_poll(outbox, binding, version,
+            ['last_error', 'last_attempt_at', 'next_attempt_at', 'updated_at'])
     statuses = parsed.get('requestStatusPerDestination') or []
     status_names = {
         str(item.get('requestStatus') or '').strip().upper()
@@ -415,25 +505,23 @@ def refresh_google_outbox_status(outbox: LeadEventOutbox, *, token: str = '') ->
         outbox.match_status = 'not_available'
         outbox.next_attempt_at = None
         outbox.dispatched_at = attempted_at
-        outbox.save(
-            update_fields=[
+        return _commit_google_poll(outbox, binding, version,
+            [
                 'status', 'last_error', 'response_json', 'provider_processed_at',
                 'match_status', 'last_attempt_at', 'next_attempt_at',
                 'dispatched_at', 'updated_at',
             ]
         )
-        return True
     if status_names & {'PROCESSING', 'REQUEST_STATUS_UNKNOWN', 'UNKNOWN'}:
         outbox.status = 'processing'
         outbox.last_error = ''
         outbox.next_attempt_at = attempted_at + timedelta(minutes=5)
-        outbox.save(
-            update_fields=[
+        return _commit_google_poll(outbox, binding, version,
+            [
                 'status', 'last_error', 'response_json', 'last_attempt_at',
                 'next_attempt_at', 'updated_at',
             ]
         )
-        return False
     is_partial = 'PARTIAL_SUCCESS' in status_names or (
         'SUCCESS' in status_names and 'FAILED' in status_names
     )
@@ -448,13 +536,12 @@ def refresh_google_outbox_status(outbox: LeadEventOutbox, *, token: str = '') ->
         outbox.provider_processed_at = attempted_at
         outbox.match_status = 'not_available'
         outbox.next_attempt_at = None
-        outbox.save(
-            update_fields=[
+        return _commit_google_poll(outbox, binding, version,
+            [
                 'status', 'last_error', 'response_json', 'provider_processed_at',
                 'match_status', 'last_attempt_at', 'next_attempt_at', 'updated_at',
             ]
         )
-        return False
     if status_names and status_names <= {'FAILED'}:
         outbox.status = 'failed'
         error_details = google_response_errors(parsed)
@@ -466,20 +553,18 @@ def refresh_google_outbox_status(outbox: LeadEventOutbox, *, token: str = '') ->
         outbox.provider_processed_at = attempted_at
         outbox.match_status = 'not_available'
         outbox.next_attempt_at = attempted_at + timedelta(minutes=delay_minutes)
-        outbox.save(
-            update_fields=[
+        return _commit_google_poll(outbox, binding, version,
+            [
                 'status', 'last_error', 'response_json', 'provider_processed_at',
                 'match_status', 'last_attempt_at', 'next_attempt_at', 'updated_at',
             ]
         )
-        return False
     outbox.status = 'processing'
     outbox.last_error = ''
     outbox.next_attempt_at = attempted_at + timedelta(minutes=5)
-    outbox.save(
-        update_fields=[
+    return _commit_google_poll(outbox, binding, version,
+        [
             'status', 'last_error', 'response_json', 'last_attempt_at',
             'next_attempt_at', 'updated_at',
         ]
     )
-    return False

@@ -9,7 +9,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.core import mail
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.db import connection
+from console import test_public_lead_capture as capture_fixtures
 from django.utils import timezone
 
 from leads.services import (
@@ -431,68 +433,7 @@ class MetaPayloadTests(SimpleTestCase):
         )
         self.assertNotIn('ph', payload['user_data'])
 
-    @patch('leads.services.resolve_meta_access_token', return_value='secret-capi-token')
-    @patch('leads.services.urllib.request.urlopen')
-    def test_capi_access_token_uses_authorization_header(self, mocked_urlopen, _mocked_token):
-        response = Mock()
-        response.__enter__ = Mock(return_value=response)
-        response.__exit__ = Mock(return_value=False)
-        response.read.return_value = b'{"events_received":1}'
-        mocked_urlopen.return_value = response
-        integration = SimpleNamespace(
-            public_id='123456789012345',
-            config_json={'api_version': 'v23.0'},
-        )
-        outbox = SimpleNamespace(
-            integration=integration,
-            payload_json={'event_name': 'Lead'},
-            status='pending',
-            attempts=0,
-            last_error='',
-            response_json={},
-            dispatched_at=None,
-            updated_at=None,
-            save=Mock(),
-        )
 
-        self.assertTrue(dispatch_meta_outbox_event(outbox))
-        request = mocked_urlopen.call_args.args[0]
-        self.assertNotIn('access_token', request.full_url)
-        self.assertEqual(request.get_header('Authorization'), 'Bearer secret-capi-token')
-        self.assertEqual(outbox.delivery_mode, 'live')
-        self.assertEqual(outbox.status, 'sent')
-        self.assertIsNotNone(outbox.provider_received_at)
-        self.assertEqual(outbox.match_status, 'unknown')
-
-    @patch('leads.services.resolve_meta_access_token', return_value='secret-capi-token')
-    @patch('leads.services.urllib.request.urlopen')
-    def test_capi_does_not_claim_success_without_events_received(self, mocked_urlopen, _mocked_token):
-        response = Mock()
-        response.__enter__ = Mock(return_value=response)
-        response.__exit__ = Mock(return_value=False)
-        response.read.return_value = b'{}'
-        mocked_urlopen.return_value = response
-        integration = SimpleNamespace(
-            public_id='123456789012345',
-            config_json={'api_version': 'v23.0', 'test_event_code': 'TEST123'},
-        )
-        outbox = SimpleNamespace(
-            integration=integration,
-            payload_json={'event_name': 'Lead'},
-            status='pending',
-            attempts=0,
-            last_error='',
-            response_json={},
-            dispatched_at=None,
-            updated_at=None,
-            save=Mock(),
-        )
-
-        self.assertFalse(dispatch_meta_outbox_event(outbox))
-        self.assertEqual(outbox.status, 'failed')
-        self.assertEqual(outbox.delivery_mode, 'test')
-        self.assertIsNotNone(outbox.next_attempt_at)
-        self.assertIn('未确认接收到事件', outbox.last_error)
 
 
 class InboundWebhookParsingTests(SimpleTestCase):
@@ -1121,114 +1062,8 @@ class GoogleDataManagerPayloadTests(SimpleTestCase):
                 stage_key='qualified',
             )
 
-    @patch('leads.google_data_manager._google_request', return_value={})
-    @patch('leads.google_data_manager._load_google_credentials', return_value='access-token')
-    def test_validate_only_success_is_explicitly_validated_not_sent(self, _credentials, mocked_request):
-        outbox = SimpleNamespace(
-            status='pending',
-            payload_json={'validateOnly': True},
-            integration=self.integration,
-            attempts=0,
-            last_error='',
-            response_json={},
-            updated_at=None,
-            save=Mock(),
-        )
 
-        self.assertTrue(dispatch_google_outbox_event(outbox))
-        self.assertEqual(outbox.status, 'validated')
-        self.assertEqual(outbox.delivery_mode, 'validation')
-        self.assertEqual(outbox.match_status, 'not_available')
-        self.assertIsNotNone(outbox.provider_received_at)
-        self.assertIsNotNone(outbox.provider_processed_at)
-        self.assertTrue(outbox.response_json['validationOnly'])
-        self.assertEqual(mocked_request.call_count, 1)
 
-    @patch('leads.google_data_manager._google_request')
-    @patch('leads.google_data_manager._load_google_credentials', return_value='access-token')
-    def test_formal_upload_polls_final_status_and_retains_warnings(self, _credentials, mocked_request):
-        mocked_request.side_effect = [
-            {
-                'requestId': 'request-123',
-                'fieldWarnings': [{
-                    'field': 'events.events[0].optional_field',
-                    'description': 'Optional field ignored.',
-                }],
-            },
-            {
-                'requestStatusPerDestination': [{
-                    'requestStatus': 'SUCCESS',
-                    'warningInfo': {
-                        'warningCounts': [{
-                            'reason': 'PROCESSING_WARNING_REASON_TEST',
-                            'recordCount': '1',
-                        }],
-                    },
-                }],
-            },
-        ]
-        outbox = SimpleNamespace(
-            status='pending',
-            payload_json={'validateOnly': False},
-            integration=self.integration,
-            attempts=0,
-            last_error='',
-            response_json={},
-            updated_at=None,
-            dispatched_at=None,
-            save=Mock(),
-        )
-
-        self.assertTrue(dispatch_google_outbox_event(outbox))
-        self.assertEqual(outbox.status, 'sent')
-        self.assertEqual(outbox.provider_request_id, 'request-123')
-        self.assertEqual(outbox.match_status, 'not_available')
-        self.assertIsNotNone(outbox.provider_processed_at)
-        self.assertEqual(mocked_request.call_count, 2)
-        warnings = google_response_warnings(outbox.response_json)
-        self.assertTrue(any('Optional field ignored.' in warning for warning in warnings))
-        self.assertTrue(any('PROCESSING_WARNING_REASON_TEST' in warning for warning in warnings))
-
-    @patch('leads.google_data_manager._google_request')
-    @patch('leads.google_data_manager._load_google_credentials', return_value='access-token')
-    def test_partial_success_is_terminal_and_uses_provider_record_counts(self, _credentials, mocked_request):
-        mocked_request.side_effect = [
-            {'requestId': 'request-partial'},
-            {
-                'requestStatusPerDestination': [{
-                    'requestStatus': 'PARTIAL_SUCCESS',
-                    'errorInfo': {
-                        'errorCounts': [{
-                            'reason': 'PROCESSING_ERROR_REASON_INVALID_EVENT',
-                            'recordCount': '1',
-                        }],
-                    },
-                }],
-            },
-        ]
-        outbox = SimpleNamespace(
-            status='pending',
-            payload_json={'validateOnly': False},
-            integration=self.integration,
-            attempts=0,
-            last_error='',
-            response_json={},
-            updated_at=None,
-            dispatched_at=None,
-            save=Mock(),
-        )
-
-        self.assertFalse(dispatch_google_outbox_event(outbox))
-        self.assertEqual(outbox.status, 'partial')
-        self.assertIn('部分记录成功', outbox.last_error)
-        self.assertIn('PROCESSING_ERROR_REASON_INVALID_EVENT x 1', outbox.last_error)
-        self.assertIn('停止自动重试', outbox.last_error)
-        self.assertIsNone(outbox.next_attempt_at)
-        self.assertIsNotNone(outbox.provider_processed_at)
-        self.assertEqual(
-            google_response_errors(outbox.response_json),
-            ['PROCESSING_ERROR_REASON_INVALID_EVENT x 1'],
-        )
 
 
 class LeadStageTransitionTests(SimpleTestCase):
@@ -1647,3 +1482,204 @@ class MarketingReadinessTests(SimpleTestCase):
         self.assertFalse(failed)
         self.assertIn('integration.whatsapp.cloud_api.ycloud_webhook_secret_ref', codes)
         self.assertNotIn('integration.whatsapp.cloud_api.app_secret_ref', codes)
+
+
+class MetaDispatchContractTests(TestCase):
+    """Committed-send core fixtures; public commit/rollback is real-PG tested."""
+    @classmethod
+    def setUpClass(cls):
+        existing = set(connection.introspection.table_names())
+        cls.created_models = []
+        with connection.schema_editor() as editor:
+            for model in capture_fixtures.PublicLeadCaptureVerticalTests.unmanaged_models:
+                if model._meta.db_table not in existing:
+                    editor.create_model(model)
+                    cls.created_models.append(model)
+                    existing.add(model._meta.db_table)
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            super().tearDownClass()
+        finally:
+            with connection.schema_editor() as editor:
+                for model in reversed(cls.created_models):
+                    editor.delete_model(model)
+
+    def delivery_outbox(self, config):
+        from leads.models import LeadEventOutbox, LeadFormDefinition, LeadSubmission
+        from marketing.models import MarketingProvider, MarketingIntegration
+        from sitecore.models import Site
+        now = timezone.now()
+        site = Site.objects.create(code='meta_core_contract', name='Synthetic Meta transport', default_locale='en')
+        form = LeadFormDefinition.objects.create(site=site, code='meta-contract', name='Synthetic form', capi_enabled=True)
+        provider = MarketingProvider.objects.create(code='meta', name='Meta')
+        integration = MarketingIntegration.objects.create(site=site, provider=provider, name='Synthetic only',
+            integration_type='pixel', public_id='100000001', enabled=True, routing_mode='legacy_site', config_json=config)
+        lead = LeadSubmission.objects.create(site=site, form=form, full_name='Synthetic only',
+            submitted_at=now, stage_updated_at=now, consent_json={'marketing': True})
+        return LeadEventOutbox.objects.create(submission=lead, integration=integration, event_name='Lead',
+            event_id='synthetic-core-event', stage_key='submitted', payload_json={'event_name': 'Lead', 'event_id': 'synthetic-core-event'})
+
+    @patch('leads.services.resolve_meta_access_token', return_value='secret-capi-token')
+    @patch('leads.services.urllib.request.urlopen')
+    def test_capi_access_token_uses_authorization_header(self, mocked_urlopen, _mocked_token):
+        from leads.marketing_delivery import dispatch_meta_now
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.read.return_value = b'{"events_received":1}'
+        mocked_urlopen.return_value = response
+        outbox = self.delivery_outbox({'api_version': 'v23.0'})
+
+        self.assertTrue(dispatch_meta_now(outbox))
+        request = mocked_urlopen.call_args.args[0]
+        self.assertNotIn('access_token', request.full_url)
+        self.assertEqual(request.get_header('Authorization'), 'Bearer secret-capi-token')
+        self.assertEqual(outbox.delivery_mode, 'live')
+        self.assertEqual(outbox.status, 'sent')
+        self.assertIsNotNone(outbox.provider_received_at)
+        self.assertEqual(outbox.match_status, 'unknown')
+
+    @patch('leads.services.resolve_meta_access_token', return_value='secret-capi-token')
+    @patch('leads.services.urllib.request.urlopen')
+    def test_capi_does_not_claim_success_without_events_received(self, mocked_urlopen, _mocked_token):
+        from leads.marketing_delivery import dispatch_meta_now
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.read.return_value = b'{}'
+        mocked_urlopen.return_value = response
+        outbox = self.delivery_outbox({'api_version': 'v23.0', 'test_event_code': 'TEST123'})
+
+        self.assertFalse(dispatch_meta_now(outbox))
+        self.assertEqual(outbox.status, 'unknown')
+        self.assertEqual(outbox.delivery_mode, 'test')
+        self.assertIsNone(outbox.next_attempt_at)
+        self.assertIn('未确认接收', outbox.last_error)
+
+
+
+class GoogleDispatchContractTests(TestCase):
+    """Real stored outbox; only the external provider boundary is replaced."""
+    @classmethod
+    def setUpClass(cls):
+        existing = set(connection.introspection.table_names())
+        cls.created_models = []
+        with connection.schema_editor() as editor:
+            for model in capture_fixtures.PublicLeadCaptureVerticalTests.unmanaged_models:
+                if model._meta.db_table not in existing:
+                    editor.create_model(model)
+                    cls.created_models.append(model)
+                    existing.add(model._meta.db_table)
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            super().tearDownClass()
+        finally:
+            with connection.schema_editor() as editor:
+                for model in reversed(cls.created_models):
+                    editor.delete_model(model)
+
+    def delivery_outbox(self, validate_only=False):
+        from leads.models import LeadEventOutbox, LeadFormDefinition, LeadSubmission
+        from marketing.models import MarketingProvider, MarketingIntegration
+        from sitecore.models import Site
+        now = timezone.now()
+        site = Site.objects.create(code='google_core_contract', name='Synthetic Google transport', default_locale='en')
+        form = LeadFormDefinition.objects.create(site=site, code='google-contract', name='Synthetic form', capi_enabled=True)
+        provider, _ = MarketingProvider.objects.get_or_create(code='google', defaults={'name': 'Google'})
+        integration = MarketingIntegration.objects.create(site=site, provider=provider, name='Synthetic only',
+            integration_type='data_manager', public_id='1234567890', enabled=True,
+            config_json={'qualified_conversion_action_id': '111111111', 'validate_only': validate_only})
+        lead = LeadSubmission.objects.create(site=site, form=form, full_name='Synthetic only', stage='qualified',
+            submitted_at=now, stage_updated_at=now, consent_json={'marketing': True})
+        return LeadEventOutbox.objects.create(submission=lead, integration=integration,
+            event_name='qualified_lead', event_id='synthetic-google-event', stage_key='qualified',
+            payload_json={'validateOnly': validate_only})
+
+    @patch('leads.google_data_manager._google_request', return_value={})
+    @patch('leads.google_data_manager._load_google_credentials', return_value='access-token')
+    def test_validate_only_success_is_explicitly_validated_not_sent(self, _credentials, mocked_request):
+        outbox = self.delivery_outbox(validate_only=True)
+
+        from leads.google_data_manager import dispatch_google_now
+        self.assertTrue(dispatch_google_now(outbox))
+        self.assertEqual(outbox.status, 'validated')
+        self.assertEqual(outbox.delivery_mode, 'validation')
+        self.assertEqual(outbox.match_status, 'not_available')
+        self.assertIsNotNone(outbox.provider_received_at)
+        self.assertIsNotNone(outbox.provider_processed_at)
+        self.assertTrue(outbox.response_json['validationOnly'])
+        self.assertEqual(mocked_request.call_count, 1)
+
+    @patch('leads.google_data_manager._google_request')
+    @patch('leads.google_data_manager._load_google_credentials', return_value='access-token')
+    def test_formal_upload_polls_final_status_and_retains_warnings(self, _credentials, mocked_request):
+        mocked_request.side_effect = [
+            {
+                'requestId': 'request-123',
+                'fieldWarnings': [{
+                    'field': 'events.events[0].optional_field',
+                    'description': 'Optional field ignored.',
+                }],
+            },
+            {
+                'requestStatusPerDestination': [{
+                    'requestStatus': 'SUCCESS',
+                    'warningInfo': {
+                        'warningCounts': [{
+                            'reason': 'PROCESSING_WARNING_REASON_TEST',
+                            'recordCount': '1',
+                        }],
+                    },
+                }],
+            },
+        ]
+        outbox = self.delivery_outbox()
+
+        from leads.google_data_manager import dispatch_google_now
+        self.assertTrue(dispatch_google_now(outbox))
+        self.assertEqual(outbox.status, 'sent')
+        self.assertEqual(outbox.provider_request_id, 'request-123')
+        self.assertEqual(outbox.match_status, 'not_available')
+        self.assertIsNotNone(outbox.provider_processed_at)
+        self.assertEqual(mocked_request.call_count, 2)
+        warnings = google_response_warnings(outbox.response_json)
+        self.assertTrue(any('Optional field ignored.' in warning for warning in warnings))
+        self.assertTrue(any('PROCESSING_WARNING_REASON_TEST' in warning for warning in warnings))
+
+    @patch('leads.google_data_manager._google_request')
+    @patch('leads.google_data_manager._load_google_credentials', return_value='access-token')
+    def test_partial_success_is_terminal_and_uses_provider_record_counts(self, _credentials, mocked_request):
+        mocked_request.side_effect = [
+            {'requestId': 'request-partial'},
+            {
+                'requestStatusPerDestination': [{
+                    'requestStatus': 'PARTIAL_SUCCESS',
+                    'errorInfo': {
+                        'errorCounts': [{
+                            'reason': 'PROCESSING_ERROR_REASON_INVALID_EVENT',
+                            'recordCount': '1',
+                        }],
+                    },
+                }],
+            },
+        ]
+        outbox = self.delivery_outbox()
+
+        from leads.google_data_manager import dispatch_google_now
+        self.assertFalse(dispatch_google_now(outbox))
+        self.assertEqual(outbox.status, 'partial')
+        self.assertIn('部分记录成功', outbox.last_error)
+        self.assertIn('PROCESSING_ERROR_REASON_INVALID_EVENT x 1', outbox.last_error)
+        self.assertIn('停止自动重试', outbox.last_error)
+        self.assertIsNone(outbox.next_attempt_at)
+        self.assertIsNotNone(outbox.provider_processed_at)
+        self.assertEqual(
+            google_response_errors(outbox.response_json),
+            ['PROCESSING_ERROR_REASON_INVALID_EVENT x 1'],
+        )

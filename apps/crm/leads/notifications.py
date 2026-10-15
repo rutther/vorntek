@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from html import escape
+import smtplib
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
+from django.db import connection, transaction
 from django.utils import timezone
 
 from leads.email_delivery import build_email_connection, email_delivery_configured, load_runtime_email_config
 from leads.models import LeadSubmission
+from leads.notification_attempts import (
+    begin_notification_handoff, claim_notification, finish_notification_attempt,
+    notification_message_hash, notification_message_id,
+)
 
 
 def _split_notification_emails(raw: str) -> list[str]:
@@ -101,59 +107,70 @@ def _html_body(submission: LeadSubmission, *, reminder: bool) -> str:
 def send_submission_notification(submission: LeadSubmission, *, reminder: bool = False) -> bool:
     if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
         return False
+    if connection.in_atomic_block:
+        submission_id = submission.pk
+        transaction.on_commit(
+            lambda: _send_submission_notification_now(LeadSubmission(pk=submission_id), reminder=reminder),
+            robust=True,
+        )
+        # Queued is not sent. A rollback discards the callback and no delivery
+        # fact or external side effect has happened inside the caller's commit.
+        return False
+    return _send_submission_notification_now(submission, reminder=reminder)
+
+
+def _send_submission_notification_now(submission: LeadSubmission, *, reminder: bool = False) -> bool:
+    if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
+        return False
+    # The caller may hold a pre-trash snapshot. Do not construct an SMTP
+    # connection or rewrite notification state for a retired lead.
+    submission = LeadSubmission.objects.select_related('form').filter(pk=submission.pk, trashed_at__isnull=True).first()
+    if submission is None or (not reminder and submission.notification_status == 'sent'):
+        return False
+    claimed = claim_notification(submission.pk, 'reminder' if reminder else 'initial')
+    if claimed is None:
+        return False
+    submission, attempt = claimed
     recipients = notification_recipients(submission)
     if not recipients:
-        if not reminder:
-            submission.notification_status = 'disabled'
-            submission.notification_error = '表单未配置通知邮箱。'
-            submission.save(update_fields=['notification_status', 'notification_error', 'updated_at'])
-        return False
-
-    if not email_delivery_configured():
-        message = 'SMTP 账号和授权密码尚未配置。'
-        if reminder:
-            submission.notification_error = message
-            submission.save(update_fields=['notification_error', 'updated_at'])
-        else:
-            submission.notification_status = 'disabled'
-            submission.notification_error = message
-            submission.save(update_fields=['notification_status', 'notification_error', 'updated_at'])
+        finish_notification_attempt(attempt.pk, 'failed', '表单未配置通知邮箱。', disabled=True)
         return False
 
     delivery = load_runtime_email_config()
-    message = EmailMultiAlternatives(
-        subject=_subject(submission, reminder=reminder),
-        body=_text_body(submission, reminder=reminder),
-        from_email=delivery.from_email,
-        to=recipients,
-        reply_to=[submission.email] if submission.email else None,
-        connection=build_email_connection(delivery),
-    )
-    message.attach_alternative(_html_body(submission, reminder=reminder), 'text/html')
-
-    try:
-        sent = bool(message.send(fail_silently=False))
-    except Exception as exc:  # Delivery failure must not break public form submission.
-        if reminder:
-            submission.notification_error = f'提醒发送失败：{str(exc)[:700]}'
-            submission.save(update_fields=['notification_error', 'updated_at'])
-        else:
-            submission.notification_status = 'failed'
-            submission.notification_error = str(exc)[:700]
-            submission.save(update_fields=['notification_status', 'notification_error', 'updated_at'])
+    if not delivery.ready:
+        finish_notification_attempt(attempt.pk, 'failed', delivery.error or 'SMTP 账号和授权密码尚未配置。', disabled=not bool(delivery.error))
         return False
 
-    now = timezone.now()
-    if reminder:
-        submission.reminder_sent_at = now
-        submission.notification_error = ''
-        submission.save(update_fields=['reminder_sent_at', 'notification_error', 'updated_at'])
-    else:
-        submission.notification_status = 'sent' if sent else 'failed'
-        submission.notification_error = '' if sent else '邮件后端未确认发送。'
-        submission.notified_at = now if sent else None
-        submission.save(update_fields=['notification_status', 'notification_error', 'notified_at', 'updated_at'])
-    return sent
+    try:
+        message = EmailMultiAlternatives(
+            subject=_subject(submission, reminder=reminder),
+            body=_text_body(submission, reminder=reminder),
+            from_email=delivery.from_email,
+            to=recipients,
+            reply_to=[submission.email] if submission.email else None,
+            connection=build_email_connection(delivery),
+            headers={'Message-ID': notification_message_id(attempt.pk, delivery.from_email)},
+        )
+        message.attach_alternative(_html_body(submission, reminder=reminder), 'text/html')
+    except Exception as exc:
+        finish_notification_attempt(attempt.pk, 'failed', f'发送准备失败：{str(exc)[:500]}')
+        return False
+    if begin_notification_handoff(attempt.pk, recipients, delivery, notification_message_hash(message),
+                                   message.extra_headers['Message-ID']) is None:
+        return False
+    try:
+        sent = bool(message.send(fail_silently=False))
+    except (smtplib.SMTPAuthenticationError, smtplib.SMTPSenderRefused,
+            smtplib.SMTPRecipientsRefused, smtplib.SMTPDataError) as exc:
+        finish_notification_attempt(attempt.pk, 'failed', f'邮件平台明确拒绝（{type(exc).__name__}）。')
+        return False
+    except Exception as exc:
+        finish_notification_attempt(attempt.pk, 'unknown', f'发送结果未确认（{type(exc).__name__}）；请核对邮件平台后再处理。')
+        return False
+    recorded = finish_notification_attempt(attempt.pk, 'accepted' if sent else 'failed',
+                                           '' if sent else '邮件后端未确认发送。')
+    return bool(sent and recorded)
+
 
 
 def send_smtp_test_notification(recipient: str) -> tuple[bool, str]:

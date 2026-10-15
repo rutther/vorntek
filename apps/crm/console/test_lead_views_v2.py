@@ -239,6 +239,7 @@ class LeadViewsV2ContractTests(TestCase):
             site=self.site,
             provider=provider,
             name='Candidate validation queue',
+            routing_mode='legacy_site',  # Existing pre-upgrade integration.
             integration_type='pixel',
             public_id='1234567890',
             enabled=True,

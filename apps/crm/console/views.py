@@ -3280,16 +3280,25 @@ def asset_file(request, asset_id: int):
 
 @csrf_exempt
 def public_lead_submit(request, form_code: str):
+    from leads.measurement_routing import browser_receipt
     if request.method == 'OPTIONS':
         return apply_cors_headers(request, HttpResponse(status=204))
     if request.method != 'POST':
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Method not allowed.'}, status=405))
 
-    site, locale = default_site_locale(requested_locale_code(request))
+    from marketing.flow_runtime import runtime_enabled
+    from marketing.measurement_context import resolve_measurement_site
+    if runtime_enabled():
+        site = resolve_measurement_site(request)
+        if not site:
+            return apply_cors_headers(request, JsonResponse({'ok':False,'error':'Unknown form host.'},status=400))
+        locale = SiteLocale.objects.filter(site=site, locale_code=requested_locale_code(request), enabled=True).first()
+    else:
+        site, locale = default_site_locale(requested_locale_code(request))
     lead_form = get_object_or_404(LeadFormDefinition, site=site, code=form_code, status='active')
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
-    except json.JSONDecodeError:
+    except (UnicodeDecodeError, json.JSONDecodeError):
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Invalid JSON payload.'}, status=400))
 
     if not isinstance(payload, dict):
@@ -3323,6 +3332,7 @@ def public_lead_submit(request, form_code: str):
                 'dispatch_succeeded': result.dispatch_succeeded,
                 'duplicate': result.duplicate,
                 'notification_sent': result.notification_sent,
+                **({'measurement': browser_receipt(result, payload)} if runtime_enabled() else {}),
                 'message': lead_form.success_message or 'Your inquiry has been received.',
             }
         ),

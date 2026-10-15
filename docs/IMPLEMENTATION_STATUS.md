@@ -29,6 +29,14 @@ The earlier observations below describe the prior public source baseline.
   flow instances, the full lane diagram, saved configuration surviving reload,
   and the distinction between recorded configuration and external validation.
   This is not evidence of actual Meta delivery or a production deployment.
+- Inquiry capture now commits before delivery, with immutable per-inquiry Pixel
+  routing, retry receipts and consent/lifecycle checks. SMTP and Meta/Google
+  dispatch retain durable claim/handoff/receipt records: accepted facts repair
+  summaries without resending; ambiguous results do not become blind retries.
+  Synthetic SQLite regression passed1007 cases (61 PostgreSQL/conditional skips);
+  committed two-connection PostgreSQL delivery verification is still pending.
+  Global external-I/O suppression covers direct send entries and browser receipts;
+  production switches and existing services have not been changed.
 - Full integration is still open: delivery and
   scheduler integration, generic website/detail/qualification content, the broad
   optional/idempotent/scoped-reset synthetic data pack, final recovery, complete

@@ -183,6 +183,7 @@ class MarketingEventWorkspaceTests(TestCase):
             provider=provider,
             name=name,
             integration_type=integration_type,
+            routing_mode='legacy_site',  # Existing pre-upgrade integration.
             public_id=public_id,
             secret_ref='vault:test-reference',
             enabled=enabled,

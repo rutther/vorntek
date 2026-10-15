@@ -282,6 +282,7 @@ class WhatsAppWorkspaceV2Tests(TestCase):
             site=self.site,
             provider=meta_provider,
             name='Meta dataset mock',
+            routing_mode='legacy_site',  # Existing pre-upgrade integration.
             integration_type='pixel',
             public_id='dataset-123',
             consent_category='analytics',
