@@ -1,0 +1,114 @@
+/* Desktop lead operations only. Keep shared CRM/channel styles unchanged. */
+.nc-leads-page .nc-lead-workspace {
+    grid-template-columns: 160px 360px minmax(0, 1fr);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+/* The action area owns space in the column; it never floats over records. */
+.nc-leads-page .nc-lead-list { flex: 1 1 0; }
+.nc-leads-page .nc-lead-list.has-bulk-selection { padding-bottom: 0; }
+.nc-leads-page .nc-list-toolbar,
+.nc-leads-page .nc-list-subbar,
+.nc-leads-page .nc-pagination { flex-shrink: 0; }
+.nc-leads-page .nc-bulk-bar {
+    position: static;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    gap: 8px;
+    border: 0;
+    border-top: 1px solid var(--nc-border-strong);
+    border-radius: 0;
+    background: var(--nc-blue-soft);
+    box-shadow: none;
+    backdrop-filter: none;
+}
+.nc-leads-page .nc-bulk-summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+}
+.nc-leads-page .nc-bulk-summary strong { font-size: 15px; }
+.nc-leads-page .nc-bulk-summary strong span { display: inline; font-size: inherit; color: inherit; }
+.nc-leads-page .nc-bulk-summary span {
+    margin: 0;
+    font-size: 12px;
+    white-space: normal;
+    color: var(--nc-text-secondary);
+}
+.nc-leads-page .nc-bulk-owner select { height: 38px; font-size: 13px; }
+.nc-leads-page .nc-bulk-bar .btn { min-height: 38px; font-size: 13px; }
+.nc-leads-page .nc-bulk-clear { min-height: 38px; }
+.nc-leads-page .nc-bulk-failures summary,
+.nc-leads-page .nc-bulk-failures summary span:last-child,
+.nc-leads-page .nc-bulk-failures li { font-size: 12px; }
+.nc-leads-page .nc-bulk-failures ul { max-height: 100px; }
+
+.nc-leads-page .nc-list-subbar,
+.nc-leads-page .nc-list-subbar select,
+.nc-leads-page .nc-pagination strong { font-size: 13px; }
+.nc-leads-page .nc-search input { font-size: 14px; }
+.nc-leads-page .nc-select-page input,
+.nc-leads-page .nc-row-select input { width: 17px; height: 17px; }
+.nc-leads-page .nc-lead-row { min-height: 162px; gap: 4px; }
+.nc-leads-page .nc-row-title strong {
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.nc-leads-page .nc-row-title { align-items: flex-start; }
+.nc-leads-page .nc-row-company,
+.nc-leads-page .nc-row-demand,
+.nc-leads-page .nc-row-contact,
+.nc-leads-page .nc-row-meta,
+.nc-leads-page .nc-row-footer { font-size: 13px; }
+.nc-leads-page .nc-stage,
+.nc-leads-page .nc-risk { font-size: 12px; }
+.nc-leads-page .nc-row-meta { color: var(--nc-text-secondary); }
+
+/* One readable facts column next to the existing relationship sidebar. */
+.nc-leads-page .nc-record-body { grid-template-columns: minmax(0, 1fr) 190px; }
+.nc-leads-page .nc-overview-grid { grid-template-columns: minmax(0, 1fr); }
+.nc-leads-page .nc-record-identity {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 10px;
+}
+.nc-leads-page .nc-owner-assignment { grid-column: 2; }
+.nc-leads-page .nc-owner-readonly { grid-column: 2 / -1; }
+.nc-leads-page .nc-record-identity > .nc-stage { justify-self: start; }
+.nc-leads-page .nc-next-step-button { grid-column: 3; }
+.nc-leads-page .nc-record-identity h1 { font-size: 21px; white-space: normal; }
+.nc-leads-page .nc-record-identity > div > span,
+.nc-leads-page .nc-owner-select select,
+.nc-leads-page .nc-owner-readonly { font-size: 13px; }
+.nc-leads-page .nc-summary-grid dt { font-size: 12px; }
+.nc-leads-page .nc-summary-grid dd { font-size: 13px; white-space: normal; }
+.nc-leads-page .nc-record-navigation > a,
+.nc-leads-page .nc-record-navigation > div > a,
+.nc-leads-page .nc-record-navigation > div > span,
+.nc-leads-page .nc-record-tabs button { font-size: 13px; }
+.nc-leads-page .nc-info-card h2,
+.nc-leads-page .nc-rail-card > header strong { font-size: 15px; }
+.nc-leads-page .nc-info-card dt,
+.nc-leads-page .nc-info-card dd,
+.nc-leads-page .nc-info-card textarea { font-size: 14px; }
+.nc-leads-page .nc-info-card dl > div { grid-template-columns: 90px minmax(0, 1fr); }
+.nc-leads-page .nc-relation-list small,
+.nc-leads-page .nc-relation-list strong,
+.nc-leads-page .nc-qualification-list label,
+.nc-leads-page .nc-qualification-note { font-size: 13px; }
+.nc-leads-page .nc-triage-actionbar .btn,
+.nc-leads-page .nc-triage-actionbar select { font-size: 13px; }
+.nc-leads-page .nc-triage-actionbar kbd { font-size: 11px; }
+.nc-leads-page .nc-triage-progress > span,
+.nc-leads-page .nc-triage-progress > strong { font-size: 12px; }
+
+/* Ordinary desktop widths reuse the existing view drawer, not a phone layout. */
+@media (max-width: 1399px) {
+    .nc-leads-page .nc-lead-workspace { grid-template-columns: 360px minmax(0, 1fr); }
+}

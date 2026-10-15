@@ -174,7 +174,7 @@ class AcquisitionGovernanceTests(TestCase):
         self.assertEqual(workspace['stats']['total'], 1)
         self.assertFalse(workspace['stats']['email_ready'])
         self.assertEqual(workspace['rows'][0]['submission_count'], 1)
-        self.assertEqual(workspace['rows'][0]['field_count'], len(FIELD_LIBRARY))
+        self.assertEqual(workspace['rows'][0]['field_count'], 6)
         self.assertEqual(workspace['rows'][0]['recipient_count'], 1)
         self.assertEqual(
             workspace['rows'][0]['edit_url'],

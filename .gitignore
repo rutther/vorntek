@@ -26,6 +26,7 @@ apps/crm/scripts/upgrade_demo_content_v2.py
 **/*.sqlite3*
 **/staticfiles/
 **/node_modules/
+apps/crm/console/static/console/flow-workspace/
 **/.runtime/
 *.dump
 *.pem

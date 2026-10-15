@@ -1,0 +1,50 @@
+.flow-crm-root .guide-evidence{padding:24px 26px;color:#203047;margin:0;background:#fff;border:0}
+.flow-crm-root .guide-task-workbench:has(.is-evidence-focused){grid-template-columns:minmax(0,1fr)}
+.flow-crm-root .guide-task-workbench:has(.is-evidence-focused)>.guide-task-navigation{display:none}
+.flow-crm-root .guide-evidence>header h4{font-size:20px;font-weight:650}
+.flow-crm-root .guide-evidence-workbench{grid-template-columns:minmax(160px,.65fr) minmax(0,1.15fr) minmax(0,1fr);gap:24px;padding-top:24px;border-bottom:0}
+.flow-crm-root .guide-evidence-events{min-width:0;padding-right:20px;border-right:1px solid #dde3eb}
+.flow-crm-root .guide-evidence-channels{padding:0;margin:24px 0 12px;list-style:none}
+.flow-crm-root .guide-evidence-channels li+li{margin-top:8px}
+.flow-crm-root .guide-evidence-channels button{display:block;width:100%;padding:14px 12px;text-align:left;border:1px solid transparent;border-radius:5px;background:#f4f6f9;color:#526074;font:inherit;font-size:13px;cursor:pointer}
+.flow-crm-root .guide-evidence-channels button strong,.flow-crm-root .guide-evidence-channels button span{display:block}
+.flow-crm-root .guide-evidence-channels button span{font-size:12px;margin-top:5px}
+.flow-crm-root .guide-evidence-channels button[aria-pressed=true]{background:#edf3ff;border-color:#becfee;color:#245cca}
+.flow-crm-root .guide-evidence-channels button:hover:not(:disabled){border-color:#becfee}
+.flow-crm-root .guide-evidence .is-recorded{color:#25795b}
+.flow-crm-root .guide-evidence-reference,.flow-crm-root .guide-evidence-observation{min-width:0}
+.flow-crm-root .guide-evidence h5{margin-bottom:14px}
+.flow-crm-root .guide-evidence h6{font-size:14px;font-weight:600;margin:18px 0 5px}
+.flow-crm-root .guide-evidence .evidence-instructions{font-size:13px}
+.flow-crm-root .guide-evidence .guide-reference-image img{height:auto;max-height:330px;object-fit:contain}
+.flow-crm-root .guide-evidence-browser-reference{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;align-items:start;margin-top:14px}
+.flow-crm-root .guide-evidence-browser-reference h6{margin:8px 0;font-size:12px}
+.flow-crm-root .guide-evidence-browser-reference .guide-reference-image{margin-top:0}
+.flow-crm-root .guide-evidence-browser-reference .guide-reference-image img{max-height:80px}
+.flow-crm-root .guide-evidence-browser-reference figcaption>span{font-size:11px}
+.flow-crm-root .guide-evidence .evidence-request-only{font-size:12px;text-align:left}
+.flow-crm-root .guide-evidence .evidence-next{display:block;background:transparent;padding:12px 0 0;margin:14px 0 0;border-top:1px solid #dde3eb;font-size:12px}
+.flow-crm-root .guide-evidence .evidence-next p{margin:6px 0}
+.flow-crm-root .guide-observation-decision{margin:0;padding:0;border:0;min-width:0}
+.flow-crm-root .guide-observation-decision legend{font-size:12px;color:#627084;margin-bottom:10px}
+.flow-crm-root .guide-observation-decision label{display:flex;align-items:flex-start;gap:10px;margin:0 0 10px;padding:12px;border:1px solid #dde3eb;border-radius:5px;font-size:13px;cursor:pointer}
+.flow-crm-root .guide-observation-decision label:has(input:checked){border-color:#becfee;background:#edf3ff}
+.flow-crm-root .guide-observation-decision input{flex:none;width:16px;height:16px;margin:2px 0 0;accent-color:#245cca}
+.flow-crm-root .guide-observation-decision:disabled label{cursor:default;color:#627084}
+.flow-crm-root .guide-evidence .guide-reference-image{margin-top:12px}
+.flow-crm-root .guide-evidence .evidence-register{padding:24px 0 0;border:0}
+.flow-crm-root .guide-evidence .evidence-selection-help{min-height:0}
+.flow-crm-root .guide-evidence-actions{display:flex;align-items:center;justify-content:space-between;gap:20px;border-top:1px solid #dde3eb;margin:20px -26px -24px;padding:16px 26px;background:#fafbfd}
+.flow-crm-root .guide-evidence-actions>div:first-child{min-width:0;font-size:12px;color:#627084}
+.flow-crm-root .guide-evidence-action-buttons{display:flex;flex-shrink:0;gap:10px}
+.flow-crm-root .guide-evidence-actions .evidence-saved{margin:5px 0 0}
+.flow-crm-root .guide-evidence .evidence-context{margin:10px 0 8px}
+.flow-crm-root .guide-evidence .evidence-id{padding:10px;line-height:1.5}
+.flow-crm-root .guide-evidence .evidence-id code{margin:4px 0}
+.flow-crm-root .guide-evidence .evidence-id>small{font-size:11px}
+.flow-crm-root .guide-evidence .evidence-metrics{padding:10px 0}
+.flow-crm-root .guide-evidence>.evidence-caption{margin:8px 0;font-size:12px}
+.flow-crm-root .guide-evidence-workbench{margin-top:8px;padding-top:18px}
+@media(max-width:1050px){.flow-crm-root .guide-evidence-workbench{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.flow-crm-root .guide-evidence-events{grid-column:1/-1;border:0;padding:0}.flow-crm-root .guide-evidence-channels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}.flow-crm-root .guide-evidence-channels li+li{margin:0}}
+@media(max-width:700px){.flow-crm-root .guide-evidence{padding:18px}.flow-crm-root .guide-evidence-workbench{grid-template-columns:minmax(0,1fr);gap:24px}.flow-crm-root .guide-evidence-channels button{padding:12px 8px}.flow-crm-root .guide-evidence-reference{border-bottom:1px solid #dde3eb;padding-bottom:14px}}
+@media(max-width:700px){.flow-crm-root .guide-evidence-actions{margin:18px -18px -18px;padding:16px 18px;align-items:stretch;flex-direction:column;gap:12px}.flow-crm-root .guide-evidence-action-buttons{flex-wrap:wrap}.flow-crm-root .guide-evidence-action-buttons .button{flex:1;white-space:nowrap}}

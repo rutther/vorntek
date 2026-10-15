@@ -3,6 +3,13 @@
 Normal installation uses `docker compose build`. Package downloads must succeed;
 `Temporary failure in name resolution` does not mean the pinned version is absent.
 
+The CRM image builds its guided-loop UI in a separate locked Node stage, runs
+the UI interaction tests, and copies only the generated static bundle and guide
+figures into the Python runtime. Local `flow-workspace` output and `node_modules`
+are excluded from the build context. Node is not required in the running image.
+For local frontend development use `npm ci`, `npm test`, and `npm run build` in
+`apps/crm/flow-ui`; the build regenerates all sixteen neutral example figures.
+
 On the authorized Linux test host, a fresh public clone failed while pip resolved
 the package index through Docker's default build network. Host networking had
 worked in earlier isolated builds. If host DNS works, the operator can explicitly

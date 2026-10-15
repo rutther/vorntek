@@ -1,0 +1,12 @@
+.runtime-panel{margin:0 24px 24px;padding:20px;border:1px solid #cddcf2;border-radius:6px;background:#f8faff;font-size:13px;line-height:1.65;min-width:0}
+.runtime-panel header,.runtime-id,.runtime-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.runtime-panel header{justify-content:space-between}.runtime-panel h4{font-size:15px;margin:0;color:#17335b}
+.runtime-panel p{margin:10px 0}.runtime-help{color:#58708f}.runtime-id{padding:10px 0;overflow-wrap:anywhere}
+.runtime-panel a{color:#215bb4;text-decoration:underline;text-underline-offset:3px}.runtime-panel li{overflow-wrap:anywhere}.runtime-panel code{font-size:12px}
+.runtime-id span{margin-left:auto;color:#58708f}.runtime-scope{display:grid;gap:12px;margin-top:16px}.runtime-scope textarea{min-height:76px;resize:vertical}
+.runtime-panel select,.runtime-panel textarea{width:100%;min-width:0;box-sizing:border-box}.runtime-panel .field{gap:6px}
+.runtime-actions{margin-top:12px}.runtime-actions span{color:#657895}.runtime-panel ul{padding-left:20px}.runtime-checks{border-top:1px solid #dbe5f2;padding-top:12px;margin-top:12px}
+.runtime-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:230px;overflow:auto;font-size:12px;padding:12px;background:white;border:1px solid #dbe5f2}
+.runtime-panel details{margin:12px 0}.runtime-panel summary{cursor:pointer}.runtime-confirm{margin-top:16px;padding:16px;border:1px solid #e3c58c;background:#fffaf0}
+.runtime-metrics{display:flex;flex-wrap:wrap;gap:16px;margin:12px 0}.runtime-metrics div{min-width:72px}.runtime-metrics dd{margin:0;font-size:18px;color:#17335b}.runtime-metrics dt{color:#58708f}
+@media(max-width:600px){.runtime-panel{margin:0 12px 16px;padding:14px}.runtime-id span{margin-left:0}.runtime-panel .button{max-width:100%;white-space:normal}.runtime-actions{align-items:stretch}}

@@ -69,7 +69,7 @@
     }
 
     function currentViewState(allowedFields) {
-        const fallback = ['q', 'stage', 'language', 'source', 'owner', 'sla', 'page_size'];
+        const fallback = ['view', 'q', 'stage', 'language', 'source', 'owner', 'sla', 'page_size'];
         const fields = allowedFields.length ? allowedFields : fallback;
         const filters = {};
         fields.forEach((name) => {
@@ -285,12 +285,20 @@
         return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
     }
 
+    function modalController(element) {
+        if (!element) return null;
+        const Modal = window.tabler?.Modal || window.tabler?.bootstrap?.Modal || window.bootstrap?.Modal;
+        if (!Modal) return null;
+        if (typeof Modal.getOrCreateInstance === 'function') {
+            return Modal.getOrCreateInstance(element);
+        }
+        return new Modal(element);
+    }
+
     function initTaskModal() {
         const element = q('[data-nc-task-modal]');
         if (!element) return;
-        const modal = window.bootstrap && window.bootstrap.Modal
-            ? window.bootstrap.Modal.getOrCreateInstance(element)
-            : null;
+        const modal = modalController(element);
         const create = q('[data-nc-create-task]', element);
         const due = q('[name="task_due_at"]', element);
         const fields = qa('[data-nc-task-field]', element);
@@ -506,6 +514,37 @@
         return { payload: payload, partial: partial };
     }
 
+    async function postTrashTransition(recordIds, restore, reason) {
+        const workspace = q('[data-nc-lead-workspace]');
+        const url = workspace
+            ? (restore ? workspace.dataset.ncBulkRestoreUrl : workspace.dataset.ncBulkTrashUrl)
+            : '';
+        if (!url) throw new Error(restore ? '线索恢复接口尚未配置。' : '线索回收站接口尚未配置。');
+        const body = new FormData();
+        recordIds.forEach((id) => body.append('record_ids', String(id)));
+        if (!restore && reason) body.append('reason', String(reason));
+        const response = await window.fetch(url, {
+            method: 'POST',
+            body: body,
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrfToken()
+            }
+        });
+        let payload = {};
+        try { payload = await response.json(); } catch (_) {}
+        const partial = response.status === 207;
+        if ((!response.ok && !partial) || (!payload.ok && !partial)) {
+            const error = new Error(payload.message || (restore ? '线索恢复失败，请检查后重试。' : '线索移入回收站失败，请检查后重试。'));
+            error.payload = payload;
+            error.status = response.status;
+            throw error;
+        }
+        return { payload: payload, partial: partial };
+    }
+
     function assignmentChangesCurrentQueue() {
         const ownerFilter = currentFieldValue('owner') || 'all';
         return ownerFilter !== 'all';
@@ -575,12 +614,18 @@
         const count = q('[data-nc-selected-count]', bar);
         const owner = q('[data-nc-bulk-owner]', bar);
         const assign = q('[data-nc-bulk-assign]', bar);
+        const trash = q('[data-nc-bulk-trash]', bar);
+        const restore = q('[data-nc-bulk-restore]', bar);
         const clear = q('[data-nc-bulk-clear]', bar);
         const failurePanel = q('[data-nc-bulk-failures]', bar);
         const failureDetails = q('[data-nc-bulk-failure-details]', bar);
         const failureCount = q('[data-nc-bulk-failure-count]', bar);
         const failureList = q('[data-nc-bulk-failure-list]', bar);
         const workspace = q('[data-nc-lead-workspace]');
+        const trashModalElement = q('[data-nc-trash-modal]');
+        const trashModal = modalController(trashModalElement);
+        const confirmTrash = trashModalElement ? q('[data-nc-confirm-trash]', trashModalElement) : null;
+        const trashReason = trashModalElement ? q('[data-nc-trash-reason]', trashModalElement) : null;
         const maxRecords = Number(workspace && workspace.dataset.ncBulkMax) || controls.length;
         const selectionKey = storageKey('selection');
         const retryKey = storageKey('assignment-retry');
@@ -592,7 +637,7 @@
             .filter((id) => /^\d+$/.test(id) && currentIds.has(id));
         controls.forEach((control) => { control.checked = savedIds.includes(String(control.value)); });
         const storedRetry = readSessionJson(retryKey, null);
-        if (isPlainObject(storedRetry) && /^\d+$/.test(String(storedRetry.ownerId || ''))) {
+        if (owner && isPlainObject(storedRetry) && /^\d+$/.test(String(storedRetry.ownerId || ''))) {
             const savedOwner = String(storedRetry.ownerId);
             if (qa('option', owner).some((option) => option.value === savedOwner)) owner.value = savedOwner;
         }
@@ -636,7 +681,9 @@
             bar.classList.toggle('is-visible', visible);
             bar.setAttribute('aria-hidden', String(!visible));
             if (list) list.classList.toggle('has-bulk-selection', visible);
-            if (assign) assign.disabled = !visible || !owner.value;
+            if (assign) assign.disabled = !visible || !owner || !owner.value;
+            if (trash) trash.disabled = !visible;
+            if (restore) restore.disabled = !visible;
             if (allowSelectionPersist) writeSessionJson(selectionKey, ids);
         };
         document.addEventListener('nc:logout-start', () => {
@@ -663,17 +710,17 @@
             controls.forEach((control) => { control.checked = pageToggle.checked; });
             update();
         });
-        owner.addEventListener('change', update);
+        if (owner) owner.addEventListener('change', update);
         clear.addEventListener('click', () => {
             controls.forEach((control) => { control.checked = false; });
             pageToggle.checked = false;
-            owner.value = '';
+            if (owner) owner.value = '';
             showFailures([]);
             try { window.sessionStorage.removeItem(retryKey); } catch (_) {}
             update();
             pageToggle.focus();
         });
-        assign.addEventListener('click', async () => {
+        if (assign && owner) assign.addEventListener('click', async () => {
             const ids = selectedIds();
             if (!ids.length) return;
             if (!owner.value) {
@@ -737,6 +784,84 @@
                 }
             }
         });
+
+        const runTrashTransition = async (restoreMode) => {
+            const ids = selectedIds();
+            if (!ids.length) return;
+            const capturedIds = new Set(ids);
+            const actionButton = restoreMode ? restore : confirmTrash;
+            const actionLabel = restoreMode ? '恢复中…' : '移入中…';
+            const busyControls = controls.concat(
+                [pageToggle, clear, trash, restore, confirmTrash].filter(Boolean)
+            );
+            let keepBusyForNavigation = false;
+            showFailures([]);
+            setAsyncControlsBusy(busyControls, true, actionButton, actionLabel);
+            try {
+                const result = await postTrashTransition(
+                    ids,
+                    restoreMode,
+                    trashReason ? trashReason.value.trim() : ''
+                );
+                const records = (Array.isArray(result.payload.records) ? result.payload.records : [])
+                    .filter((item) => capturedIds.has(String(item.id)));
+                const failures = (Array.isArray(result.payload.failures) ? result.payload.failures : [])
+                    .filter((item) => capturedIds.has(String(item.id)));
+                const failureIds = new Set(failures.map((item) => String(item.id)));
+                controls.forEach((control) => {
+                    const id = String(control.value);
+                    if (capturedIds.has(id) && !failureIds.has(id)) control.checked = false;
+                });
+                writeSessionJson(selectionKey, failures.map((item) => String(item.id)));
+                if (failures.length) {
+                    writeSessionJson(retryKey, { failures: failures });
+                } else {
+                    try { window.sessionStorage.removeItem(retryKey); } catch (_) {}
+                }
+                update();
+                if (!restoreMode && trashModal) trashModal.hide();
+                if (records.length) {
+                    keepBusyForNavigation = true;
+                    reloadCanonicalLeadQueue(workspace);
+                    return;
+                }
+                showFailures(failures);
+                announce(
+                    assignmentFailureMessage(result.payload, failures.length + ' 条未更新；失败项仍保留勾选。'),
+                    failures.length ? 'warning' : 'success'
+                );
+            } catch (error) {
+                const failures = error.payload && Array.isArray(error.payload.failures)
+                    ? error.payload.failures
+                    : [];
+                showFailures(failures);
+                const fallback = error instanceof TypeError
+                    ? '网络连接异常，当前勾选已保留。'
+                    : (error.message || '批量操作失败，当前勾选已保留。');
+                announce(assignmentFailureMessage(error.payload, fallback), 'error');
+            } finally {
+                if (!keepBusyForNavigation) {
+                    setAsyncControlsBusy(busyControls, false, actionButton);
+                    update();
+                }
+            }
+        };
+
+        if (trash) trash.addEventListener('click', () => {
+            if (!selectedIds().length) return;
+            const confirmationCount = trashModalElement && q('[data-nc-trash-count]', trashModalElement);
+            if (confirmationCount) confirmationCount.textContent = String(selectedIds().length);
+            if (trashModal) {
+                trashModal.show();
+            } else if (window.confirm('将所选线索移入回收站？')) {
+                runTrashTransition(false);
+            }
+        });
+        if (trashModalElement && trashReason) {
+            trashModalElement.addEventListener('shown.bs.modal', () => trashReason.focus());
+        }
+        if (confirmTrash) confirmTrash.addEventListener('click', () => runTrashTransition(false));
+        if (restore) restore.addEventListener('click', () => runTrashTransition(true));
         update();
     }
 
