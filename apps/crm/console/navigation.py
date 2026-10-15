@@ -221,6 +221,7 @@ LEGACY_SECTION_DOMAIN = {
     'tasks': 'sales',
     'marketing': 'marketing',
     'marketing_events': 'marketing',
+    'marketing_integrations': 'marketing',
     'marketing_guided_loop': 'marketing',
     'marketing_plans': 'marketing',
     'marketing_attribution': 'marketing',
@@ -411,6 +412,7 @@ def build_navigation(active_key: str, user) -> list[dict[str, object]]:
             ]
         elif domain.key == 'marketing':
             marketing_entries = (
+                ('marketing_integrations', '平台接入', 'console:marketing_integrations', '平台资产、授权与共享连接维护'),
                 ('marketing_plans', '获客方案', 'console:marketing_plans', '入口范围、配置版本与长期运行'),
                 ('marketing_guided_loop', '引导式闭环', 'console:marketing_guided_loop', '按平台与路径分步搭建获客闭环'),
                 ('marketing_events', '事件运营', 'console:marketing_events', '平台事件收发、失败恢复与证据'),

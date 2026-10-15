@@ -109,6 +109,8 @@ from .leads_workspace import build_leads_workspace
 from .locale_admin import create_locale_from_source, disable_locale, enable_locale, set_default_locale
 from .locale_forms import LocaleBootstrapForm
 from .marketing_forms import MarketingIntegrationEditorForm
+from .meta_editor import MetaIntegrationSectionForm, connection_check_time
+from .marketing_diagnostics import diagnose_marketing_integration
 from .marketing_services import (
     PRIVACY_TRANSITIONS,
     execute_privacy_action,
@@ -140,7 +142,7 @@ from .release_pipeline import (
     PreviewBuildInProgress,
     run_preview_build,
 )
-from .secret_store import secret_last4
+from .secret_store import SecretVaultConfigurationError, secret_last4
 from .storage_security import (
     StorageSecurityError,
     private_file_response_headers,
@@ -1636,6 +1638,11 @@ def marketing_integration_edit(request, integration_id: int):
         id=integration_id,
         site=site,
     )
+    from .integration_context import integration_guide_context
+    guide_context = integration_guide_context(request, integration)
+    redirect_url = f'{reverse("console:marketing_integration_edit", args=[integration.id])}?locale={locale.locale_code}'
+    if guide_context:
+        redirect_url += '&' + guide_context['query']
     if request.method == 'POST' and request.POST.get('_action') == 'diagnose':
         before = integration_snapshot(integration)
         record_audit(
@@ -1646,27 +1653,34 @@ def marketing_integration_edit(request, integration_id: int):
             before=before,
             request=request,
         )
-        diagnostic, _evidence = record_integration_diagnostic(
-            integration=integration,
-            actor=request.user,
-        )
-        record_audit(
-            actor=request.user,
-            action='marketing_integration_diagnosed',
-            entity_table='marketing_integration',
-            entity_id=integration.id,
-            before=before,
-            after=integration_snapshot(integration),
-            request=request,
-            metadata={'diagnostic_overall': diagnostic.get('overall', 'unknown')},
-        )
+        prepared = diagnose_marketing_integration(integration)
+        try:
+            with transaction.atomic():
+                diagnostic, _evidence = record_integration_diagnostic(
+                    integration=integration, actor=request.user, diagnostic=prepared)
+                record_audit(
+                    actor=request.user,
+                    action='marketing_integration_diagnosed',
+                    entity_table='marketing_integration',
+                    entity_id=integration.id,
+                    before=before,
+                    after=integration_snapshot(integration),
+                    request=request,
+                    metadata={'diagnostic_overall': diagnostic.get('overall', 'unknown')},
+                )
+        except ValidationError:
+            messages.error(request, '接入配置已更新，请刷新后重新检查连接。')
+            return redirect(redirect_url)
         if diagnostic['overall'] == 'pass':
             messages.success(request, f'连接诊断完成：{diagnostic["summary"]}')
         else:
             messages.warning(request, f'连接诊断完成：{diagnostic["summary"]}')
-        return redirect(f'{reverse("console:marketing_integration_edit", args=[integration.id])}?locale={locale.locale_code}')
+        return redirect(redirect_url)
     if request.method == 'POST':
-        form = MarketingIntegrationEditorForm(
+        editor_class = (MetaIntegrationSectionForm if request.POST.get('_section') and
+                        integration.provider.code == 'meta' and integration.integration_type == 'pixel'
+                        else MarketingIntegrationEditorForm)
+        form = editor_class(
             request.POST,
             integration=integration,
             updated_by=request.user.get_username() or 'django-console',
@@ -1681,18 +1695,32 @@ def marketing_integration_edit(request, integration_id: int):
                 before=before,
                 request=request,
             )
-            integration = form.save()
-            record_audit(
-                actor=request.user,
-                action='marketing_integration_updated',
-                entity_table='marketing_integration',
-                entity_id=integration.id,
-                before=before,
-                after=integration_snapshot(integration),
-                request=request,
-            )
-            messages.success(request, f'接入配置已更新：{integration.name}')
-            return redirect(f'{reverse("console:marketing_integration_edit", args=[integration.id])}?locale={locale.locale_code}')
+            try:
+                integration = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            except SecretVaultConfigurationError as exc:
+                form.add_error(None, str(exc))
+            else:
+                record_audit(
+                    actor=request.user,
+                    action='marketing_integration_updated',
+                    entity_table='marketing_integration',
+                    entity_id=integration.id,
+                    before=before,
+                    after=integration_snapshot(integration),
+                    request=request,
+                )
+                section_messages = {
+                    'credentials': '凭据已保存。下一步：检查连接。接入开关未改变。',
+                    'identity': '接入名称已保存。',
+                    'testing': '测试与接口设置已保存，请重新检查连接。',
+                    'advanced': '扩展配置已保存，请重新检查连接。',
+                    'state': '接入总开关已保存；实际发送仍取决于各流程的应用状态与访客同意。',
+                    'clear': '本接入凭据已清除。重新接入前需填写新凭据。',
+                }
+                messages.success(request, section_messages.get(getattr(form, 'section', ''), '设置已保存。') if form.is_meta_pixel else f'接入配置已更新：{integration.name}')
+                return redirect(redirect_url)
     else:
         form = MarketingIntegrationEditorForm(
             integration=integration,
@@ -1726,18 +1754,41 @@ def marketing_integration_edit(request, integration_id: int):
             if str(config.get('transport_provider') or 'meta').strip().lower() == 'ycloud'
             else integration.site.base_url.rstrip('/') + '/api/webhooks/whatsapp/'
         )
+    from marketing.flow_runtime import integration_runtime_summary
+    runtime_management = integration_runtime_summary(integration) if form.is_meta_pixel else None
+    from .meta_editor import connection_next_action
+    connection_journey = connection_next_action(config.get('last_diagnostic'), connection_status['primary_exists']) if form.is_meta_pixel else None
+    if form.is_meta_pixel:
+        # This template supplies task-specific help instead of Django's generic
+        # field help; do not emit aria-describedby targets that are not rendered.
+        for field in form.fields.values():
+            field.help_text = ''
+        form.fields['primary_secret'].widget.attrs.update({
+            'aria-describedby': 'mi-token-help mi-token-state',
+            'placeholder': '粘贴从 Meta 获取的访问令牌',
+            'spellcheck': 'false',
+        })
     return render_form_console(
         request,
-        section_key='marketing',
+        section_key='marketing_integrations',
         page_payload=marketing_integration_editor_page_payload(
             title=integration.name,
-            description='维护平台 ID、加密密钥、Webhook、CRM 阶段回传与诊断状态。',
+            description='Meta 网站事件接入' if form.is_meta_pixel else '维护平台 ID、加密密钥、Webhook、CRM 阶段回传与诊断状态。',
             locale_label=admin_locale_label(locale),
         ),
-        workspace_template='console/_marketing_integration_editor_workspace.html',
+        workspace_template=('console/_meta_integration_editor.html' if form.is_meta_pixel else 'console/_marketing_integration_editor_workspace.html'),
         locale_code=locale.locale_code,
+        extra_stylesheets=['console/meta-editor-v2.css', 'console/meta-editor-next-step.css'] if form.is_meta_pixel else [],
+        extra_scripts=['console/meta-editor-v2a.js'] if form.is_meta_pixel else [],
         extra_context={
+            'hide_toolrows': form.is_meta_pixel,
+            'hide_topbar_center': form.is_meta_pixel,
+            'editor_section': getattr(form, 'section', ''),
+            'editor_version': integration.updated_at.isoformat(),
             'marketing_integration_editor': form,
+            'runtime_management': runtime_management,
+            'connection_journey': connection_journey,
+            'guide_context': guide_context,
             'integration': integration,
             'editor_locale': locale,
             'connection_status': connection_status,
@@ -1751,6 +1802,7 @@ def marketing_integration_edit(request, integration_id: int):
             'vault_last4': vault_last4,
             'current_test_event_code': str(config.get('test_event_code') or ''),
             'last_diagnostic': config.get('last_diagnostic') if isinstance(config.get('last_diagnostic'), dict) else None,
+            'connection_check_time': connection_check_time(config.get('last_diagnostic')),
             'outbox_pending_count': outbox_counts['pending'] or 0,
             'outbox_sending_count': outbox_counts['sending'] or 0,
             'outbox_processing_count': outbox_counts['processing'] or 0,

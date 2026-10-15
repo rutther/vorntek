@@ -40,6 +40,7 @@ from .marketing_services import (
     register_privacy_request,
     transition_privacy_request,
 )
+from .marketing_diagnostics import diagnose_marketing_integration
 from .payloads import default_site_locale
 from .privacy_retention import execute_retention_policy, retention_preview, update_retention_policy
 
@@ -176,21 +177,24 @@ def integration_diagnose(request, integration_id: int):
         id=integration_id,
         site=site,
     )
-    diagnostic, evidence = record_integration_diagnostic(
-        integration=integration,
-        actor=request.user,
-    )
-    record_audit(
-        actor=request.user,
-        action='marketing_integration_diagnosed',
-        entity_table='marketing_integration',
-        entity_id=integration.id,
-        request=request,
-        metadata={
-            'diagnostic_overall': diagnostic.get('overall', 'unknown'),
-            'integration_check_id': evidence.id,
-        },
-    )
+    prepared = diagnose_marketing_integration(integration)
+    try:
+        with transaction.atomic():
+            diagnostic, evidence = record_integration_diagnostic(
+                integration=integration, actor=request.user, diagnostic=prepared)
+            record_audit(
+                actor=request.user,
+                action='marketing_integration_diagnosed',
+                entity_table='marketing_integration',
+                entity_id=integration.id,
+                request=request,
+                metadata={
+                    'diagnostic_overall': diagnostic.get('overall', 'unknown'),
+                    'integration_check_id': evidence.id,
+                },
+            )
+    except ValidationError as exc:
+        return JsonResponse({'ok': False, 'errors': _validation_errors(exc)}, status=409)
     return JsonResponse({
         'ok': True,
         'check_id': evidence.id,

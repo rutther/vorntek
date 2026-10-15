@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import marketing_views
+from . import marketing_integration_views
 from . import flow_workspace_views
 from . import flow_runtime_views
 from . import marketing_guided_loop_views
@@ -22,6 +23,8 @@ urlpatterns = [
     path('workbench/', workbench_views.workbench, name='workbench'),
     path('marketing/guided-loop/', flow_workspace_views.flow_workspace, name='marketing_guided_loop'),
     path('marketing/plans/', flow_workspace_views.marketing_plans, name='marketing_plans'),
+    path('marketing/integrations/', marketing_integration_views.marketing_integrations, name='marketing_integrations'),
+    path('marketing/integrations/new/', marketing_integration_views.marketing_integration_create, name='marketing_integration_create'),
     path('marketing/guided-loop/meta/website-form/new/', marketing_guided_loop_views.marketing_guided_loop_create, name='marketing_guided_loop_create'),
     path('marketing/guided-loop/meta/website-form/<uuid:loop_key>/', marketing_guided_loop_views.marketing_guided_loop_detail, name='marketing_guided_loop_detail'),
     path('marketing/guided-loop/meta/website-form/<uuid:loop_key>/rename/', marketing_guided_loop_views.marketing_guided_loop_rename, name='marketing_guided_loop_rename'),

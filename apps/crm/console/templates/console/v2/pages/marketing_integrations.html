@@ -1,0 +1,29 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+{% block title %}平台接入 · {{ brand_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/integration-registry.css' %}?v=20261008-system-r1">{% endblock %}
+{% block breadcrumb %}<span>营销</span><i data-lucide="chevron-right" aria-hidden="true"></i><strong>平台接入</strong>{% endblock %}
+{% block content %}
+<div class="ir-workspace">
+  <header class="ir-heading"><div><h1>平台接入</h1><p>统一维护平台资产与授权，供获客方案复用。</p><p>当前站点：{{ site.name }}</p></div>{% if can_create %}<a class="ir-button ir-primary" href="{% url 'console:marketing_integration_create' %}"><i data-lucide="plus" aria-hidden="true"></i>新建接入</a>{% endif %}</header>
+  {% if load_error %}<section class="ir-card ir-empty" role="alert"><i data-lucide="server-off" aria-hidden="true"></i><h2>暂时无法读取接入</h2><p>当前记录数量和状态未知。请重新载入，不要重复创建接入。</p><a class="ir-button" href="{% url 'console:marketing_integrations' %}">重新载入</a></section>{% else %}
+  <section class="ir-card" aria-labelledby="ir-list-title">
+    <div class="ir-toolbar"><h2 id="ir-list-title">接入记录 <span>{{ page.paginator.count }}</span></h2><form method="get" role="search" class="ir-filters"><label class="ir-search"><span class="visually-hidden">搜索名称、平台或资产 ID</span><i data-lucide="search" aria-hidden="true"></i><input type="search" name="q" value="{{ query }}" placeholder="搜索名称、平台或资产 ID" maxlength="200"></label><label><span class="visually-hidden">筛选环境</span><select name="environment"><option value="">全部环境</option><option value="production" {% if environment == 'production' %}selected{% endif %}>正式业务</option><option value="test" {% if environment == 'test' %}selected{% endif %}>演练测试</option></select></label><button class="ir-button" type="submit">筛选</button>{% if has_filters %}<a class="ir-reset" href="{% url 'console:marketing_integrations' %}">清除</a>{% endif %}</form></div>
+    {% if rows %}
+    <table class="ir-table"><caption class="visually-hidden">当前站点的平台接入。凭据、连接检查与接入开关是独立状态。</caption><thead><tr><th scope="col">接入 / 平台资产</th><th scope="col">环境</th><th scope="col">凭据与检查</th><th scope="col">接入开关</th><th scope="col">使用范围</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead><tbody>
+    {% for row in rows %}<tr>
+      <td class="ir-record"><div class="ir-platform-icon" aria-hidden="true"><i data-lucide="plug-zap"></i></div><div><a class="ir-name" href="{% url 'console:marketing_integration_edit' row.item.pk %}">{{ row.item.name }}</a><p>{{ row.item.provider.name }} · {{ row.type_label }}</p><code>{{ row.item.public_id }}</code></div></td>
+      <td data-label="环境"><span class="ir-environment">{% if row.item.environment == 'production' %}正式业务{% elif row.item.environment == 'test' %}演练测试{% else %}{{ row.item.environment }}{% endif %}</span></td>
+      <td data-label="凭据与检查"><span class="ir-status ir-{{ row.tone }}"><i data-lucide="{% if row.tone == 'good' %}circle-check{% elif row.tone == 'warning' or row.tone == 'error' %}circle-alert{% else %}circle-dashed{% endif %}" aria-hidden="true"></i>{{ row.check_label }}</span><small>{% if not row.is_meta_pixel %}沿用平台专用规则{% elif row.credential_saved %}凭据已保存{% else %}未保存主凭据{% endif %}</small>{% if row.check_time %}<small>上次检查 <time datetime="{{ row.check_time.iso }}" title="{{ row.check_time.title }}">{{ row.check_time.label }}</time></small>{% endif %}</td>
+      <td data-label="接入开关"><span class="ir-status {% if row.item.enabled %}ir-good{% else %}ir-neutral{% endif %}"><span class="ir-dot" aria-hidden="true"></span>{% if row.item.enabled %}已开启{% else %}未开启{% endif %}</span></td>
+      <td data-label="使用范围">{% if row.item.routing_mode == 'legacy_site' %}<span>旧站点范围</span><small>保留既有路由</small>{% elif row.usage_count != None %}<span>{{ row.usage_count }} 个方案</span><small>{% if row.usage_count %}可共享此接入{% else %}尚未关联{% endif %}</small>{% else %}<span>专用配置</span>{% endif %}</td>
+      <td class="ir-row-action"><a class="ir-button" href="{% url 'console:marketing_integration_edit' row.item.pk %}" aria-label="维护 {{ row.item.name }}">维护<i data-lucide="arrow-right" aria-hidden="true"></i></a></td>
+    </tr>{% endfor %}
+    </tbody></table>
+    {% else %}<div class="ir-empty"><i data-lucide="{% if has_filters %}search{% else %}plug-zap{% endif %}" aria-hidden="true"></i><h3>{% if has_filters %}没有匹配的接入{% else %}还没有平台接入{% endif %}</h3><p>{% if has_filters %}试试其他名称或资产 ID，或清除筛选。{% else %}先登记平台资产，再保存授权；多个获客方案可以复用同一条接入。{% endif %}</p>{% if has_filters %}<a class="ir-button" href="{% url 'console:marketing_integrations' %}">清除筛选</a>{% elif can_create %}<a class="ir-button ir-primary" href="{% url 'console:marketing_integration_create' %}">新建接入</a>{% else %}<p>请联系系统管理员创建接入。</p>{% endif %}</div>{% endif %}
+    {% if page.has_other_pages %}<nav class="ir-pagination" aria-label="接入列表分页"><span>第 {{ page.number }} / {{ page.paginator.num_pages }} 页</span><div>{% if page.has_previous %}<a class="ir-button" href="?{{ page_query }}&amp;page={{ page.previous_page_number }}">上一页</a>{% endif %}{% if page.has_next %}<a class="ir-button" href="?{{ page_query }}&amp;page={{ page.next_page_number }}">下一页</a>{% endif %}</div></nav>{% endif %}
+  </section>
+  {% endif %}
+  <p class="ir-footnote"><i data-lucide="info" aria-hidden="true"></i>接入开启不代表方案已应用；连接检查通过不代表真实事件已接收。<a href="{% url 'console:marketing_events' %}">查看事件证据</a></p>
+</div>
+{% endblock %}

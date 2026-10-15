@@ -100,29 +100,38 @@ def _diagnostic_evidence_level(diagnostic: dict) -> str:
     return 'local'
 
 
-@transaction.atomic
 def record_integration_diagnostic(
     *,
     integration: MarketingIntegration,
     actor,
+    diagnostic: dict | None = None,
 ) -> tuple[dict, IntegrationCheck]:
-    diagnostic = diagnose_marketing_integration(integration)
-    evidence = IntegrationCheck.objects.create(
-        integration=integration,
-        actor_user=actor if getattr(actor, 'is_authenticated', False) else None,
-        check_type='connection',
-        delivery_mode='validation',
-        status={
-            'pass': 'passed',
-            'warn': 'warning',
-            'fail': 'failed',
-        }.get(str(diagnostic.get('overall') or ''), 'unknown'),
-        evidence_level=_diagnostic_evidence_level(diagnostic),
-        summary=str(diagnostic.get('summary') or ''),
-        details_json=diagnostic,
-    )
-    integration.config_json = {**(integration.config_json or {}), 'last_diagnostic': diagnostic}
-    integration.save(update_fields=['config_json', 'updated_at'])
+    expected_version = integration.updated_at
+    if diagnostic is None:
+        diagnostic = diagnose_marketing_integration(integration)
+    with transaction.atomic():
+        current = MarketingIntegration.objects.select_for_update(of=('self',)).get(
+            pk=integration.pk, site_id=integration.site_id)
+        if current.updated_at != expected_version:
+            raise ValidationError({'version': '接入配置已更新，请刷新后重新检查连接。'})
+        evidence = IntegrationCheck.objects.create(
+            integration=current,
+            actor_user=actor if getattr(actor, 'is_authenticated', False) else None,
+            check_type='connection',
+            delivery_mode='validation',
+            status={
+                'pass': 'passed',
+                'warn': 'warning',
+                'fail': 'failed',
+            }.get(str(diagnostic.get('overall') or ''), 'unknown'),
+            evidence_level=_diagnostic_evidence_level(diagnostic),
+            summary=str(diagnostic.get('summary') or ''),
+            details_json=diagnostic,
+        )
+        current.config_json = {**(current.config_json or {}), 'last_diagnostic': diagnostic}
+        current.save(update_fields=['config_json', 'updated_at'])
+        integration.config_json = current.config_json
+        integration.updated_at = current.updated_at
     return diagnostic, evidence
 
 

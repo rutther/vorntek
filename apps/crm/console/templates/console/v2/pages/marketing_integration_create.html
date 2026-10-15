@@ -1,0 +1,19 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+{% block title %}新建接入 · {{ brand_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/integration-registry.css' %}?v=20261008-system-r1">{% endblock %}
+{% block breadcrumb %}<a href="{% url 'console:marketing_integrations' %}">平台接入</a><i data-lucide="chevron-right" aria-hidden="true"></i><strong>新建接入</strong>{% endblock %}
+{% block content %}
+<div class="ir-workspace ir-create">
+  <header class="ir-heading"><div><h1>新建接入</h1><p>登记已有 Meta 数据集，随后配置服务器回传授权。</p></div></header>
+  <div class="ir-create-grid"><section class="ir-card ir-create-form" aria-labelledby="ir-create-title">
+    <header class="ir-create-platform"><span class="ir-platform-icon" aria-hidden="true"><i data-lucide="plug-zap"></i></span><div><h2 id="ir-create-title">Meta 网站接入</h2><p>Pixel / 转化 API</p></div></header>
+    <form method="post" data-ir-create>{% csrf_token %}
+      {% if form.errors %}<div class="ir-errors" role="alert" tabindex="-1"><strong>尚未创建，请检查填写内容</strong>{{ form.non_field_errors }}<ul>{% for field in form %}{% for error in field.errors %}<li><a href="#{{ field.id_for_label }}">{{ field.label }}：{{ error }}</a></li>{% endfor %}{% endfor %}</ul></div>{% endif %}
+      {% for field in form %}<div class="ir-field"><label for="{{ field.id_for_label }}">{{ field.label }} <span>必填</span></label>{{ field }}{% if field.name == 'public_id' %}<p id="integration-id-help">来自 Meta 事件管理工具 → 数据集 → 设置。不是访问令牌；保存后不能直接替换。</p>{% elif field.name == 'environment' %}<p>创建后不可切换。不同环境使用独立数据集，避免测试混入正式业务。</p>{% endif %}{% if field.errors %}<p class="ir-field-error" id="{{ field.auto_id }}_error">{{ field.errors|join:'；' }}</p>{% endif %}</div>{% endfor %}
+      <footer class="ir-form-actions"><span data-ir-status aria-live="polite">不会开启发送</span><div><a class="ir-button" href="{% url 'console:marketing_integrations' %}">取消</a><button class="ir-button ir-primary" type="submit">创建并配置</button></div></footer>
+    </form>
+  </section><aside class="ir-create-help"><h2><i data-lucide="info" aria-hidden="true"></i>创建后会怎样</h2><ul><li>如果此资产已有接入，直接打开原记录，不重复创建。</li><li>新接入默认关闭。保存凭据、检查连接后，再由方案决定使用范围。</li><li>不会在 Meta 创建数据集，也不会发送事件。</li></ul><hr><p>当前开放新建 Meta 网站接入。其他已有平台记录仍可从列表维护。</p></aside></div>
+</div>
+{% endblock %}
+{% block extra_scripts %}<script src="{% static 'console/integration-registry.js' %}?v=20261008a"></script>{% endblock %}
