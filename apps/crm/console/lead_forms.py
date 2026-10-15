@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+import re
 from decimal import Decimal
+from types import SimpleNamespace
 
 from django import forms
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from leads.models import LeadFormDefinition, LeadSubmission
+from leads.form_schema import DEFAULT_FIELDS, FormSchemaError, effective_form_fields, public_form_fields
 
 from .acquisition_versions import lead_form_version_token
 from .access import assignee_queryset_for_user
@@ -60,69 +63,11 @@ SOURCE_CHANNEL_CHOICES = [
 
 FIELD_LIBRARY = [
     {
-        'name': 'full_name',
-        'type': 'text',
-        'default_label': '姓名',
-        'default_placeholder': '请输入姓名',
-        'default_enabled': True,
-        'default_required': True,
-    },
-    {
-        'name': 'email',
-        'type': 'email',
-        'default_label': '邮箱',
-        'default_placeholder': '请输入邮箱',
-        'default_enabled': True,
-        'default_required': False,
-    },
-    {
-        'name': 'phone',
-        'type': 'tel',
-        'default_label': '电话',
-        'default_placeholder': '请输入电话',
-        'default_enabled': True,
-        'default_required': False,
-    },
-    {
-        'name': 'company',
-        'type': 'text',
-        'default_label': '公司',
-        'default_placeholder': '请输入公司名称',
-        'default_enabled': True,
-        'default_required': True,
-    },
-    {
-        'name': 'country',
-        'type': 'text',
-        'default_label': '国家',
-        'default_placeholder': '请输入国家',
-        'default_enabled': True,
-        'default_required': True,
-    },
-    {
-        'name': 'product_category',
-        'type': 'select',
-        'default_label': '产品类别',
-        'default_placeholder': '请选择产品类别',
-        'default_enabled': True,
-        'default_required': True,
-    },
-    {
-        'name': 'capacity',
-        'type': 'text',
-        'default_label': '产能目标',
-        'default_placeholder': '例如 12,000 cans/hour',
-        'default_enabled': True,
-        'default_required': True,
-    },
-    {
-        'name': 'message',
-        'type': 'textarea',
-        'default_label': '项目需求',
-        'default_placeholder': '请输入项目需求',
-        'default_enabled': True,
-        'default_required': False,
-    },
+        'name': field['name'], 'type': field['type'], 'default_label': field['label'],
+        'default_placeholder': '请选择需求类别' if field['type'] == 'select' else f"请输入{field['label']}",
+        'default_enabled': field['enabled'], 'default_required': field['required'],
+    }
+    for field in DEFAULT_FIELDS
 ]
 
 
@@ -205,24 +150,35 @@ class LeadFormEditorForm(forms.Form):
             )
 
     def _resolved_field_specs(self) -> list[dict]:
-        schema = (self.form_definition.form_schema if self.form_definition else None) or default_form_schema()
+        schema = (self.form_definition.form_schema if self.form_definition else None)
+        if not schema:
+            schema = {'fields': public_form_fields(self.form_definition)} if self.form_definition else default_form_schema()
         configured = {
             str(item.get('name') or item.get('key') or '').strip(): item
             for item in (schema.get('fields') or [])
             if isinstance(item, dict) and str(item.get('name') or item.get('key') or '').strip()
         }
         specs: list[dict] = []
-        for item in FIELD_LIBRARY:
+        library = list(FIELD_LIBRARY)
+        known_names = {item['name'] for item in library}
+        for name, field in configured.items():
+            if name not in known_names and re.fullmatch(r'[a-z][a-z0-9_]{0,79}', name):
+                library.append({'name': name, 'type': field.get('type', 'text'),
+                                'default_label': str(field.get('label') or name),
+                                'default_placeholder': '', 'default_enabled': True,
+                                'default_required': False})
+        for item in library:
             current = configured.get(item['name'], {})
             specs.append(
                 {
                     'name': item['name'],
                     'type': item['type'],
                     'default_label': item['default_label'],
-                    'enabled': bool(current.get('enabled', item['default_enabled'] if 'enabled' in current else True)),
+                    'enabled': bool(current.get('enabled', bool(current))),
                     'required': bool(current.get('required', item['default_required'])),
                     'label': str(current.get('label') or item['default_label']),
                     'placeholder': str(current.get('placeholder') or item['default_placeholder']),
+                    'options': current.get('options', []),
                 }
             )
         return specs
@@ -290,7 +246,7 @@ class LeadFormEditorForm(forms.Form):
         for spec in self.field_specs:
             name = spec['name']
             enabled = bool(self.cleaned_data.get(f'field_{name}_enabled'))
-            required = bool(self.cleaned_data.get(f'field_{name}_required'))
+            required = enabled and bool(self.cleaned_data.get(f'field_{name}_required'))
             label = (self.cleaned_data.get(f'field_{name}_label') or spec['default_label']).strip() or spec['default_label']
             placeholder = (self.cleaned_data.get(f'field_{name}_placeholder') or '').strip()
             if enabled:
@@ -305,13 +261,16 @@ class LeadFormEditorForm(forms.Form):
                     'placeholder': placeholder,
                     'enabled': enabled,
                     'required': required,
+                    'options': spec.get('options', []),
                 }
             )
 
-        if 'full_name' not in enabled_names:
-            raise forms.ValidationError('姓名字段必须启用。')
         if 'email' not in enabled_names and 'phone' not in enabled_names:
             raise forms.ValidationError('邮箱和电话至少要启用一个。')
+        try:
+            effective_form_fields(SimpleNamespace(category='general', form_schema={'fields': fields}))
+        except FormSchemaError as exc:
+            raise forms.ValidationError(str(exc)) from exc
         return {'fields': fields}
 
     def save(self) -> LeadFormDefinition:

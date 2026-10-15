@@ -9,7 +9,7 @@ import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import timedelta, timezone as datetime_timezone
+from datetime import date, timedelta, timezone as datetime_timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -21,6 +21,8 @@ from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+
+from leads.form_schema import CORE_FIELDS, FormSchemaError, effective_form_fields
 
 from leads.models import ConsentRecord, LeadEventOutbox, LeadFormDefinition, LeadSubmission, SalesTeam
 from leads.google_data_manager import (
@@ -408,17 +410,27 @@ def clean_submission_input(payload: dict[str, Any], *, form_definition: LeadForm
     if str(payload.get('website') or '').strip():
         raise LeadCaptureError('提交未通过安全检查。', code='spam_detected')
 
-    full_name = _bounded_text(payload, 'full_name', 120, fallback=str(payload.get('name') or ''))
-    company = _bounded_text(payload, 'company', 200)
-    country = _bounded_text(payload, 'country', 120)
-    email = canonicalize_email(_bounded_text(payload, 'email', 254))
-    phone = canonicalize_phone(_bounded_text(payload, 'phone', 40))
-    message = _bounded_text(payload, 'message', 4000)
-    if len(full_name) < 2:
+    try:
+        field_rules = effective_form_fields(form_definition)
+    except FormSchemaError as exc:
+        raise LeadCaptureError(str(exc)) from exc
+
+    def input_field(name, limit, *, fallback=''):
+        if field_rules is not None and not field_rules.get(name, {}).get('enabled'):
+            return ''
+        return _bounded_text(payload, name, limit, fallback=fallback)
+
+    full_name = input_field('full_name', 120, fallback=str(payload.get('name') or ''))
+    company = input_field('company', 200)
+    country = input_field('country', 120)
+    email = canonicalize_email(input_field('email', 254))
+    phone = canonicalize_phone(input_field('phone', 40))
+    message = input_field('message', 4000)
+    if field_rules is None and len(full_name) < 2:
         raise LeadCaptureError('请填写姓名。')
-    if len(company) < 2:
+    if field_rules is None and len(company) < 2:
         raise LeadCaptureError('请填写公司名称。')
-    if len(country) < 2:
+    if field_rules is None and len(country) < 2:
         raise LeadCaptureError('请填写国家或地区。')
     if email and not EMAIL_RE.match(email):
         raise LeadCaptureError('邮箱格式无效。')
@@ -431,9 +443,46 @@ def clean_submission_input(payload: dict[str, Any], *, form_definition: LeadForm
     extra_fields = _json_object(payload, 'extra_fields')
     product_category = str(extra_fields.get('product_category') or '').strip()
     capacity = str(extra_fields.get('capacity') or '').strip()
-    if not product_category:
+    if field_rules is None and not product_category:
         raise LeadCaptureError('请选择产品类别。')
-    if getattr(form_definition, 'category', 'project') == 'industrial':
+    if field_rules is not None:
+        extra_fields = {
+            key: value for key, value in extra_fields.items()
+            if key not in CORE_FIELDS and field_rules.get(key, {}).get('enabled')
+        }
+        core_values = dict(full_name=full_name, company=company, country=country,
+                           email=email, phone=phone, message=message)
+        for name, rule in field_rules.items():
+            if not rule['enabled']:
+                continue
+            value = core_values[name] if name in CORE_FIELDS else extra_fields.get(name, '')
+            if value is None:
+                value = ''
+            if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+                raise LeadCaptureError(f"{rule['label']}格式无效。")
+            text = str(value).strip()
+            if rule['required'] and not text:
+                raise LeadCaptureError(f"请填写{rule['label']}。")
+            if text and rule['option_values'] and text not in rule['option_values']:
+                raise LeadCaptureError(f"请选择有效的{rule['label']}。")
+            if text and rule['type'] == 'number':
+                try:
+                    if not Decimal(text).is_finite():
+                        raise InvalidOperation
+                except InvalidOperation as exc:
+                    raise LeadCaptureError(f"{rule['label']}必须为有效数字。") from exc
+            if text and rule['type'] == 'date':
+                try:
+                    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', text):
+                        raise ValueError
+                    date.fromisoformat(text)
+                except ValueError as exc:
+                    raise LeadCaptureError(f"{rule['label']}必须为有效日期。") from exc
+            if text and rule['type'] == 'email' and not EMAIL_RE.match(text):
+                raise LeadCaptureError(f"{rule['label']}邮箱格式无效。")
+            if name not in CORE_FIELDS and name in extra_fields:
+                extra_fields[name] = text
+    elif getattr(form_definition, 'category', 'project') == 'industrial':
         from leads.industrial import BUSINESS_LINES
         business_line = extra_fields.get('business_line')
         if not isinstance(business_line, str) or business_line not in BUSINESS_LINES:

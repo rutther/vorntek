@@ -103,6 +103,7 @@ from .email_forms import SmtpSettingsForm
 from .data_governance_forms import RetentionExecutionForm, RetentionPolicyForm
 from .forms import ArticleEditorForm, AssetImportPathForm, AssetUploadForm, asset_mime_type
 from .lead_forms import LeadFormEditorForm, LeadSubmissionEditorForm, default_form_schema
+from leads.form_schema import FormSchemaError, public_form_fields
 from .lead_exports import build_leads_csv, build_leads_xlsx, lead_export_queryset
 from .leads_workspace import build_leads_workspace
 from .locale_admin import create_locale_from_source, disable_locale, enable_locale, set_default_locale
@@ -2842,25 +2843,11 @@ def public_lead_form_definition(request, form_code: str):
     if not lead_form:
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Form not found.'}, status=404))
 
-    schema = lead_form.form_schema or default_form_schema()
-    fields = []
-    for item in (schema.get('fields') or []):
-        if not isinstance(item, dict):
-            continue
-        if 'enabled' in item and not bool(item.get('enabled')):
-            continue
-        field_name = str(item.get('name') or item.get('key') or '').strip()
-        if not field_name:
-            continue
-        fields.append(
-            {
-                'name': field_name,
-                'type': str(item.get('type') or 'text').strip(),
-                'label': str(item.get('label') or '').strip(),
-                'placeholder': str(item.get('placeholder') or '').strip(),
-                'required': bool(item.get('required')),
-            }
-        )
+    try:
+        fields = public_form_fields(lead_form)
+    except FormSchemaError:
+        return apply_cors_headers(request, JsonResponse(
+            {'ok': False, 'error': '表单配置暂不可用，请联系管理员。'}, status=503))
 
     response = JsonResponse(
         {
@@ -2874,6 +2861,7 @@ def public_lead_form_definition(request, form_code: str):
             },
         }
     )
+    response['Cache-Control'] = 'no-store'
     return apply_cors_headers(request, response)
 
 
