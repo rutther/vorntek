@@ -2872,7 +2872,19 @@ def public_marketing_measurement_config(request):
     if request.method != 'GET':
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Method not allowed.'}, status=405))
 
-    response = JsonResponse({'ok': True, **public_measurement_config()})
+    from marketing.flow_runtime import runtime_enabled
+    from marketing.measurement_context import resolve_measurement_site
+    if settings.NEWCROWN_ALLOW_EXTERNAL_IO and runtime_enabled():
+        site = resolve_measurement_site(request)
+        if not site:
+            return apply_cors_headers(request, JsonResponse({'ok':False,'error':'Unknown measurement host.'},status=400))
+        try:
+            config = public_measurement_config(site=site, path=request.GET.get('path','/'))
+        except ValidationError:
+            return apply_cors_headers(request, JsonResponse({'ok':False,'error':'Invalid measurement path.'},status=400))
+    else:
+        config = public_measurement_config()
+    response = JsonResponse({'ok': True, **config})
     response['Cache-Control'] = 'no-store, max-age=0'
     response['X-Content-Type-Options'] = 'nosniff'
     return apply_cors_headers(request, response)

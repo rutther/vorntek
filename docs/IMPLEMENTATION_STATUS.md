@@ -1,5 +1,32 @@
 # Implementation status / 实现状态
 
+## Integration candidate — 2026-10-16
+
+This branch is an in-progress integration, not a deployed product release.
+The earlier observations below describe the prior public source baseline.
+
+- SQL0033–0042 append the current marketing runtime and recovery objects without
+  rewriting the original32 checksums. A clean source image passed real PostgreSQL
+  fresh installation and legacy27→42 upgrade with a non-superuser application
+  role, repeated initialization and preservation of existing column values.
+- General inquiry schemas now control enabled/required fields, choices and custom
+  values across the editor, public definition API and submission validation.
+  Explicit older category contracts remain compatible; neutral defaults no longer
+  require an industry, production capacity or company.
+- The complete guided-loop frontend, sixteen neutral instructional SVGs, real
+  persistent workspace/runtime APIs and role/CSRF boundaries are integrated.
+  The Docker builder and CI install locked frontend dependencies, run interaction
+  tests and generate assets; the Python runtime does not need Node.
+- UI inspection with a real local backend confirmed two independent same-kind
+  flow instances, the full lane diagram, saved configuration surviving reload,
+  and the distinction between recorded configuration and external validation.
+  This is not evidence of actual Meta delivery or a production deployment.
+- Full integration is still open: independent connection editing, delivery and
+  scheduler integration, generic website/detail/qualification content, the broad
+  optional/idempotent/scoped-reset synthetic data pack, final recovery, complete
+  regression and deployment acceptance. Existing publishing/serving capabilities
+  and disabled-by-default external-I/O safeguards remain part of the contract.
+
 Observed 2026-09-21. **Public source pre-release; full goal acceptance remains open.**
 
 ## Active engineering baseline

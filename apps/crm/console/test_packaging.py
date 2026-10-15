@@ -79,6 +79,11 @@ class PackagingTests(SimpleTestCase):
         self.assertFalse(config['meta_pixel_enabled'])
         self.assertEqual(config['meta_pixel_id'], '')
         self.assertFalse(config['google_tag_enabled'])
+        # The full scoped API must obey the same no-I/O switch before even
+        # reading a site or querying runtime bindings.
+        scoped = public_measurement_config(site=object(), path='/contact/')
+        self.assertEqual(scoped['metaPixels'], [])
+        self.assertEqual(scoped['measurementContext'], '')
 
     @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False)
     def test_external_dispatch_disabled_before_records_are_read_or_changed(self):

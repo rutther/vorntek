@@ -1,0 +1,22 @@
+{# Presentation only: nav_items remains the permission-filtered canonical menu. #}
+<nav class="nc-primary-nav nc-guide-primary-nav" aria-label="工作区导航">
+    {% for item in nav_items %}
+        {% if item.key == 'content' %}<div class="nc-guide-nav-label">管理</div>{% endif %}
+        <a class="nc-nav-item {% if item.key == 'marketing' %}nc-guide-nav-heading{% elif item.active %}is-active{% endif %}"
+           href="{{ item.href }}" aria-label="{{ item.label }}" title="{{ item.description|default:item.label }}"
+           {% if item.active and item.key != 'marketing' %}aria-current="page"{% endif %}>
+            <i data-lucide="{{ item.icon|default:'radio-tower' }}" aria-hidden="true"></i>
+            <span><strong>{{ item.label }}</strong></span>
+        </a>
+        {% if item.key == 'marketing' %}
+            {% for child in item.children %}
+                <a class="nc-nav-item nc-guide-nav-route {% if child.active %}is-active{% endif %}"
+                   href="{{ child.href }}" aria-label="{{ child.label }}" title="{{ child.description|default:child.label }}"
+                   {% if child.active %}aria-current="page"{% endif %}>
+                    <i aria-hidden="true" data-lucide="{% if child.key == 'marketing_integrations' %}plug{% elif child.key == 'marketing_plans' %}file-text{% elif child.key == 'marketing_guided_loop' %}workflow{% elif child.key == 'marketing_events' %}activity{% elif child.key == 'marketing_forms' %}clipboard-list{% elif child.key == 'marketing_privacy' %}shield-check{% elif child.key == 'marketing_attribution' %}chart-no-axes-combined{% else %}circle{% endif %}"></i>
+                    <span><strong>{{ child.label }}</strong></span>
+                </a>
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+</nav>

@@ -1526,7 +1526,7 @@ class LeadViewsV2ContractTests(TestCase):
         expected_stylesheets = [
             '/static/console/vendor/tabler/1.4.0/tabler.min.css',
             '/static/console/v2/vorntek-theme.css',
-            '/static/console/v2/vorntek-v2.css?v=20260830-6',
+            '/static/console/v2/vorntek-v2.css',
             '/static/console/vorntek-brand.css',
         ]
         expected_scripts = [
@@ -1542,7 +1542,7 @@ class LeadViewsV2ContractTests(TestCase):
                 parser = _DocumentContractParser()
                 parser.feed(response.content.decode())
                 self.assertEqual(parser.h1_count, 1)
-                self.assertEqual(parser.stylesheets, expected_stylesheets)
+                self.assertEqual([urlsplit(href).path for href in parser.stylesheets], expected_stylesheets)
                 self.assertEqual(parser.scripts, expected_scripts)
                 rendered = response.content.decode()
                 self.assertNotIn('admin-shell.css', rendered)

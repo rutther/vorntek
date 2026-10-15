@@ -242,7 +242,7 @@ test("ad-set guide never takes a draft ID as a saved dataset or leaks a differen
   assert.doesNotMatch(render("#/flow/crm-test?view=tasks", [{ ...loop, provider: "other" }]), /id="guide-toggle-meta-adset"/);
   const other = render("#/flow/crm-test?view=tasks", [loop]);
   assert.match(other, /id="guide-toggle-meta-adset"/);
-  assert.doesNotMatch(other, /866204096483318|55555555/);
+  assert.doesNotMatch(other, /900000000000008|55555555/);
 });
 
 test("recommendations place accessible help beside values and contain no account-specific instructions", () => {

@@ -585,7 +585,7 @@ function ManagementModal({ type, loop, onClose, onSubmit, crm, busy, feedback, p
                   disabled={busy}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="例如：非洲灌装线询盘"
+                  placeholder="例如：官网项目咨询"
                 />
               </label>
               {type === "create" && (

@@ -1,4 +1,5 @@
 import os
+import json
 import socket
 from pathlib import Path
 from urllib.parse import urlparse
@@ -20,6 +21,19 @@ def env_bool(name: str, default: str = '0') -> bool:
 
 
 DEBUG = env_bool('SITEOS_ADMIN_DEBUG', '0')
+SITEOS_META_RUNTIME_ENABLED = env_bool('SITEOS_META_RUNTIME_ENABLED', '0')
+SITEOS_META_RUNTIME_ENVIRONMENT = os.getenv('SITEOS_META_RUNTIME_ENVIRONMENT', 'production')
+SITEOS_META_RUNTIME_LOADER_VERSION = int(os.getenv('SITEOS_META_RUNTIME_LOADER_VERSION', '0'))
+try:
+    SITEOS_META_RUNTIME_SITE_ORIGINS = json.loads(os.getenv('SITEOS_META_RUNTIME_SITE_ORIGINS', '{}'))
+    if not isinstance(SITEOS_META_RUNTIME_SITE_ORIGINS, dict) or any(
+        not isinstance(code, str) or not isinstance(origins, list) or
+        any(not isinstance(origin, str) for origin in origins)
+        for code, origins in SITEOS_META_RUNTIME_SITE_ORIGINS.items()
+    ):
+        raise ValueError('Expected site-code to origin-list mapping')
+except (ValueError, TypeError) as exc:
+    raise ImproperlyConfigured('SITEOS_META_RUNTIME_SITE_ORIGINS must be a JSON object of site origin lists.') from exc
 SECRET_KEY = secret_value('SITEOS_ADMIN_SECRET_KEY').strip()
 if not SECRET_KEY:
     if DEBUG:

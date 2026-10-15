@@ -7,21 +7,23 @@
     <meta name="color-scheme" content="light">
     <title>{% block title %}{{ brand_name }} 后台{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'console/vendor/tabler/1.4.0/tabler.min.css' %}">
-    <link rel="stylesheet" href="{% static 'console/v2/vorntek-theme.css' %}">
-    <link rel="stylesheet" href="{% static 'console/v2/vorntek-v2.css' %}?v=20260830-6">
+    <link rel="stylesheet" href="{% static 'console/v2/vorntek-theme.css' %}?v=20261016">
+    <link rel="stylesheet" href="{% static 'console/v2/vorntek-v2.css' %}?v=20261016">
+    {% if resource_navigation %}<link rel="stylesheet" href="{% static 'console/resource-navigation.css' %}?v=20261016">{% endif %}
     {% block extra_head %}{% endblock %}
 <link rel="stylesheet" href="{% static 'console/vorntek-brand.css' %}">
 </head>
-<body class="nc-body {% block body_class %}{% endblock %}">
+<body class="nc-body {% if resource_navigation %}nc-resource-navigation{% endif %} {% block body_class %}{% endblock %}">
     <a class="nc-skip-link" href="#main-content">跳到主要内容</a>
     <div class="nc-shell">
-        <aside class="nc-sidebar" aria-label="后台主导航">
+        <aside class="nc-sidebar" aria-label="后台主导航" id="nc-primary-sidebar">
+            {% if resource_navigation %}<button class="nc-resource-close" type="button" data-resource-nav-close aria-label="关闭主导航"><i data-lucide="x" aria-hidden="true"></i></button>{% endif %}
             <a class="nc-brand" href="{% url 'console:workbench' %}" aria-label="{{ brand_name }} 后台首页">
                 <img src="{% static 'console/vorntekLogo.png' %}" alt="" width="34" height="34">
                 <span><strong>{{ brand_name }}</strong><small>获客与销售运营</small></span>
             </a>
 
-            <nav class="nc-primary-nav">
+            {% block primary_navigation %}<nav class="nc-primary-nav">
                 {% for item in nav_items %}
                     <a class="nc-nav-item {% if item.active %}is-active{% endif %}" href="{{ item.href }}" aria-label="{{ item.label }}：{{ item.description }}" title="{{ item.label }}" {% if item.active %}aria-current="page"{% endif %}>
                         <i data-lucide="{{ item.icon }}" aria-hidden="true"></i>
@@ -38,7 +40,7 @@
                         </div>
                     {% endif %}
                 {% endfor %}
-            </nav>
+            </nav>{% endblock %}
 
             <div class="nc-sidebar-footer">
                 <button type="button" class="nc-sidebar-collapse" data-nc-sidebar-collapse aria-pressed="false" aria-label="收起主导航" title="收起主导航">
@@ -47,9 +49,11 @@
                 </button>
             </div>
         </aside>
+        {% if resource_navigation %}<button class="nc-resource-backdrop" type="button" data-resource-nav-backdrop aria-label="关闭主导航遮罩" tabindex="-1" hidden></button>{% endif %}
 
         <div class="nc-app">
             <header class="nc-topbar">
+                {% if resource_navigation %}<button class="nc-resource-open" type="button" data-resource-nav-open aria-controls="nc-primary-sidebar" aria-expanded="false" aria-label="打开主导航"><i data-lucide="menu" aria-hidden="true"></i></button>{% endif %}
                 <div class="nc-breadcrumb" aria-label="面包屑">
                     {% block breadcrumb %}<strong>后台</strong>{% endblock %}
                 </div>
@@ -108,6 +112,7 @@
     <script src="{% static 'console/vendor/tabler/1.4.0/tabler.min.js' %}"></script>
     <script src="{% static 'console/lucide.min.js' %}"></script>
     <script src="{% static 'console/v2/shell.js' %}"></script>
+    {% if resource_navigation %}<script src="{% static 'console/resource-navigation.js' %}?v=20261016"></script>{% endif %}
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

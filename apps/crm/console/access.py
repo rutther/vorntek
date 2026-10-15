@@ -96,6 +96,11 @@ CONTENT_VIEW_NAMES = frozenset({
     'website_candidate_deploy',
 })
 MARKETING_VIEW_NAMES = frozenset({
+    'marketing_guided_loop', 'marketing_plans',
+    'flow_workspace_collection', 'flow_workspace_item',
+    'flow_runtime_item', 'flow_runtime_checks',
+    'marketing_guided_loop_create', 'marketing_guided_loop_detail',
+    'marketing_guided_loop_rename', 'marketing_guided_loop_dataset',
     'marketing_attribution',
     'marketing_events', 'marketing_inbound_retry',
     'marketing', 'marketing_integration_edit', 'marketing_forms',

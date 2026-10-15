@@ -158,7 +158,7 @@ class CanonicalNavigationTests(SimpleTestCase):
         )
         self.assertEqual(
             [child['key'] for child in marketing_item['children']],
-            ['marketing_events', 'marketing_forms', 'marketing_privacy', 'marketing'],
+            ['marketing_plans', 'marketing_guided_loop', 'marketing_events', 'marketing_forms', 'marketing_privacy', 'marketing'],
         )
         self.assertEqual(
             [child['key'] for child in marketing_item['children'] if child['active']],

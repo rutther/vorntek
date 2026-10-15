@@ -180,7 +180,7 @@ export const DEFS = {
       {
         key: "adName",
         label: "关联广告名称",
-        placeholder: "例如：非洲灌装线网站获客",
+        placeholder: "例如：官网项目咨询推广",
       },
       {
         key: "objective",
@@ -598,9 +598,9 @@ export function seedLoops() {
     ad: { adName: "演示网站获客广告", objective: "website" },
   };
   return [
-    "非洲灌装线询盘",
+    "个人咨询示例",
     "官网通用询盘",
-    "中东饮料线询盘",
+    "企业项目咨询示例",
     "网站线索演示",
   ].map((name, i) => {
     const l = createLoop({

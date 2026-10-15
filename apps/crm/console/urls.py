@@ -1,6 +1,9 @@
 from django.urls import path
 from . import views
 from . import marketing_views
+from . import flow_workspace_views
+from . import flow_runtime_views
+from . import marketing_guided_loop_views
 from . import sales_views
 from . import lead_views_v2
 from . import opportunity_views_v2
@@ -17,6 +20,16 @@ app_name = 'console'
 urlpatterns = [
     path('', views.home, name='home'),
     path('workbench/', workbench_views.workbench, name='workbench'),
+    path('marketing/guided-loop/', flow_workspace_views.flow_workspace, name='marketing_guided_loop'),
+    path('marketing/plans/', flow_workspace_views.marketing_plans, name='marketing_plans'),
+    path('marketing/guided-loop/meta/website-form/new/', marketing_guided_loop_views.marketing_guided_loop_create, name='marketing_guided_loop_create'),
+    path('marketing/guided-loop/meta/website-form/<uuid:loop_key>/', marketing_guided_loop_views.marketing_guided_loop_detail, name='marketing_guided_loop_detail'),
+    path('marketing/guided-loop/meta/website-form/<uuid:loop_key>/rename/', marketing_guided_loop_views.marketing_guided_loop_rename, name='marketing_guided_loop_rename'),
+    path('marketing/guided-loop/meta/website-form/<uuid:loop_key>/dataset/', marketing_guided_loop_views.marketing_guided_loop_dataset, name='marketing_guided_loop_dataset'),
+    path('api/marketing/flows/', flow_workspace_views.flow_workspace_collection, name='flow_workspace_collection'),
+    path('api/marketing/flows/<uuid:loop_key>/', flow_workspace_views.flow_workspace_item, name='flow_workspace_item'),
+    path('api/marketing/flows/<uuid:loop_key>/runtime/', flow_runtime_views.flow_runtime_item, name='flow_runtime_item'),
+    path('api/marketing/flows/<uuid:loop_key>/runtime/checks/', flow_runtime_views.flow_runtime_checks, name='flow_runtime_checks'),
     path('marketing/events/', marketing_event_views.marketing_events, name='marketing_events'),
     path('marketing/forms/', views.marketing_forms, name='marketing_forms'),
     path('marketing/forms/new/', views.lead_form_create, name='marketing_form_create'),
