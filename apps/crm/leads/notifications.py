@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from leads.email_delivery import build_email_connection, email_delivery_configured, load_runtime_email_config
 from leads.models import LeadSubmission
+from leads.form_schema import CORE_FIELDS, effective_form_fields, public_form_fields
 from leads.notification_attempts import (
     begin_notification_handoff, claim_notification, finish_notification_attempt,
     notification_message_hash, notification_message_id,
@@ -38,33 +39,37 @@ def _field(submission: LeadSubmission, key: str) -> str:
     return str((submission.payload_json or {}).get(key) or '').strip()
 
 
-def _project_context(submission):
-    if _field(submission, 'business_line'):
-        return '应用背景', _field(submission, 'application_context') or '未填写'
-    return '产能目标', _field(submission, 'capacity') or '未填写'
+def _notification_fields(submission):
+    fields = public_form_fields(submission.form)
+    # Retain existing explicitly legacy-form context, not a product default.
+    if effective_form_fields(submission.form) is None and _field(submission, 'business_line'):
+        fields.append({'name': 'application_context', 'label': '应用背景'})
+    rows = []
+    for field in fields:
+        name = field['name']
+        value = str(getattr(submission, name, '') or '') if name in CORE_FIELDS else _field(submission, name)
+        labels = {option['value']: option.get('label', option['value'])
+                  for option in field.get('options', []) if isinstance(option, dict)}
+        rows.append((name, field['label'], labels.get(value, value) or '未填写'))
+    return rows
 
 
 def _subject(submission: LeadSubmission, *, reminder: bool) -> str:
-    prefix = '待跟进提醒' if reminder else '新项目询盘'
-    identity = submission.company or submission.full_name or submission.email or submission.phone or f'#{submission.id}'
-    product = _field(submission, 'product_category')
-    capacity = _field(submission, 'capacity')
-    summary = ' / '.join(item for item in [product, capacity] if item)
+    prefix = '待跟进提醒' if reminder else '新咨询'
+    fields = _notification_fields(submission)
+    enabled = {name for name, _label, _value in fields}
+    identity = next((getattr(submission, name) for name in ('company', 'full_name', 'email', 'phone')
+                     if name in enabled and getattr(submission, name, '')), f'#{submission.id}')
+    summary = ' / '.join(value[:100] for name, _label, value in fields
+                         if name not in CORE_FIELDS and value != '未填写')[:200]
     return f'[{prefix}] {identity}' + (f' - {summary}' if summary else '')
 
 
 def _text_body(submission: LeadSubmission, *, reminder: bool) -> str:
     rows = [
-        '这是一条尚未处理的网站项目询盘。' if reminder else 'Vorntek 收到一条新的项目询盘。',
+        '这是一条尚未处理的网站咨询。' if reminder else 'Vorntek 收到一条新的网站咨询。',
         '',
-        f'姓名：{submission.full_name or "未填写"}',
-        f'公司：{submission.company or "未填写"}',
-        f'国家/地区：{submission.country or "未填写"}',
-        f'邮箱：{submission.email or "未填写"}',
-        f'电话/WhatsApp：{submission.phone or "未填写"}',
-        f'产品类别：{_field(submission, "product_category") or "未填写"}',
-        '：'.join(_project_context(submission)),
-        f'项目需求：{submission.message or "未填写"}',
+        *(f'{label}：{value}' for _name, label, value in _notification_fields(submission)),
         f'来源渠道：{submission.source_channel or "website"}',
         f'来源说明：{submission.source_detail or "未记录"}',
         f'提交页面：{submission.source_url or "未记录"}',
@@ -77,14 +82,7 @@ def _text_body(submission: LeadSubmission, *, reminder: bool) -> str:
 
 def _html_body(submission: LeadSubmission, *, reminder: bool) -> str:
     fields = [
-        ('姓名', submission.full_name or '未填写'),
-        ('公司', submission.company or '未填写'),
-        ('国家/地区', submission.country or '未填写'),
-        ('邮箱', submission.email or '未填写'),
-        ('电话/WhatsApp', submission.phone or '未填写'),
-        ('产品类别', _field(submission, 'product_category') or '未填写'),
-        _project_context(submission),
-        ('项目需求', submission.message or '未填写'),
+        *((label, value) for _name, label, value in _notification_fields(submission)),
         ('来源渠道', submission.source_channel or 'website'),
         ('来源说明', submission.source_detail or '未记录'),
     ]
@@ -93,7 +91,7 @@ def _html_body(submission: LeadSubmission, *, reminder: bool) -> str:
         f'<td style="padding:8px 12px;border:1px solid #d8dee8">{escape(str(value))}</td></tr>'
         for label, value in fields
     )
-    lead = '这条询盘仍处于待跟进状态，请尽快确认负责人和下一步。' if reminder else 'Vorntek 收到一条新的项目询盘。'
+    lead = '这条咨询仍处于待跟进状态，请尽快确认负责人和下一步。' if reminder else 'Vorntek 收到一条新的网站咨询。'
     return (
         '<div style="font-family:Arial,sans-serif;color:#13213a;line-height:1.6">'
         f'<h2 style="margin:0 0 12px">{escape(_subject(submission, reminder=reminder))}</h2>'

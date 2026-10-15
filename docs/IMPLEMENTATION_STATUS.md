@@ -33,10 +33,16 @@ The earlier observations below describe the prior public source baseline.
   routing, retry receipts and consent/lifecycle checks. SMTP and Meta/Google
   dispatch retain durable claim/handoff/receipt records: accepted facts repair
   summaries without resending; ambiguous results do not become blind retries.
-  Synthetic SQLite regression passed1007 cases (61 PostgreSQL/conditional skips);
-  committed two-connection PostgreSQL delivery verification is still pending.
+  Synthetic SQLite regression passed1011 cases (61 PostgreSQL/conditional skips).
+  The preceding clean-image delivery candidate passed all61 actual PostgreSQL
+  recovery/concurrency/queued-capture cases across five independent databases.
   Global external-I/O suppression covers direct send entries and browser receipts;
   production switches and existing services have not been changed.
+- Notification fields, labels and select-option display now follow the same form
+  schema as collection/validation. Disabled fields are not silently reintroduced
+  into the message body or subject; explicit legacy-form context remains readable.
+  This neutralization is locally verified; final merged-image verification remains
+  required before deployment.
 - Full integration is still open: delivery and
   scheduler integration, generic website/detail/qualification content, the broad
   optional/idempotent/scoped-reset synthetic data pack, final recovery, complete
