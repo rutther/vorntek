@@ -20,10 +20,10 @@ class ReleaseManifestTests(unittest.TestCase):
         self.assertEqual(manifest['format'], 'vorntek-source-release-v1')
         self.assertEqual(manifest['version'], (ROOT / 'VERSION').read_text().strip())
         self.assertRegex(manifest['git_commit'], r'^[a-f0-9]{40}$')
-        self.assertEqual(manifest['migrations']['count'], 32)
+        self.assertEqual(manifest['migrations']['count'], 42)
         self.assertEqual(
             manifest['migrations']['tip'],
-            '0032_website_deployment_ledger.sql',
+            '0042_crm_attachment_cleanup.sql',
         )
         self.assertEqual(manifest['website_tree']['tracked_files'], 27)
         for key in (
