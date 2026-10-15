@@ -17,11 +17,19 @@ The earlier observations below describe the prior public source baseline.
   persistent workspace/runtime APIs and role/CSRF boundaries are integrated.
   The Docker builder and CI install locked frontend dependencies, run interaction
   tests and generate assets; the Python runtime does not need Node.
+- The standalone platform registry and section-scoped Meta editor are integrated:
+  creation stays disabled, saved identity cannot be overwritten, configuration
+  versions prevent stale writes, and credential/state changes remain separate
+  from flow activation. Independent vault keys retain file-backed configuration.
+  Ordinary-role PostgreSQL checks passed all29 credential/diagnostic cases,
+  including real encrypted-write refusals and diagnostic/audit rollback; the
+  external read occurs outside an open transaction. No real platform calls were
+  used, and no production application was replaced.
 - UI inspection with a real local backend confirmed two independent same-kind
   flow instances, the full lane diagram, saved configuration surviving reload,
   and the distinction between recorded configuration and external validation.
   This is not evidence of actual Meta delivery or a production deployment.
-- Full integration is still open: independent connection editing, delivery and
+- Full integration is still open: delivery and
   scheduler integration, generic website/detail/qualification content, the broad
   optional/idempotent/scoped-reset synthetic data pack, final recovery, complete
   regression and deployment acceptance. Existing publishing/serving capabilities

@@ -38,7 +38,11 @@ material. A passing pattern scan complements human review; it cannot certify tha
 every possible secret or personal datum is absent.
 
 The Django runner creates a synthetic SQLite database and blocks non-loopback
-Python sockets. It is compatibility coverage, not PostgreSQL, browser, container
+Python sockets. Only that isolated runner uses fast MD5 password hashing for its
+throwaway user fixtures; application settings, browser fixtures and PostgreSQL
+acceptance keep their normal password hashing. Do not copy this test-only choice
+into runtime settings. The runner refuses non-SQLite mode before changing it.
+It is compatibility coverage, not PostgreSQL, browser, container
 or external-platform acceptance. With isolated PostgreSQL binaries, run:
 
 ```sh

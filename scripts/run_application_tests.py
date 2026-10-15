@@ -32,6 +32,16 @@ def allowed(address):
         return False
 
 
+def configure_compatibility_settings(settings):
+    if settings.DATABASES['default']['ENGINE'] != 'django.db.backends.sqlite3':
+        raise RuntimeError('Compatibility tests require isolated SQLite test mode.')
+    # Synthetic users only. This runner clears database/credential environment,
+    # refuses .env, blocks external sockets and never serves a public listener.
+    # Keep expensive password hashing in production and native acceptance;
+    # repeated role/HTTP fixtures do not need production work-factor costs.
+    settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('labels', nargs='*', help='Optional Django test labels; default is the whole suite.')
@@ -74,8 +84,7 @@ def main():
         django.setup()
         from django.conf import settings
         from django.test.utils import get_runner
-        if settings.DATABASES['default']['ENGINE'] != 'django.db.backends.sqlite3':
-            raise RuntimeError('Compatibility tests require isolated SQLite test mode.')
+        configure_compatibility_settings(settings)
         print('Synthetic SQLite suite; Python non-loopback sockets blocked; no real platform acceptance.', flush=True)
         runner = get_runner(settings)(verbosity=1, interactive=False, keepdb=False)
         failures = runner.run_tests(args.labels or ['.'])
