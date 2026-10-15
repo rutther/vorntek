@@ -1,36 +1,35 @@
-"""Deterministic, fictional industrial customer fixtures; no I/O or credentials."""
+"""Deterministic fictional customer examples, independent of industry enums.
 
-from leads.industrial import BUSINESS_LINES
+This legacy optional customer-only fixture is not the complete product example
+bundle or its import/reset lifecycle. Values live in a separate data file.
+"""
+
+import json
+from pathlib import Path
 
 
-MARKER = 'SYNTHETIC DEMO / DO NOT CONTACT / 虚构演示数据'
-SOURCES = (
-    ('manual', 'manual_create'),
-    ('research', 'file_import'),
-    ('website_form', 'automatic_receive'),
-    ('meta_native', 'automatic_receive'),
-    ('other', 'file_import'),
-)
-COUNTRIES = ('China', 'Ghana', 'Kenya', 'Egypt', 'Saudi Arabia',
-             'United Arab Emirates', 'Morocco', 'South Africa')
+EXAMPLES = json.loads((Path(__file__).parent / 'data/customer_examples.json').read_text(encoding='utf-8'))
+MARKER = EXAMPLES['notice']
+SOURCES = tuple(tuple(source) for source in EXAMPLES['sources'])
+COUNTRIES = tuple(EXAMPLES['countries'])
 
 
 def customer_fixtures():
     """Return 200 rows, not actual platform receipts or verified contact consent."""
-    lines = list(BUSINESS_LINES.items())
+    contexts = EXAMPLES['contexts']
     rows = []
-    for index in range(200):
+    for index in range(EXAMPLES['count']):
         number = index + 1
-        business, industry = lines[index % len(lines)]
+        context = contexts[index % len(contexts)]
         source, intake = SOURCES[index % len(SOURCES)]
         rows.append({
             'number': number,
             'name': f'Vorntek Synthetic Company {number:03d}',
             'website': f'https://company-{number:03d}.example.invalid',
             'email': f'contact{number:03d}@example.invalid',
-            'industry': industry, 'business_line': business,
+            'industry': context['label'], 'business_line': context['id'],
             'country': COUNTRIES[index % len(COUNTRIES)],
             'source_type': source, 'intake_method': intake,
-            'state': 'available' if index < 150 else 'review' if index < 190 else 'archived',
+            'state': next(item['state'] for item in EXAMPLES['states'] if number <= item['until']),
         })
     return rows

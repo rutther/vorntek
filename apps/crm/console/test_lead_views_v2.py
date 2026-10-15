@@ -561,7 +561,8 @@ class LeadViewsV2ContractTests(TestCase):
         due_at = self.now + timedelta(days=1)
         self._prepare_conversion(self.owned_lead, due_at=due_at)
         completed = Task.objects.create(site=self.site, submission=self.owned_lead, owner_user=self.sales,
-            team=self.team, title='已完成的任务', status='completed', completed_at=self.now, due_at=due_at)
+            team=self.team, title='已完成的任务', status='completed', completed_at=self.now,
+            outcome='合成验收：本次任务已结束，无外发。', due_at=due_at)
         self.client.force_login(self.sales)
         response = self.client.post(reverse('console:lead_convert', args=[self.owned_lead.pk]), {})
         self.assertEqual(response.status_code, 200)
