@@ -76,15 +76,17 @@
                 <div class="card-header"><h2 class="card-title" id="opportunity-scope-title">项目范围</h2></div>
                 <div class="card-body">
                     <dl class="nc-opportunity-facts">
-                        <div><dt>产品范围</dt><dd>{{ workspace.record.product_scope }}</dd></div>
-                        <div><dt>产能目标</dt><dd>{{ workspace.record.capacity_target }}</dd></div>
-                        <div><dt>包装形式</dt><dd>{{ workspace.record.packaging_format }}</dd></div>
+                        <div><dt>{{ workspace.record.product_scope_label }}</dt><dd>{{ workspace.record.product_scope }}</dd></div>
+                        <div><dt>{{ workspace.record.capacity_target_label }}</dt><dd>{{ workspace.record.capacity_target }}</dd></div>
+                        <div><dt>{{ workspace.record.packaging_format_label }}</dt><dd>{{ workspace.record.packaging_format }}</dd></div>
+                        {% for field in workspace.record.source_fields %}<div><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></div>{% endfor %}
                         {% if workspace.record.stage.terminal %}
                             <div><dt>{% if workspace.record.stage.value == 'won' %}成交原因{% else %}丢单原因{% endif %}</dt><dd>{% if workspace.record.stage.value == 'won' %}{{ workspace.record.won_reason|default:'缺少成交原因' }}{% else %}{{ workspace.record.lost_reason|default:'缺少丢单原因' }}{% endif %}</dd></div>
                             <div><dt>关闭时间</dt><dd>{% if workspace.record.closed_at %}{{ workspace.record.closed_at|date:'Y-m-d H:i' }}{% else %}未记录{% endif %}</dd></div>
                         {% endif %}
                         <div><dt>最近更新</dt><dd>{{ workspace.record.updated_at|date:'Y-m-d H:i' }}</dd></div>
                     </dl>
+                    {% if workspace.record.source_fields_error %}<p class="text-warning">{{ workspace.record.source_fields_error }}</p>{% endif %}
                 </div>
             </article>
         </div>
@@ -169,9 +171,9 @@
                     <div class="col-6 col-md-3"><label class="form-label" for="opportunity-edit-close">预计成交</label><input class="form-control" id="opportunity-edit-close" type="date" name="expected_close_date" value="{{ workspace.record.expected_close_input }}"><div class="invalid-feedback" data-error-for="expected_close_date"></div></div>
                     <div class="col-12 col-md-6"><label class="form-label" for="opportunity-edit-follow-up">下次跟进</label><input class="form-control" id="opportunity-edit-follow-up" type="datetime-local" name="next_follow_up_at" value="{{ workspace.record.next_follow_up_input }}"><div class="invalid-feedback" data-error-for="next_follow_up_at"></div></div>
                     <div class="col-12"><label class="form-label" for="opportunity-edit-next-step">下一步</label><textarea class="form-control" id="opportunity-edit-next-step" name="next_step" rows="2">{{ workspace.record.next_step_input }}</textarea><div class="invalid-feedback" data-error-for="next_step"></div></div>
-                    <div class="col-12 col-md-4"><label class="form-label" for="opportunity-edit-product">产品范围</label><input class="form-control" id="opportunity-edit-product" name="product_scope" value="{{ workspace.record.product_scope_input }}"><div class="invalid-feedback" data-error-for="product_scope"></div></div>
-                    <div class="col-12 col-md-4"><label class="form-label" for="opportunity-edit-capacity">产能目标</label><input class="form-control" id="opportunity-edit-capacity" name="capacity_target" value="{{ workspace.record.capacity_target_input }}"><div class="invalid-feedback" data-error-for="capacity_target"></div></div>
-                    <div class="col-12 col-md-4"><label class="form-label" for="opportunity-edit-package">包装形式</label><input class="form-control" id="opportunity-edit-package" name="packaging_format" value="{{ workspace.record.packaging_format_input }}"><div class="invalid-feedback" data-error-for="packaging_format"></div></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="opportunity-edit-product">{{ workspace.record.product_scope_label }}</label><input class="form-control" id="opportunity-edit-product" name="product_scope" value="{{ workspace.record.product_scope_input }}"><div class="invalid-feedback" data-error-for="product_scope"></div></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="opportunity-edit-capacity">{{ workspace.record.capacity_target_label }}</label><input class="form-control" id="opportunity-edit-capacity" name="capacity_target" value="{{ workspace.record.capacity_target_input }}"><div class="invalid-feedback" data-error-for="capacity_target"></div></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="opportunity-edit-package">{{ workspace.record.packaging_format_label }}</label><input class="form-control" id="opportunity-edit-package" name="packaging_format" value="{{ workspace.record.packaging_format_input }}"><div class="invalid-feedback" data-error-for="packaging_format"></div></div>
                 </div>
                 <div class="alert mt-3 mb-0" role="status" aria-live="polite" aria-atomic="true" data-nc-form-status hidden></div>
             </div>

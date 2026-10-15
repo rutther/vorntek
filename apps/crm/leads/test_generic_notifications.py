@@ -6,6 +6,14 @@ from leads.notifications import _html_body, _subject, _text_body
 
 
 class GenericNotificationContentTests(SimpleTestCase):
+    def test_configured_numeric_zero_is_not_treated_as_missing(self):
+        lead = self.lead([
+            {'name': 'email', 'type': 'email', 'label': '回复邮箱'},
+            {'name': 'quantity', 'type': 'number', 'label': '参考数量'},
+        ])
+        lead.payload_json = {'quantity': 0}
+        self.assertIn('参考数量：0', _text_body(lead, reminder=False))
+
     def lead(self, fields=None):
         form = LeadFormDefinition(category='general', form_schema={} if fields is None else {'fields': fields})
         return LeadSubmission(id=12, form=form, full_name='Synthetic person', email='person@example.test',

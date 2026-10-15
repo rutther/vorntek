@@ -145,7 +145,11 @@ def validate_crm_relationship_targets(
     if contact is not None and opportunity is not None:
         contact_company_id = getattr(contact, 'company_id', None)
         opportunity_company_id = getattr(opportunity, 'company_id', None)
-        if contact_company_id is None or contact_company_id != opportunity_company_id:
+        personal_link = (
+            contact_company_id is None and opportunity_company_id is None
+            and getattr(opportunity, 'primary_contact_id', None) == _record_id(contact)
+        )
+        if not personal_link and (contact_company_id is None or contact_company_id != opportunity_company_id):
             raise ValidationError('联系人和项目不属于同一企业。')
     if submission is not None and opportunity is not None:
         if getattr(opportunity, 'source_submission_id', None) != _record_id(submission):

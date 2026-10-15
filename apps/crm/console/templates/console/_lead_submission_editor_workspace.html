@@ -21,6 +21,9 @@
                 <div class="meta-list">
                     <div class="meta-item"><span>表单</span><strong>{{ submission.form.name }}</strong></div>
                     <div class="meta-item"><span>语言</span><strong>{% if submission.locale %}{{ submission.locale.label }} ({{ submission.locale.locale_code }}){% else %}未绑定{% endif %}</strong></div>
+                    {% if lead_submission_editor.configured_inquiry %}
+                    {% for field in lead_submission_editor.display_fields %}<div class="meta-item"><span>{{ field.label }}</span><strong>{{ field.value }}</strong></div>{% empty %}<div class="meta-item"><span>表单字段</span><strong>字段配置暂不可用，请核对；原始提交仍保留。</strong></div>{% endfor %}
+                    {% else %}
                     <div class="meta-item"><span>姓名</span><strong>{{ submission.full_name|default:"未填写" }}</strong></div>
                     <div class="meta-item"><span>公司</span><strong>{{ submission.company|default:"未填写" }}</strong></div>
                     <div class="meta-item"><span>国家/地区</span><strong>{{ submission.country|default:"未填写" }}</strong></div>
@@ -33,8 +36,9 @@
                     {% else %}
                     <div class="meta-item"><span>产能目标</span><strong>{{ submission.payload_json.capacity|default:"未填写" }}</strong></div>
                     {% endif %}
-                    <div class="meta-item"><span>来源页面</span><strong class="mono">{{ submission.source_url|default:"未记录" }}</strong></div>
                     <div class="meta-item"><span>留言</span><strong>{{ submission.message|default:"未填写" }}</strong></div>
+                    {% endif %}
+                    <div class="meta-item"><span>来源页面</span><strong class="mono">{{ submission.source_url|default:"未记录" }}</strong></div>
                     {% if submission.duplicate_of_id %}
                         <div class="meta-item"><span>重复联系人</span><strong>关联线索 #{{ submission.duplicate_of_id }}</strong></div>
                     {% endif %}

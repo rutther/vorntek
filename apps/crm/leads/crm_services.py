@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .crm_relationships import validate_crm_relationship_targets
+from .form_schema import FormSchemaError, configured_submission_fields, effective_form_fields
 from .models import (
     Activity,
     Company,
@@ -69,7 +70,7 @@ TERMINAL_TASK_STATUSES = frozenset({'completed', 'canceled'})
 @dataclass(frozen=True)
 class LeadConversionResult:
     conversion: LeadConversion
-    company: Company
+    company: Company | None
     contact: Contact
     opportunity: Opportunity
     created: bool
@@ -190,8 +191,25 @@ def create_task(
     )
 
 
+def validate_conversion_identity(submission):
+    """Share the configured identity rule between the action and its UI gate."""
+    try:
+        fields = effective_form_fields(submission.form)
+    except FormSchemaError as exc:
+        raise ValidationError('表单字段配置无效，请核对后再转换。') from exc
+    if not (submission.company or '').strip() and (fields is None or fields.get('company', {}).get('required')):
+        raise ValidationError('转换前必须确认企业名称。')
+    if not (submission.full_name or '').strip():
+        if fields is None or fields.get('full_name', {}).get('required'):
+            raise ValidationError('转换前必须确认联系人姓名。')
+        if not (submission.email or submission.phone):
+            raise ValidationError('转换前必须确认姓名或有效联系方式。')
+    return fields
+
+
 def _existing_conversion_result(conversion: LeadConversion) -> LeadConversionResult:
-    if not all((conversion.company_id, conversion.contact_id, conversion.opportunity_id)):
+    company_optional = (conversion.metadata_json or {}).get('entity_mode') == 'individual'
+    if not all((conversion.contact_id, conversion.opportunity_id)) or (not conversion.company_id and not company_optional):
         raise ValidationError('已有转换记录不完整，请由系统管理员检查。')
     return LeadConversionResult(
         conversion=conversion,
@@ -239,7 +257,7 @@ def convert_qualified_lead(
 ) -> LeadConversionResult:
     submission = (
         LeadSubmission.objects.select_for_update(of=('self',))
-        .select_related('site', 'locale', 'assignee', 'team')
+        .select_related('site', 'locale', 'assignee', 'team', 'form')
         .get(pk=submission_id)
     )
     if locked_submission_authorizer is not None:
@@ -256,40 +274,42 @@ def convert_qualified_lead(
 
     company_name = (submission.company or '').strip()
     contact_name = (submission.full_name or '').strip()
-    if not company_name:
-        raise ValidationError('转换前必须确认企业名称。')
-    if not contact_name:
-        raise ValidationError('转换前必须确认联系人姓名。')
+    fields = validate_conversion_identity(submission)
+    field_snapshot = configured_submission_fields(submission)
 
     # Resolve and validate the CRM owner before Company, Contact, Opportunity,
     # conversion, activity or task rows are written.  Any invalid legacy
     # assignment therefore fails as an all-or-nothing domain operation.
     conversion_owner = _conversion_owner(submission=submission)
 
-    normalized_name = normalize_company_name(company_name)
-    company = (
-        Company.objects.filter(
-            site=submission.site,
-            normalized_name=normalized_name,
-            country__iexact=(submission.country or '').strip(),
+    company = None
+    if company_name:
+        normalized_name = normalize_company_name(company_name)
+        company = (
+            Company.objects.filter(
+                site=submission.site,
+                normalized_name=normalized_name,
+                country__iexact=(submission.country or '').strip(),
+            )
+            .order_by('id')
+            .first()
         )
-        .order_by('id')
-        .first()
-    )
-    if company is None:
-        company = Company.objects.create(
-            site=submission.site,
-            owner_user=conversion_owner,
-            team=submission.team,
-            name=company_name,
-            normalized_name=normalized_name,
-            country=(submission.country or '').strip(),
-            source_channel=submission.source_channel,
-        )
+        if company is None:
+            company = Company.objects.create(
+                site=submission.site,
+                owner_user=conversion_owner,
+                team=submission.team,
+                name=company_name,
+                normalized_name=normalized_name,
+                country=(submission.country or '').strip(),
+                source_channel=submission.source_channel,
+            )
 
     email_normalized = normalize_email(submission.email)
     phone_normalized = normalize_phone(submission.phone)
     contact_query = Contact.objects.filter(site=submission.site, company=company)
+    if company is None:
+        contact_query = contact_query.filter(owner_user=conversion_owner, team=submission.team)
     identity = Q()
     if email_normalized:
         identity |= Q(email_normalized=email_normalized)
@@ -312,11 +332,19 @@ def convert_qualified_lead(
             preferred_language=(submission.locale.locale_code if submission.locale_id else ''),
         )
 
-    product_scope = str((submission.payload_json or {}).get('product_category') or '').strip()
-    capacity_target = str((submission.payload_json or {}).get('capacity') or '').strip()
+    payload = submission.payload_json or {}
+    product_value, capacity_value = payload.get('product_category'), payload.get('capacity')
+    product_scope = '' if product_value is None else str(product_value).strip()
+    capacity_target = '' if capacity_value is None else str(capacity_value).strip()
+    if fields is not None:
+        if not fields.get('product_category', {}).get('enabled'):
+            product_scope = ''
+        if not fields.get('capacity', {}).get('enabled'):
+            capacity_target = ''
     resolved_opportunity_name = (opportunity_name or '').strip()
     if not resolved_opportunity_name:
-        resolved_opportunity_name = f'{company.name} - {product_scope or "Beverage line project"}'
+        identity = company_name or contact_name or submission.email or submission.phone or f'询盘 #{submission.pk}'
+        resolved_opportunity_name = f'{identity} - {product_scope or "咨询项目"}'
     _set_stage_audit_context(actor, '线索转换后建立销售项目')
     opportunity = Opportunity.objects.create(
         site=submission.site,
@@ -340,12 +368,72 @@ def convert_qualified_lead(
         opportunity=opportunity,
         converted_by_user=actor if getattr(actor, 'pk', None) else None,
         metadata_json={
+            'entity_mode': 'organization' if company else 'individual',
+            'form_fields': field_snapshot or [],
             'source_channel': submission.source_channel,
             'source_detail': submission.source_detail,
             'utm': submission.utm_json or {},
             'identifiers': submission.identifiers_json or {},
         },
     )
+    _record_conversion_company_source(submission, company, contact, conversion_owner,
+                                      email_normalized, phone_normalized)
+    append_activity(
+        site=submission.site,
+        actor=actor,
+        activity_type='conversion',
+        subject='线索已转换为销售项目',
+        submission=submission,
+        company=company,
+        contact=contact,
+        opportunity=opportunity,
+        metadata={'conversion_id': conversion.id},
+    )
+    if submission.next_follow_up_at:
+        # A disposition may already have scheduled this very next step. Keep
+        # its title/status/history and attach the new CRM links rather than
+        # silently adding a second reminder. Never take another owner's or
+        # already related/terminal task merely because its timestamp matches.
+        planned = Task.objects.select_for_update().filter(
+            site=submission.site, submission=submission, owner_user=conversion_owner,
+            team=submission.team, due_at=submission.next_follow_up_at,
+            status__in={'open', 'in_progress'}, company__isnull=True,
+            contact__isnull=True, opportunity__isnull=True,
+        ).order_by('id').first()
+        if planned is not None:
+            planned.company, planned.contact, planned.opportunity = company, contact, opportunity
+            planned.save(update_fields=['company', 'contact', 'opportunity', 'updated_at'])
+            opportunity.next_step = planned.title
+            opportunity.save(update_fields=['next_step', 'updated_at'])
+        else:
+            create_task(
+                site=submission.site,
+                submission=submission,
+                company=company,
+                contact=contact,
+                opportunity=opportunity,
+                owner_user=conversion_owner,
+                team=submission.team,
+                created_by_user=actor if getattr(actor, 'pk', None) else None,
+                title=f'跟进 {contact.full_name or contact.email or contact.phone}',
+                task_type='follow_up',
+                due_at=submission.next_follow_up_at,
+            )
+    return LeadConversionResult(
+        conversion=conversion,
+        company=company,
+        contact=contact,
+        opportunity=opportunity,
+        created=True,
+    )
+
+
+def _record_conversion_company_source(submission, company, contact, conversion_owner,
+                                      email_normalized, phone_normalized):
+    # Personal inquiries are not imaginary company/pool entries. Provenance is
+    # preserved by the conversion and opportunity's actual source submission.
+    if company is None:
+        return
     pool_state, _pool_created = CompanyPoolState.objects.select_for_update().get_or_create(
         company=company,
         defaults={
@@ -412,38 +500,6 @@ def convert_qualified_lead(
                     'evidence_json': {'submission_id': submission.pk},
                 },
             )
-    append_activity(
-        site=submission.site,
-        actor=actor,
-        activity_type='conversion',
-        subject='线索已转换为销售项目',
-        submission=submission,
-        company=company,
-        contact=contact,
-        opportunity=opportunity,
-        metadata={'conversion_id': conversion.id},
-    )
-    if submission.next_follow_up_at:
-        create_task(
-            site=submission.site,
-            submission=submission,
-            company=company,
-            contact=contact,
-            opportunity=opportunity,
-            owner_user=conversion_owner,
-            team=submission.team,
-            created_by_user=actor if getattr(actor, 'pk', None) else None,
-            title=f'跟进 {contact.full_name}',
-            task_type='follow_up',
-            due_at=submission.next_follow_up_at,
-        )
-    return LeadConversionResult(
-        conversion=conversion,
-        company=company,
-        contact=contact,
-        opportunity=opportunity,
-        created=True,
-    )
 
 
 def _set_stage_audit_context(actor, reason: str) -> None:

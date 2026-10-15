@@ -10,6 +10,7 @@ class LeadFollowUpHistoryTests(SimpleTestCase):
     def test_new_entry_is_appended_without_overwriting_existing_history(self):
         existing = [{'note': f'entry-{index}'} for index in range(100)]
         submission = SimpleNamespace(
+            form=SimpleNamespace(category='project', form_schema={}),
             assignee=None,
             source_channel='website',
             source_detail='',

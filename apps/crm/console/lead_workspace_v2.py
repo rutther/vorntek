@@ -29,6 +29,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from leads.models import Activity, ConsentRecord, LeadEventOutbox, LeadSubmission, SavedView, Task
+from leads.form_schema import CORE_FIELDS, FormSchemaError, configured_submission_fields
 from sitecore.models import SiteLocale
 
 from .access import (
@@ -783,6 +784,27 @@ def _stats(
     }
 
 
+def _configured_inquiry_context(lead):
+    error = ''
+    try:
+        fields = configured_submission_fields(lead)
+    except FormSchemaError:
+        fields = []
+        error = '表单字段配置暂不可用；原始提交仍保留，请核对表单配置。'
+    if fields is None:
+        return {}
+    extras = [field for field in fields if field['name'] not in CORE_FIELDS]
+    return {
+        'configured_inquiry': True,
+        'project_fields': extras,
+        'demand_fields': extras[:2],
+        'field_config_error': error,
+        'product': extras[0]['value'] if extras else '',
+        'capacity': extras[1]['value'] if len(extras) > 1 else '',
+        'context_label': extras[1]['label'] if len(extras) > 1 else '',
+    }
+
+
 def _lead_row(
     lead: LeadSubmission,
     *,
@@ -804,6 +826,7 @@ def _lead_row(
         'product': product or '未填写产品',
         'capacity': capacity or ('未填写应用背景' if industrial else '未填写产能'),
         'context_label': '应用背景' if industrial else '产能目标',
+        **_configured_inquiry_context(lead),
         'language': _language_meta(lead),
         'stage': {
             'value': lead.stage,
@@ -831,6 +854,7 @@ def _lead_row(
 
 def _lead_detail(lead: LeadSubmission, *, now, reminder_delta) -> dict:
     payload = lead.payload_json or {}
+    inquiry_context = _configured_inquiry_context(lead)
     consent_snapshot = lead.consent_json or {}
     attribution = lead.utm_json or {}
     qualification = lead.qualification_json or {}
@@ -849,7 +873,7 @@ def _lead_detail(lead: LeadSubmission, *, now, reminder_delta) -> dict:
             } if conversion.company else None,
             'contact': {
                 'id': conversion.contact_id,
-                'name': conversion.contact.full_name,
+                'name': conversion.contact.full_name or conversion.contact.email or conversion.contact.phone,
             } if conversion.contact else None,
             'opportunity': {
                 'id': conversion.opportunity_id,
@@ -905,6 +929,7 @@ def _lead_detail(lead: LeadSubmission, *, now, reminder_delta) -> dict:
             'timeline': _payload_text(payload, 'timeline', 'purchase_timeline') or '未填写',
             'condition': _payload_text(payload, 'project_condition', 'factory_condition') or '未填写',
         },
+        **inquiry_context,
         'stage': {
             'value': lead.stage,
             'label': lead_stage_label(lead.stage),
@@ -925,7 +950,9 @@ def _lead_detail(lead: LeadSubmission, *, now, reminder_delta) -> dict:
             'score': int(lead.qualification_score or 0),
             'notes': lead.qualification_notes or '暂无资格判断说明',
             'overridden': bool(lead.qualification_overridden),
-            'items': _qualification_items(qualification),
+            'items': _qualification_items(qualification, configured=bool(inquiry_context)),
+            'identity_label': '联系身份已核实' if inquiry_context else '企业已核实',
+            'fit_label': '需求与服务匹配' if inquiry_context else '技术方案匹配',
             'raw': qualification,
         },
         'conversion': conversion_context,
@@ -1269,14 +1296,18 @@ def _next_step_meta(lead: LeadSubmission) -> dict:
     }
 
 
-def _qualification_items(values: dict) -> list[dict[str, str]]:
+def _qualification_items(values: dict, *, configured=False) -> list[dict[str, str]]:
     labels = {
         'budget': '预算',
         'authority': '决策权',
         'need': '需求',
         'timeline': '时间表',
         'product_fit': '产品匹配',
-        'capacity_fit': '产能匹配',
+        'capacity_fit': '项目参数匹配' if configured else '产能匹配',
+        'company_verified': '联系身份已核实' if configured else '企业已核实',
+        'project_confirmed': '需求已确认' if configured else '项目已确认',
+        'technical_fit': '需求与服务匹配' if configured else '技术方案匹配',
+        'next_step_confirmed': '下一步已确认',
         'contactable': '可联系',
         'complete': '资料完整',
     }

@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from leads.email_delivery import build_email_connection, email_delivery_configured, load_runtime_email_config
 from leads.models import LeadSubmission
-from leads.form_schema import CORE_FIELDS, effective_form_fields, public_form_fields
+from leads.form_schema import CORE_FIELDS, configured_submission_fields, effective_form_fields, public_form_fields
 from leads.notification_attempts import (
     begin_notification_handoff, claim_notification, finish_notification_attempt,
     notification_message_hash, notification_message_id,
@@ -40,6 +40,9 @@ def _field(submission: LeadSubmission, key: str) -> str:
 
 
 def _notification_fields(submission):
+    configured = configured_submission_fields(submission)
+    if configured is not None:
+        return [(field['name'], field['label'], field['value']) for field in configured]
     fields = public_form_fields(submission.form)
     # Retain existing explicitly legacy-form context, not a product default.
     if effective_form_fields(submission.form) is None and _field(submission, 'business_line'):

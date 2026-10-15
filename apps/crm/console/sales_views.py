@@ -839,7 +839,7 @@ def lead_convert(request, submission_id: int):
         entity_table='lead_submission',
         entity_id=submission.id,
         after={
-            'company_id': result.company.id,
+            'company_id': result.company.id if result.company else None,
             'contact_id': result.contact.id,
             'opportunity_id': result.opportunity.id,
             'created': result.created,
@@ -850,7 +850,7 @@ def lead_convert(request, submission_id: int):
         {
             'ok': True,
             'created': result.created,
-            'company_id': result.company.id,
+            'company_id': result.company.id if result.company else None,
             'contact_id': result.contact.id,
             'opportunity_id': result.opportunity.id,
         }

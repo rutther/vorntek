@@ -229,11 +229,9 @@ class LeadViewsV2ContractTests(TestCase):
             assignee=self.other_sales,
         )
 
-        provider = MarketingProvider.objects.create(
+        provider, _ = MarketingProvider.objects.get_or_create(
             code='meta',
-            name='Meta',
-            enabled=True,
-            capabilities={},
+            defaults={'name':'Meta', 'enabled':True, 'capabilities':{}},
         )
         MarketingIntegration.objects.create(
             site=self.site,
@@ -494,6 +492,107 @@ class LeadViewsV2ContractTests(TestCase):
                 action='lead_converted',
             ).exists()
         )
+
+    def test_configured_contact_only_inquiry_converts_without_inventing_company_or_name(self):
+        self.form.category = 'general'
+        self.form.form_schema = {'fields': [
+            {'name': 'email', 'type': 'email', 'label': '回复邮箱', 'required': True},
+            {'name': 'capacity', 'type': 'text', 'label': '参考编号'},
+        ]}
+        self.form.save(update_fields=['category', 'form_schema', 'updated_at'])
+        self.owned_lead.company = ''
+        self.owned_lead.full_name = ''
+        self.owned_lead.country = ''
+        self.owned_lead.payload_json = {'capacity': 'CASE-007'}
+        self.owned_lead.save(update_fields=['company', 'full_name', 'country', 'payload_json', 'updated_at'])
+        self._prepare_conversion(self.owned_lead, due_at=self.now + timedelta(days=1))
+        company_count = Company.objects.count()
+        self.client.force_login(self.sales)
+        url = reverse('console:lead_convert', args=[self.owned_lead.pk])
+        ready = self.client.get(reverse('console:lead_workspace_detail_v2', args=[self.owned_lead.pk]))
+        self.assertTrue(ready.context['workspace']['can_convert'])
+        self.assertContains(ready, 'data-nc-open-conversion')
+        self.assertEqual(ready.context['workspace']['conversion_opportunity_name'],
+                         f'{self.owned_lead.email} - 咨询项目')
+        response = self.client.post(url, {})
+        self.assertEqual(response.status_code, 200, response.content[:800])
+        result = response.json()
+        self.assertIsNone(result['company_id'])
+        self.assertEqual(Company.objects.count(), company_count)
+        contact = Contact.objects.get(pk=result['contact_id'])
+        opportunity = Opportunity.objects.get(pk=result['opportunity_id'])
+        self.assertIsNone(contact.company_id)
+        self.assertEqual(contact.full_name, '')
+        self.assertEqual(contact.email, self.owned_lead.email)
+        self.assertIsNone(opportunity.company_id)
+        self.assertEqual(opportunity.name, f'{self.owned_lead.email} - 咨询项目')
+        self.assertEqual(opportunity.capacity_target, 'CASE-007')
+        task = Task.objects.get(submission=self.owned_lead)
+        self.assertIsNone(task.company_id)
+        self.assertEqual(task.contact_id, contact.pk)
+        self.assertEqual(task.owner_user_id, self.sales.pk)
+        second = self.client.post(url, {})
+        self.assertEqual(second.status_code, 200)
+        self.assertFalse(second.json()['created'])
+        self.assertEqual(second.json()['opportunity_id'], opportunity.pk)
+        detail = self.client.get(reverse('console:lead_workspace_detail_v2', args=[self.owned_lead.pk]))
+        self.assertContains(detail, '本次未关联企业')
+        self.assertNotContains(detail, '企业 · 尚未转换')
+        self.assertFalse(detail.context['workspace']['can_convert'])
+
+    def test_conversion_keeps_the_already_planned_next_step_instead_of_duplicating_it(self):
+        due_at = self.now + timedelta(days=1)
+        self._prepare_conversion(self.owned_lead, due_at=due_at)
+        task = Task.objects.create(site=self.site, submission=self.owned_lead, owner_user=self.sales,
+            team=self.team, title='已经安排的下一步', description='已保存的说明', due_at=due_at)
+        self.client.force_login(self.sales)
+        response = self.client.post(reverse('console:lead_convert', args=[self.owned_lead.pk]), {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Task.objects.filter(submission=self.owned_lead).count(), 1)
+        task.refresh_from_db()
+        self.assertEqual(task.title, '已经安排的下一步')
+        self.assertEqual(task.description, '已保存的说明')
+        self.assertEqual(task.status, 'open')
+        self.assertEqual(task.opportunity_id, response.json()['opportunity_id'])
+        self.assertEqual(task.contact_id, response.json()['contact_id'])
+        self.assertEqual(task.opportunity.next_step, '已经安排的下一步')
+
+    def test_conversion_does_not_repurpose_a_closed_next_step(self):
+        due_at = self.now + timedelta(days=1)
+        self._prepare_conversion(self.owned_lead, due_at=due_at)
+        completed = Task.objects.create(site=self.site, submission=self.owned_lead, owner_user=self.sales,
+            team=self.team, title='已完成的任务', status='completed', completed_at=self.now, due_at=due_at)
+        self.client.force_login(self.sales)
+        response = self.client.post(reverse('console:lead_convert', args=[self.owned_lead.pk]), {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Task.objects.filter(submission=self.owned_lead).count(), 2)
+        completed.refresh_from_db()
+        self.assertEqual(completed.status, 'completed')
+        self.assertIsNone(completed.opportunity_id)
+
+    def test_numeric_zero_parameter_survives_conversion(self):
+        self.form.category = 'general'
+        self.form.form_schema = {'fields':[
+            {'name':'email', 'type':'email', 'label':'邮箱'},
+            {'name':'capacity', 'type':'number', 'label':'待处理数量'},
+        ]}
+        self.form.save(update_fields=['category', 'form_schema', 'updated_at'])
+        self.owned_lead.payload_json = {'capacity':0}
+        self.owned_lead.save(update_fields=['payload_json', 'updated_at'])
+        self._prepare_conversion(self.owned_lead)
+        self.client.force_login(self.sales)
+        response = self.client.post(reverse('console:lead_convert', args=[self.owned_lead.pk]), {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Opportunity.objects.get(pk=response.json()['opportunity_id']).capacity_target, '0')
+
+    def test_explicit_legacy_conversion_still_requires_its_company_identity(self):
+        self.owned_lead.company = ''
+        self.owned_lead.save(update_fields=['company', 'updated_at'])
+        self._prepare_conversion(self.owned_lead)
+        self.client.force_login(self.sales)
+        response = self.client.post(reverse('console:lead_convert', args=[self.owned_lead.pk]), {})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(LeadConversion.objects.filter(submission=self.owned_lead).exists())
 
     def test_meta_instant_form_conversion_is_not_mislabeled_as_website_form(self):
         lead = self._lead(full_name='Meta Native Lead', assignee=self.sales)
@@ -1594,6 +1693,64 @@ class LeadViewsV2ContractTests(TestCase):
         self.assertIn('data-nc-original-assignee', manager_rendered)
         self.assertNotIn('name="assignee_id" aria-label="负责人"', manager_rendered)
         self.assertNotIn('nc-create-button', manager_rendered)
+
+    def test_configured_inquiry_detail_uses_saved_labels_choices_and_extra_fields(self):
+        self.form.category = 'general'
+        self.form.form_schema = {'fields': [
+            {'name': 'email', 'type': 'email', 'label': '回复邮箱', 'enabled': True},
+            {'name': 'topic', 'type': 'select', 'label': '服务主题', 'enabled': True,
+             'options': [{'value': 'support', 'label': '技术支持'}]},
+            {'name': 'capacity', 'type': 'text', 'label': '参考编号', 'enabled': True},
+            {'name': 'product_category', 'type': 'text', 'label': '旧字段', 'enabled': False},
+        ]}
+        self.form.save(update_fields=['category', 'form_schema', 'updated_at'])
+        self.owned_lead.payload_json = {'topic': 'support', 'capacity': 'CASE-007',
+            'product_category': 'historical-value-retained-in-raw'}
+        self.owned_lead.save(update_fields=['payload_json', 'updated_at'])
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('console:lead_workspace_detail_v2', args=[self.owned_lead.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<dt>服务主题</dt><dd>技术支持</dd>', html=True)
+        self.assertContains(response, '<dt>参考编号</dt><dd>CASE-007</dd>', html=True)
+        self.assertNotContains(response, '<dt>产能目标</dt>')
+        self.assertNotContains(response, '<dt>容器 / 包装</dt>')
+        self.assertContains(response, '需求与服务匹配')
+        self.assertEqual(response.context['workspace']['selected']['project_fields'], [
+            {'name': 'topic', 'label': '服务主题', 'value': '技术支持'},
+            {'name': 'capacity', 'label': '参考编号', 'value': 'CASE-007'},
+        ])
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.payload_json['product_category'], 'historical-value-retained-in-raw')
+
+    def test_neutral_defaults_do_not_invent_industrial_requirements_in_crm(self):
+        self.form.category = 'general'
+        self.form.form_schema = {}
+        self.form.save(update_fields=['category', 'form_schema', 'updated_at'])
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('console:lead_workspace_detail_v2', args=[self.owned_lead.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['workspace']['selected']['project_fields'], [])
+        self.assertNotContains(response, '<dt>产能目标</dt>')
+        self.assertNotContains(response, '<dt>容器 / 包装</dt>')
+        self.assertNotContains(response, '未填写产能')
+        self.assertContains(response, '本次表单未配置额外需求字段')
+
+    def test_legacy_editor_also_projects_the_configured_field_contract(self):
+        self.form.category = 'general'
+        self.form.form_schema = {'fields': [
+            {'name': 'email', 'type': 'email', 'label': '回复邮箱'},
+            {'name': 'capacity', 'type': 'text', 'label': '咨询参考号'},
+        ]}
+        self.form.save(update_fields=['category', 'form_schema', 'updated_at'])
+        self.owned_lead.payload_json = {'capacity': 'CASE-008'}
+        self.owned_lead.save(update_fields=['payload_json', 'updated_at'])
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('console:lead_submission_edit', args=[self.owned_lead.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '咨询参考号')
+        self.assertContains(response, 'CASE-008')
+        self.assertNotContains(response, '产能目标')
+        self.assertNotContains(response, '设备与技术范围匹配')
 
     def test_industrial_inquiry_has_application_context_in_rendered_crm(self):
         self.owned_lead.payload_json = {

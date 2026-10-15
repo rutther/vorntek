@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from leads.models import LeadFormDefinition, LeadSubmission
-from leads.form_schema import DEFAULT_FIELDS, FormSchemaError, effective_form_fields, public_form_fields
+from leads.form_schema import DEFAULT_FIELDS, FormSchemaError, configured_submission_fields, effective_form_fields, public_form_fields
 
 from .acquisition_versions import lead_form_version_token
 from .access import assignee_queryset_for_user
@@ -354,6 +354,14 @@ class LeadSubmissionEditorForm(forms.Form):
         self.submission = submission
         self.actor = actor
         super().__init__(*args, **kwargs)
+        try:
+            self.display_fields = configured_submission_fields(submission)
+        except FormSchemaError:
+            self.display_fields = []
+        self.configured_inquiry = self.display_fields is not None
+        if self.configured_inquiry:
+            self.fields['qualification_company'].label = '联系身份已核实'
+            self.fields['qualification_fit'].label = '需求与服务匹配'
         if actor is None:
             self.fields['assignee'].queryset = get_user_model().objects.none()
         else:

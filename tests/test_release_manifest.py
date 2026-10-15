@@ -25,7 +25,9 @@ class ReleaseManifestTests(unittest.TestCase):
             manifest['migrations']['tip'],
             '0042_crm_attachment_cleanup.sql',
         )
-        self.assertEqual(manifest['website_tree']['tracked_files'], 27)
+        # Includes the real configurable inquiry controller introduced alongside
+        # the existing legacy form compatibility script.
+        self.assertEqual(manifest['website_tree']['tracked_files'], 28)
         for key in (
             manifest['source_tree']['git_tree_sha256'],
             manifest['website_tree']['git_tree_sha256'],

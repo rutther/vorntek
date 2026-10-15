@@ -23,6 +23,7 @@ from leads.lead_workflow_services import (
     assign_lead_owner,
 )
 from leads.models import LeadSubmission, SavedView
+from leads.crm_services import validate_conversion_identity
 
 from .access import (
     ROLE_SYSTEM_ADMIN,
@@ -109,7 +110,7 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
     if workspace['selected']:
         selected_record = (
             LeadSubmission.objects.filter(site=site, pk=workspace['selected']['id'])
-            .select_related('assignee', 'team')
+            .select_related('assignee', 'team', 'form')
             .first()
         )
 
@@ -129,11 +130,14 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
         selected_record
         and selected_record.stage in {'qualified', 'won'}
         and selected_conversion is None
-        and selected_record.company.strip()
-        and selected_record.full_name.strip()
         and selected_record.assignee_id
         and selected_record.team_id
     )
+    if conversion_eligible:
+        try:
+            conversion_fields = validate_conversion_identity(selected_record)
+        except ValidationError:
+            conversion_eligible = False
     can_convert = bool(
         conversion_eligible
         and can_sales(request.user, SalesCapability.CONVERT, record=selected_record)
@@ -141,9 +145,16 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
     conversion_opportunity_name = ''
     if can_convert:
         product_scope = workspace['selected']['product']
-        if product_scope == '未填写':
-            product_scope = 'Beverage line project'
-        conversion_opportunity_name = f'{selected_record.company.strip()} - {product_scope}'
+        if conversion_fields is not None:
+            raw_scope = (selected_record.payload_json or {}).get('product_category')
+            product_scope = '' if raw_scope is None else str(raw_scope).strip()
+            if not conversion_fields.get('product_category', {}).get('enabled'):
+                product_scope = ''
+        if not product_scope or product_scope == '未填写':
+            product_scope = '咨询项目'
+        identity = (selected_record.company.strip() or selected_record.full_name.strip()
+                    or selected_record.email or selected_record.phone or f'询盘 #{selected_record.pk}')
+        conversion_opportunity_name = f'{identity} - {product_scope}'
     workspace.update(
         {
             'site': site,

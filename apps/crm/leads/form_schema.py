@@ -98,3 +98,25 @@ def public_form_fields(form_definition):
          "options": field.get("options", [])}
         for field in rules.values() if field["enabled"]
     ]
+
+
+def configured_submission_fields(submission):
+    """Project saved values through the configured field contract, not an industry.
+
+    None identifies an explicit pre-schema legacy form. Hidden/historical values
+    are not deleted; callers can retain their existing raw-record access.
+    """
+    rules = effective_form_fields(submission.form)
+    if rules is None:
+        return None
+    rows = []
+    payload = submission.payload_json or {}
+    for name, field in rules.items():
+        if not field['enabled']:
+            continue
+        raw = getattr(submission, name, '') if name in CORE_FIELDS else payload.get(name, '')
+        value = '' if raw is None else str(raw).strip()
+        labels = {option['value']: option.get('label', option['value'])
+                  for option in field.get('options', []) if isinstance(option, dict)}
+        rows.append({'name': name, 'label': field['label'], 'value': labels.get(value, value) or '未填写'})
+    return rows
