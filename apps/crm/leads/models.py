@@ -135,6 +135,27 @@ class LeadSubmission(models.Model):
     utm_json = models.JSONField('UTM', default=dict)
     consent_json = models.JSONField('同意信息', default=dict)
     config_json = models.JSONField('配置 JSON', default=dict)
+    trashed_at = models.DateTimeField('移入回收站时间', blank=True, null=True)
+    trashed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='移入回收站操作者',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='trashed_lead_submissions',
+        db_column='trashed_by_user_id',
+    )
+    trash_reason = models.TextField('移入回收站原因', blank=True, default='')
+    restored_at = models.DateTimeField('恢复时间', blank=True, null=True)
+    restored_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='恢复操作者',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='restored_lead_submissions',
+        db_column='restored_by_user_id',
+    )
     follow_up_notes = models.TextField('跟进备注', blank=True)
     next_follow_up_at = models.DateTimeField('下次跟进时间', blank=True, null=True)
     contacted_at = models.DateTimeField('首次联系时间', blank=True, null=True)
@@ -177,6 +198,50 @@ class LeadSubmission(models.Model):
         return f'{self.form.code}#{self.id}'
 
 
+class LeadNotificationAttempt(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    submission = models.ForeignKey(LeadSubmission, on_delete=models.DO_NOTHING, related_name='notification_attempts')
+    kind = models.CharField(max_length=16)
+    generation = models.PositiveIntegerField()
+    state = models.CharField(max_length=16, default='claimed')
+    lead_version = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    handoff_at = models.DateTimeField(null=True)
+    accepted_at = models.DateTimeField(null=True)
+    finished_at = models.DateTimeField(null=True)
+    message_hash = models.CharField(max_length=64, default='', blank=True)
+    message_id = models.CharField(max_length=512, default='', blank=True)
+    error = models.TextField(default='', blank=True)
+    policy_disabled = models.BooleanField(default=False)
+
+    class Meta:
+        managed = False
+        db_table = 'lead_notification_attempt'
+        ordering = ['-generation', '-id']
+        constraints = [
+            models.CheckConstraint(condition=models.Q(kind__in=['initial', 'reminder']), name='notification_attempt_kind_check'),
+            models.CheckConstraint(condition=models.Q(state__in=['claimed', 'handoff', 'accepted', 'failed', 'unknown', 'cancelled']), name='notification_attempt_state_check'),
+            models.UniqueConstraint(fields=['submission'], condition=models.Q(state__in=['claimed', 'handoff', 'unknown']), name='notification_attempt_one_active'),
+            models.UniqueConstraint(fields=['submission', 'kind', 'generation'], name='notification_attempt_generation_unique'),
+        ]
+
+
+class LeadMeasurementRoute(models.Model):
+    submission = models.ForeignKey(LeadSubmission, on_delete=models.PROTECT, related_name='measurement_routes')
+    integration = models.ForeignKey('marketing.MarketingIntegration', on_delete=models.PROTECT)
+    pixel_id = models.CharField(max_length=255)
+    event_id = models.CharField(max_length=120)
+    revision_keys = models.JSONField(default=list)
+    event_contract = models.JSONField(default=dict)
+    routing_mode = models.CharField(max_length=24)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'lead_measurement_route'
+        constraints = [models.UniqueConstraint(fields=('submission','integration'), name='uq_lead_measurement_route')]
+
+
 class LeadEventOutbox(models.Model):
     submission = models.ForeignKey(LeadSubmission, verbose_name='线索', on_delete=models.DO_NOTHING)
     integration = models.ForeignKey('marketing.MarketingIntegration', verbose_name='营销接入', on_delete=models.DO_NOTHING)
@@ -209,6 +274,59 @@ class LeadEventOutbox(models.Model):
 
     def __str__(self) -> str:
         return f'{self.event_name}:{self.status}:{self.id}'
+
+
+class LeadEventAttempt(models.Model):
+    """Immutable per-execution marketing receipt, separate from outbox projection."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    outbox = models.ForeignKey(LeadEventOutbox, on_delete=models.DO_NOTHING, related_name='delivery_attempts')
+    generation = models.PositiveIntegerField()
+    attempt_number = models.PositiveIntegerField()
+    state = models.CharField(max_length=16, default='claimed')
+    lead_version = models.DateTimeField()
+    integration_version = models.DateTimeField()
+    event_id = models.CharField(max_length=120)
+    public_id = models.CharField(max_length=255)
+    payload_hash = models.CharField(max_length=64)
+    delivery_mode = models.CharField(max_length=16)
+    result_status = models.CharField(max_length=32, blank=True, default='')
+    response_json = models.JSONField(default=dict)
+    provider_request_id = models.TextField(blank=True, default='')
+    error = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(default=timezone.now)
+    handoff_at = models.DateTimeField(null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'lead_event_attempt'
+        ordering = ['-generation']
+        constraints = [
+            models.UniqueConstraint(fields=['outbox', 'generation'], name='event_attempt_generation_unique'),
+            models.UniqueConstraint(fields=['outbox'], condition=models.Q(state__in=['claimed', 'handoff', 'unknown']), name='event_attempt_one_active'),
+            models.CheckConstraint(condition=models.Q(state__in=['claimed', 'handoff', 'accepted', 'failed', 'unknown', 'cancelled']), name='event_attempt_state_check'),
+        ]
+
+
+class LeadEventResult(models.Model):
+    """Append-only terminal result for one accepted Google request."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    outbox = models.ForeignKey(LeadEventOutbox, on_delete=models.DO_NOTHING, related_name='provider_results')
+    attempt = models.ForeignKey(LeadEventAttempt, on_delete=models.DO_NOTHING, null=True, blank=True)
+    generation = models.PositiveIntegerField(default=0)
+    attempt_number = models.PositiveIntegerField()
+    provider_request_id = models.TextField()
+    status = models.CharField(max_length=32)
+    response_json = models.JSONField(default=dict)
+    error = models.TextField(blank=True, default='')
+    completed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = 'lead_event_result'
+        constraints = [models.UniqueConstraint(
+            fields=['outbox', 'generation', 'attempt_number', 'provider_request_id'], name='event_result_request_unique')]
 
 
 class ConsentRecord(models.Model):
@@ -813,6 +931,10 @@ class CrmAttachment(models.Model):
     file_size_bytes = models.BigIntegerField('文件大小', default=0)
     sha256 = models.CharField('SHA-256', max_length=64, blank=True, default='')
     storage_path = models.TextField('私有存储路径', blank=True, default='')
+    purge_storage_path = models.TextField('受限待清理路径', blank=True, default='')
+    purge_attempts = models.PositiveIntegerField('清理尝试次数', default=0)
+    purge_error_code = models.CharField('清理状态码', max_length=24, blank=True, default='')
+    purge_last_attempt_at = models.DateTimeField('最近清理尝试', blank=True, null=True)
     status = models.CharField('状态', max_length=16, default='active')
     created_at = models.DateTimeField('创建时间', auto_now_add=True, editable=False)
 
@@ -918,7 +1040,7 @@ class WhatsAppConversation(models.Model):
     contact = models.ForeignKey(
         Contact,
         verbose_name='联系人',
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         blank=True,
         null=True,
         related_name='whatsapp_conversations',
@@ -1322,7 +1444,7 @@ class CustomerPoolRow(models.Model):
     import_batch = models.ForeignKey(
         CustomerImportBatch,
         verbose_name='导入批次',
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         blank=True,
         null=True,
         related_name='pool_rows',
@@ -1330,7 +1452,7 @@ class CustomerPoolRow(models.Model):
     import_row = models.ForeignKey(
         CustomerImportRow,
         verbose_name='导入行',
-        on_delete=models.SET_NULL,
+        on_delete=models.DO_NOTHING,
         blank=True,
         null=True,
         related_name='pool_rows',
@@ -1368,4 +1490,3 @@ class CustomerPoolRow(models.Model):
         ordering = ['company_id', '-value', 'id']
         verbose_name = '客户公海标准行'
         verbose_name_plural = '客户公海标准行'
-        unique_together = (('site', 'row_key'),)
