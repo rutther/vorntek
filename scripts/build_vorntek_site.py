@@ -36,10 +36,16 @@ def cards():
     return '<div class="product-grid">' + ''.join(result) + '</div>'
 
 def form():
-    options = ''.join(f'<option value="{p["id"]}" data-en="{p["name"]}" data-zh="{p["nameZh"]}">{p["name"]}</option>' for p in PRODUCTS)
-    def field(name,en,zh,required=False,kind='text'):
-        return f'<label>{t(en+ (" *" if required else ""),zh+(" *" if required else ""))}<input name="{name}" type="{kind}" {"required" if required else ""} maxlength="{254 if kind == "email" else 120}" autocomplete="{ {"full_name":"name","company":"organization","country":"country-name","email":"email","phone":"tel"}.get(name,"off")}"></label>'
-    return f'''<form id="project-form" data-form-code="project-inquiry" novalidate><div class="form-title">{t("Tell us what you are working on.","告诉我们你的项目需求。","h2")}{t("Demo form: use fictional details only. Required fields are marked *.","演示表单：仅填写虚构信息，* 为必填。","p")}</div><div class="form-grid">{field('full_name','Name','姓名',True)}{field('company','Company','公司',True)}{field('country','Country / region','国家或地区',True)}<label>{t('Business area *','业务方向 *')}<select name="business_line" required><option value="" data-en="Choose a business area" data-zh="选择业务方向">Choose a business area</option>{options}</select></label>{field('email','Email','邮箱',False,'email')}{field('phone','Phone','电话',False,'tel')}</div>{t('Provide at least one: email or phone.','邮箱或电话至少填写一项。','p','muted')}<label>{t('Project requirement *','项目说明 *')}<textarea name="message" required maxlength="4000" rows="4"></textarea></label><label>{t('Application context (optional)','应用背景（可选）')}<input name="application_context" maxlength="500"><small id="business-help"></small></label><label class="honeypot" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label><label class="consent"><input name="consent" type="checkbox" required>{t('I acknowledge the demo privacy notice and agree to this submission being stored in the demo CRM.','我已阅读演示隐私说明，同意将本次提交存入演示CRM。')}<a href="/privacy/">{t('Privacy notice','隐私说明')}</a></label><button type="submit" class="button primary">{t('Send inquiry','提交询盘')}</button><div id="form-status" role="status" aria-live="polite" tabindex="-1"></div></form>'''
+    return f'''<form id="project-form" data-configured-form data-form-code="project-inquiry" novalidate>
+<div class="form-title">{t("Tell us what you need.","告诉我们你的需求。","h2")}
+{t("Demonstration: use fictional information only. Fields follow the saved form configuration.","演示环境：仅填写虚构信息。字段以后台保存的表单配置为准。","p")}</div>
+<div class="form-grid" data-inquiry-fields></div>
+<label class="honeypot" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+<label class="consent"><input name="consent" type="checkbox" required>{t('I have read the privacy notice and agree to this request being stored and used for a response.','我已阅读隐私说明，同意保存本次请求并用于回复。')}<a href="/privacy/">{t('Privacy notice','隐私说明')}</a></label>
+<button type="submit" class="button primary" disabled>{t('Send inquiry','提交询盘')}</button>
+<button type="button" class="button" data-form-retry hidden>{t('Retry loading form','重新加载表单')}</button>
+<div data-form-status role="status" aria-live="polite" tabindex="-1">{t('Loading form…','正在加载表单…')}</div>
+<noscript>{t('Enable JavaScript to load the configured inquiry form.','请启用JavaScript以加载配置后的询盘表单。')}</noscript></form>'''
 
 def frame(title,body):
     nav=[('company','Company','公司'),('products','Products','产品与业务'),('solutions','Applications','应用'),('technology','Technology','技术'),('service','Service','服务'),('contact','Contact','联系')]
@@ -68,9 +74,13 @@ def main():
     pages['privacy']=frame('Demo privacy notice','<section class="section prose">'+t('Demo privacy notice','演示隐私说明','h1')+t('Use fictional information only.','仅使用虚构信息。','h2')+t('This demonstration can store submitted contact and project fields in its CRM database. It does not send marketing events or messages by default. Do not enter real personal, confidential or safety-critical information.','此演示可将提交的联系人和项目字段存入CRM数据库，默认不发送营销事件或消息。请勿填写真实个人、保密或安全关键的信息。','p')+t('Optional measurement','可选测量','h2')+t('Analytics requires separately enabled configuration and consent. Browser choices do not enable an integration that the server has disabled. No real business contact is provided in this demo.','分析追踪需要独立启用配置并取得同意。浏览器选择不会启用服务器已禁用的集成。本演示不提供真实业务联系方式。','p')+'</section>')
     pages['contact'] = pages['contact'].replace('<h2', '<h1', 1).replace('</h2>', '</h1>', 1)
     for slug,content in pages.items():
+        # A separate controller handles only explicitly configured forms; old
+        # generated installations retain their existing controller contract.
+        content = content.replace('<script defer src="/app.js?v=vorntek1"></script>',
+            '<script defer src="/app.js?v=vorntek1"></script><script defer src="/inquiry-form.js?v=vorntek1"></script>')
         content = content.replace('>Menu</button>', '>'+t('Menu', '菜单')+'</button>')
         content = content.replace('>Skip to content</a>', '>'+t('Skip to content', '跳到主要内容')+'</a>')
-        for asset,old_url in [('styles.css','/styles.css?v=vorntek1'),('app.js','/app.js?v=vorntek1'),('assets/meta-pixel.js','/assets/meta-pixel.js')]:
+        for asset,old_url in [('styles.css','/styles.css?v=vorntek1'),('app.js','/app.js?v=vorntek1'),('inquiry-form.js','/inquiry-form.js?v=vorntek1'),('assets/meta-pixel.js','/assets/meta-pixel.js')]:
             checksum = hashlib.sha256((SITE/asset).read_text(encoding='utf-8').encode('utf-8')).hexdigest()[:12]
             content = content.replace(old_url, f'/{asset}?v={checksum}')
         directory=SITE/slug;directory.mkdir(parents=True,exist_ok=True);(directory/'index.html').write_text(content,encoding='utf-8')

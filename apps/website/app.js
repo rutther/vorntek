@@ -29,7 +29,10 @@
   });
   const menu = document.querySelector('.menu-button');
   menu?.addEventListener('click', () => { const opened = document.querySelector('#site-nav').classList.toggle('open'); menu.setAttribute('aria-expanded',String(opened)); });
-  const form = document.querySelector('#project-form');
+  const candidateForm = document.querySelector('#project-form');
+  // New publications use the shared definition-driven controller. Only older
+  // explicitly unmarked documents retain this historical form contract.
+  const form = candidateForm?.dataset?.configuredForm !== undefined ? null : candidateForm;
   const status = document.querySelector('#form-status');
   const businessSelect = form?.elements.business_line;
   const selected = new URLSearchParams(location.search).get('business');

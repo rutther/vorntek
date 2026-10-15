@@ -48,7 +48,12 @@ The earlier observations below describe the prior public source baseline.
   original targets, pending/accepted/unknown boundaries, CSRF, fresh role/session
   authority, conflict handling and atomic audit records. These pages do not send.
   Real local UI checks covered input retention, save/reload and filtered return;
-  committed PostgreSQL review/ownership races remain a separate pending gate.
+  clean candidate4ce9a49 passed all86 ordinary-role PostgreSQL cases across11
+  independent full-SQL databases, including review/ownership races and queued
+  delivery. Runtime network isolation and a DB-only Python socket guard prevented
+  real provider calls. Fresh42/legacy27→42, preservation of69 existing tables,
+  schema equivalence and owned-resource cleanup passed; original services were
+  not stopped or replaced. This predates the subsequent public-form changes.
 - Website measurement now consumes path-scoped multi-Pixel configuration and
   authoritative capture receipts, with consent gates, single-target Lead delivery,
   canonical event identity on duplicate submissions, and Chinese privacy controls.
@@ -72,6 +77,20 @@ both external scheduling switches permit it, without shortening known-refusal
 retry delays or enabling WhatsApp. Seventeen focused catalogue/scheduler checks,
 all195 frontend checks and77 repository checks passed locally. Final native
 PostgreSQL/package and actual deployment acceptance remain open.
+
+Public default inquiries now render the real saved form definition rather than
+requiring the old seven-business-line selector. Enabled/required fields, custom
+select/date/number values, contact routes, failed-load retry, preserved input,
+duplicate submission and authoritative measurement receipts are exercised through
+the new controller. Old unmarked documents retain their compatibility controller.
+Real loopback browser operation covered two configurations changed through the
+actual admin editor, save/reload, local service restart, submission/persistence and
+deduplication. Editing an existing form no longer normalizes its public code and
+breaks its URL. The current source passed204 frontend,30 legacy browser-script,
+78 repository and1066 application checks (74 conditional skips). These new form
+changes still need their clean-image gate. Remaining industrial website content,
+CRM detail/qualification labels and the comprehensive optional data pack are not
+considered cleaned or complete. No production application has been switched.
 
 Observed 2026-09-21. **Public source pre-release; full goal acceptance remains open.**
 

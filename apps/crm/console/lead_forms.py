@@ -214,6 +214,11 @@ class LeadFormEditorForm(forms.Form):
         return rows
 
     def clean_code(self):
+        if self.form_definition and (self.code_locked
+                or self.cleaned_data['code'] == self.form_definition.code):
+            # Existing URLs are identities, not new slugs. Even Django's disabled
+            # field value still passes through this cleaner when saving labels.
+            return self.form_definition.code
         code = (self.cleaned_data['code'] or '').strip().lower().replace('-', '_')
         if not code:
             raise forms.ValidationError('表单代码不能为空。')

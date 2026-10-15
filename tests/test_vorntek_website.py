@@ -35,6 +35,15 @@ class PageParser(HTMLParser):
 
 
 class VorntekWebsiteTests(unittest.TestCase):
+    def test_default_forms_load_configured_fields_without_fixed_industry_controls(self):
+        for route in ('index.html', 'contact/index.html'):
+            source = (SITE / route).read_text(encoding='utf-8')
+            self.assertIn('data-configured-form', source)
+            self.assertIn('data-inquiry-fields', source)
+            self.assertIn('/inquiry-form.js?v=', source)
+            self.assertNotIn('name="business_line"', source)
+            self.assertNotIn('name="capacity"', source)
+
     def test_all_pages_have_one_heading_no_broken_public_links_or_duplicate_ids(self):
         pages = list(SITE.rglob('*.html'))
         self.assertEqual(len(pages), 15)
@@ -88,7 +97,8 @@ class VorntekWebsiteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory)
             for name in ('scripts/build_vorntek_site.py', 'docs/vorntekDemo/catalog.json',
-                         'apps/website/app.js', 'apps/website/styles.css', 'apps/website/assets/meta-pixel.js'):
+                         'apps/website/app.js', 'apps/website/inquiry-form.js',
+                         'apps/website/styles.css', 'apps/website/assets/meta-pixel.js'):
                 destination = target/name
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT/name, destination)

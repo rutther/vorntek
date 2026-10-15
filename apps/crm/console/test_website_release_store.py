@@ -81,8 +81,11 @@ class WebsiteReleaseStoreTests(unittest.TestCase):
         manifest = self.website_store.verify(version)
 
         self.assertEqual(manifest['articleVersion'], article_input['version'])
-        self.assertEqual(len(manifest['files']), 32)
+        self.assertEqual(len(manifest['files']), 33)
         self.assertIn('app.js', manifest['files'])
+        self.assertIn('inquiry-form.js', manifest['files'])
+        self.assertEqual(self.website_store.read_version_file(version, 'inquiry-form.js'),
+                         (WEBSITE_ROOT / 'inquiry-form.js').read_bytes())
         self.assertIn('assets/vorntek/vorntekLogo.png', manifest['files'])
         self.assertIn('articles/guide/index.html', manifest['files'])
         self.assertIn('zh/articles/guide/index.html', manifest['files'])

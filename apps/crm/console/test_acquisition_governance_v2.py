@@ -210,6 +210,35 @@ class AcquisitionGovernanceTests(TestCase):
         self.assertIn('公开地址已锁定', editor.fields['code'].help_text)
 
     @patch('console.views.default_site_locale')
+    def test_editing_fields_keeps_the_exact_existing_public_endpoint(self, site_locale):
+        site_locale.return_value = (self.site, self.locale)
+        self.form_definition.code = 'project-inquiry'
+        self.form_definition.save(update_fields=['code', 'updated_at'])
+        self.client.force_login(self.marketing)
+        data = self.form_post(version=lead_form_version_token(self.form_definition))
+        # The disabled identity field must ignore a malicious submitted value,
+        # and must not normalize the stored hyphen to an underscore itself.
+        data['code'] = 'different-endpoint'
+        response = self.client.post(reverse('console:marketing_form_edit', args=[self.form_definition.pk]), data)
+        self.assertEqual(response.status_code, 302)
+        self.form_definition.refresh_from_db()
+        self.assertEqual(self.form_definition.code, 'project-inquiry')
+        definition = self.client.get(reverse('console:public_lead_form_definition', args=['project-inquiry']))
+        self.assertEqual(definition.status_code, 200)
+        self.assertEqual(definition.json()['form']['code'], 'project-inquiry')
+
+    def test_unchanged_unused_form_code_is_not_normalized_during_other_edits(self):
+        unused = LeadFormDefinition.objects.create(site=self.site, code='unused-form', name='Synthetic unused form',
+            category='general', channel='website', status='active')
+        data = self.form_post(version='', name='Renamed display only')
+        data['code'] = 'unused-form'
+        editor = LeadFormEditorForm(data, site=self.site, form_definition=unused)
+        self.assertTrue(editor.is_valid(), editor.errors)
+        editor.save()
+        unused.refresh_from_db()
+        self.assertEqual(unused.code, 'unused-form')
+
+    @patch('console.views.default_site_locale')
     def test_valid_edit_updates_form_and_records_audit(
         self,
         mocked_default_site_locale,
