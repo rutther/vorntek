@@ -102,6 +102,18 @@ test('server duplicate produces success without a second browser Lead',async()=>
   const f=fixture();f.replies.push({ok:true,status:200,json:async()=>({ok:true,duplicate:true})});await f.submit();
   assert.equal(f.status.dataset.kind,'success');assert.equal(f.events.length,0);assert.equal(f.form.resets,1);
 });
+
+test('signed measurement context and authoritative retry receipt cross the actual form boundary',async()=>{
+  const f=fixture();f.window.ncPrivacyConsentGranted=()=>true;
+  f.window.ncMeasurementContext=async()=>'synthetic-signed-context';
+  const measurement={shouldTrack:true,eventId:'synthetic-canonical-retry',pixelIds:['222']};
+  f.replies.push({ok:true,status:200,json:async()=>({ok:true,duplicate:true,measurement})});
+  await f.submit();
+  assert.equal(f.requests[0].payload.measurement_context,'synthetic-signed-context');
+  const event=f.events.find(e=>e.type==='nc:lead-accepted');
+  assert.equal(event.detail.measurement,measurement);
+  assert.equal(event.detail.eventId,'synthetic-canonical-retry');
+});
 test('400,429,server ok:false and malformed responses do not reset or emit Lead',async()=>{
   for(const reply of [{ok:false,status:400,json:async()=>({ok:false})},{ok:false,status:429,json:async()=>({ok:false})},
     {ok:true,status:200,json:async()=>({ok:false})},{ok:true,status:200,json:async()=>{throw new Error('invalid JSON');}}]){

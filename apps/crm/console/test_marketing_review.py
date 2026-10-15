@@ -19,6 +19,7 @@ from marketing.models import IntegrationCheck, MarketingIntegration, MarketingPr
 from sitecore.models import Site
 
 
+@override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
 class MarketingReviewTests(TestCase):
     @classmethod
     def setUpClass(cls):

@@ -34,7 +34,7 @@ class InboundOwnershipTests(TestCase):
     def setUp(self):
         site = Site.objects.create(code='inbound_ownership', name='Synthetic site', default_locale='en')
         form = LeadFormDefinition.objects.create(site=site, code='general', name='Synthetic inquiry', capi_enabled=False)
-        provider = MarketingProvider.objects.create(code='meta', name='Meta')
+        provider, _ = MarketingProvider.objects.get_or_create(code='meta', defaults={'name': 'Meta'})
         integration = MarketingIntegration.objects.create(site=site, provider=provider, name='Synthetic Page',
             integration_type='leadgen', public_id='100000002', enabled=True,
             config_json={'form_code': form.code, 'leadgen_form_ids': ['10001']})

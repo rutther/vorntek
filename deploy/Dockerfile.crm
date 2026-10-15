@@ -6,7 +6,9 @@ COPY apps/crm/flow-ui/package.json apps/crm/flow-ui/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY apps/crm/flow-ui/ ./
 COPY apps/crm/console/static/ ../console/static/
-RUN npm test && npm run build
+COPY apps/website/assets/meta-pixel.js /build/apps/website/assets/meta-pixel.js
+COPY scripts/test_website_pixel_runtime.mjs /build/scripts/test_website_pixel_runtime.mjs
+RUN node --test /build/scripts/test_website_pixel_runtime.mjs && npm test && npm run build
 
 FROM ${PYTHON_IMAGE} AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1

@@ -42,7 +42,7 @@ jobs:
       - name: Deterministic source release manifest
         run: python scripts/release_manifest.py --require-clean
       - name: Browser script contracts (no real platform requests)
-        run: node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
+        run: node --test scripts/test_measurement.mjs scripts/test_website_pixel_runtime.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
       - name: Complete guided-loop interactions and source build
         working-directory: apps/crm/flow-ui
         run: |

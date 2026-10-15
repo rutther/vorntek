@@ -43,7 +43,7 @@ class MeasurementRoutingTests(TestCase):
 
     def setUp(self):
         Fixture.setUp(self)
-        self.provider = mm.MarketingProvider.objects.create(code='meta', name='Meta')
+        self.provider, _ = mm.MarketingProvider.objects.get_or_create(code='meta', defaults={'name': 'Meta'})
         self.legacy = mm.MarketingIntegration.objects.create(site=self.site, provider=self.provider,
             name='Legacy synthetic', integration_type='pixel', public_id='111111111', enabled=True,
             routing_mode='legacy_site', environment='production')

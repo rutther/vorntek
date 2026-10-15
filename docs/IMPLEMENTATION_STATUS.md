@@ -49,6 +49,15 @@ The earlier observations below describe the prior public source baseline.
   authority, conflict handling and atomic audit records. These pages do not send.
   Real local UI checks covered input retention, save/reload and filtered return;
   committed PostgreSQL review/ownership races remain a separate pending gate.
+- Website measurement now consumes path-scoped multi-Pixel configuration and
+  authoritative capture receipts, with consent gates, single-target Lead delivery,
+  canonical event identity on duplicate submissions, and Chinese privacy controls.
+  Invalid/unavailable configuration cannot fall back to an embedded Pixel. All30
+  browser-script cases,77 repository checks and1057 application checks passed
+  locally (74 conditional skips). PostgreSQL fixture collisions and quiet-mode
+  assumptions found in the preceding isolated run were corrected in tests only;
+  the replacement clean-image PostgreSQL run is still required. The stronger
+  pre-existing credential-clear/copy behavior was restored after a port regression.
 - Full integration is still open: delivery and
   scheduler integration, generic website/detail/qualification content, the broad
   optional/idempotent/scoped-reset synthetic data pack, final recovery, complete

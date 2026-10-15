@@ -76,11 +76,12 @@
     const abort=new AbortController();const timer=setTimeout(()=>abort.abort(),25000);
     submitting=true;submit.disabled=true;setStatus('pending',lang==='zh'?'正在提交…':'Submitting…');
     try{
+      payload.measurement_context=marketing&&typeof window.ncMeasurementContext==='function'?await window.ncMeasurementContext():'';
       const response=await fetch('/admin/api/leads/forms/project-inquiry/submit/',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),signal:abort.signal});
       const result=await response.json();
       if(!response.ok||!result.ok)throw new Error(response.status===429?'rate':'rejected');
       setStatus('success',lang==='zh'?(result.duplicate?'此询盘已接收，未重复创建记录。':'询盘已存入演示CRM。'):(result.duplicate?'This inquiry was already received. No duplicate was created.':'Inquiry received in the demo CRM.'));
-      if(!result.duplicate)document.dispatchEvent(new CustomEvent('nc:lead-accepted',{detail:{eventId,formCode:'project-inquiry',inquiryType:fields.business_line,productCategory:payload.extra_fields.product_category}}));
+      if(result.measurement?.shouldTrack||!result.duplicate)document.dispatchEvent(new CustomEvent('nc:lead-accepted',{detail:{measurement:result.measurement,eventId:result.measurement?.eventId||eventId,formCode:'project-inquiry',inquiryType:fields.business_line,productCategory:payload.extra_fields.product_category}}));
       form.reset();updateHint();fingerprint='';eventId='';formStarted=false;startedAt=new Date().toISOString();
     }catch(error){setStatus('error',lang==='zh'?(error.message==='rate'?'提交较频繁，请稍后再试；内容已保留。':'提交未确认成功，内容已保留，请稍后重试。'):(error.message==='rate'?'Too many attempts. Your entries are preserved; try later.':'Submission was not confirmed. Your entries are preserved; please retry.'));}
     finally{clearTimeout(timer);submitting=false;submit.disabled=false;}

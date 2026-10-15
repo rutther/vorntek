@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.core import mail
 from django.contrib.sessions.models import Session
 from django.db import DatabaseError, connection
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 from console import test_public_lead_capture as capture_fixtures
@@ -13,6 +13,7 @@ from leads.models import LeadNotificationAttempt, LeadSubmission
 from sitecore.models import Site
 
 
+@override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
 class NotificationReviewTests(TestCase):
     @classmethod
     def setUpClass(cls):
