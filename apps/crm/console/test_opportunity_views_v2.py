@@ -122,8 +122,8 @@ class OpportunityViewsV2Tests(TestCase):
             enabled=True,
             sort_order=10,
         )
-        self.team_a = SalesTeam.objects.create(site=self.site, code='team-a', name='Team A', enabled=True)
-        self.team_b = SalesTeam.objects.create(site=self.site, code='team-b', name='Team B', enabled=True)
+        self.team_a = SalesTeam.objects.create(site=self.site, code='team_a', name='Team A', enabled=True)
+        self.team_b = SalesTeam.objects.create(site=self.site, code='team_b', name='Team B', enabled=True)
         SalesTeamMember.objects.create(team=self.team_a, user=self.sales, membership_role='member')
         SalesTeamMember.objects.create(team=self.team_a, user=self.manager, membership_role='manager')
         SalesTeamMember.objects.create(team=self.team_b, user=self.other_sales, membership_role='member')
@@ -306,7 +306,7 @@ class OpportunityViewsV2Tests(TestCase):
 
     def test_corrupt_cross_site_direct_targets_are_hidden_even_from_admin(self):
         other_site = Site.objects.create(
-            code='opportunity-other-site',
+            code='opportunity_other_site',
             name='Opportunity Other Site',
             base_url='https://opportunity-other.example.com',
             default_locale='en',
@@ -324,7 +324,7 @@ class OpportunityViewsV2Tests(TestCase):
         )
         other_team = SalesTeam.objects.create(
             site=other_site,
-            code='opportunity-other-team',
+            code='opportunity_other_team',
             name='Opportunity Other Team',
             enabled=True,
         )
@@ -705,13 +705,13 @@ class OpportunityViewsV2Tests(TestCase):
     def test_manager_assignment_cannot_move_record_across_team_boundary(self):
         managed_destination = SalesTeam.objects.create(
             site=self.site,
-            code='team-c',
+            code='team_c',
             name='Team C',
             enabled=True,
         )
         current_team = SalesTeam.objects.create(
             site=self.site,
-            code='team-d',
+            code='team_d',
             name='Team D',
             enabled=True,
         )

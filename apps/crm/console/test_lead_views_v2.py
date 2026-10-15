@@ -201,7 +201,7 @@ class LeadViewsV2ContractTests(TestCase):
         )
         self.team = SalesTeam.objects.create(
             site=self.site,
-            code='primary-sales',
+            code='primary_sales',
             name='Primary sales',
             enabled=True,
         )
@@ -658,7 +658,7 @@ class LeadViewsV2ContractTests(TestCase):
     def test_legacy_conversion_rejects_owner_outside_the_lead_team(self):
         secondary_team = SalesTeam.objects.create(
             site=self.site,
-            code='conversion-secondary',
+            code='conversion_secondary',
             name='Conversion secondary team',
             enabled=True,
         )
@@ -688,7 +688,7 @@ class LeadViewsV2ContractTests(TestCase):
     def test_legacy_conversion_reauthorizes_scope_after_lock(self):
         secondary_team = SalesTeam.objects.create(
             site=self.site,
-            code='conversion-race-team',
+            code='conversion_race_team',
             name='Conversion race team',
             enabled=True,
         )
@@ -1216,7 +1216,7 @@ class LeadViewsV2ContractTests(TestCase):
     def test_task_create_rejects_owner_from_another_managed_team(self):
         secondary_team = SalesTeam.objects.create(
             site=self.site,
-            code='secondary-sales',
+            code='secondary_sales',
             name='Secondary sales',
             enabled=True,
         )
@@ -1441,7 +1441,7 @@ class LeadViewsV2ContractTests(TestCase):
     def test_assignment_choices_match_team_inference_and_exclude_non_members(self):
         second_team = SalesTeam.objects.create(
             site=self.site,
-            code='secondary-sales',
+            code='secondary_sales',
             name='Secondary sales',
             enabled=True,
         )
@@ -2330,7 +2330,7 @@ class LeadViewsV2ContractTests(TestCase):
     def test_assignment_scope_hides_missing_and_cross_team_records(self):
         secondary_team = SalesTeam.objects.create(
             site=self.site,
-            code='secondary-private',
+            code='secondary_private',
             name='Secondary private',
             enabled=True,
         )
@@ -2370,7 +2370,7 @@ class LeadViewsV2ContractTests(TestCase):
     def test_bulk_assignment_returns_real_partial_success(self):
         secondary_team = SalesTeam.objects.create(
             site=self.site,
-            code='secondary-partial',
+            code='secondary_partial',
             name='Secondary partial',
             enabled=True,
         )
