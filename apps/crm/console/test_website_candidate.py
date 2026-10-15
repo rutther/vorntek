@@ -23,7 +23,8 @@ from .website_candidate import (
 )
 
 
-WEBSITE_ROOT = Path(__file__).resolve().parents[2] / 'website'
+_IMAGE_WEBSITE = Path(__file__).resolve().parents[1] / 'website-source'
+WEBSITE_ROOT = _IMAGE_WEBSITE if _IMAGE_WEBSITE.is_dir() else Path(__file__).resolve().parents[2] / 'website'
 
 
 class WebsiteCandidateTests(TestCase):
@@ -76,7 +77,7 @@ class WebsiteCandidateTests(TestCase):
         )
         self.settings_override.enable()
         self.site = Site.objects.create(
-            code='candidateTest',
+            code='candidate_test',
             name='Vorntek',
             base_url='https://example.invalid',
             default_locale='en',
@@ -185,7 +186,7 @@ class WebsiteCandidateTests(TestCase):
     def test_unreviewed_or_other_site_record_is_rejected_before_composition(self):
         preview = self.preview()
         other = Site.objects.create(
-            code='otherCandidate',
+            code='other_candidate',
             name='Other',
             base_url='https://other.example.invalid',
             default_locale='en',

@@ -92,6 +92,13 @@ changes still need their clean-image gate. Remaining industrial website content,
 CRM detail/qualification labels and the comprehensive optional data pack are not
 considered cleaned or complete. No production application has been switched.
 
+The clean e139530 image additionally passed actual PostgreSQL form-governance8,
+published-catalogue4 and queued-capture3 cases. The two added website-publication
+groups exposed legacy test fixtures with uppercase site codes forbidden by the
+canonical SQL, and source-only paths absent in the installed image. Fixtures now
+use valid site identities and the actual packaged website path; their replacement
+native run is pending. Production schema constraints were not changed.
+
 Observed 2026-09-21. **Public source pre-release; full goal acceptance remains open.**
 
 ## Active engineering baseline

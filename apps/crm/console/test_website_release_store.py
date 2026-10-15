@@ -16,7 +16,8 @@ from .article_release_store import ArticleReleaseStore
 from .website_release_store import WebsiteReleaseStore
 
 
-WEBSITE_ROOT = Path(__file__).resolve().parents[2] / 'website'
+_IMAGE_WEBSITE = Path(__file__).resolve().parents[1] / 'website-source'
+WEBSITE_ROOT = _IMAGE_WEBSITE if _IMAGE_WEBSITE.is_dir() else Path(__file__).resolve().parents[2] / 'website'
 
 
 class WebsiteReleaseStoreTests(unittest.TestCase):
