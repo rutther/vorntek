@@ -1,10 +1,11 @@
 ARG PYTHON_IMAGE=python:3.12.12-slim-bookworm
 ARG NODE_IMAGE=node:24.20.0-bookworm-slim
 FROM ${NODE_IMAGE} AS flow-builder
-WORKDIR /build/flow-ui
+WORKDIR /build/apps/crm/flow-ui
 COPY apps/crm/flow-ui/package.json apps/crm/flow-ui/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY apps/crm/flow-ui/ ./
+COPY apps/crm/console/static/ ../console/static/
 RUN npm test && npm run build
 
 FROM ${PYTHON_IMAGE} AS runtime
@@ -15,8 +16,8 @@ RUN pip install --no-cache-dir -r /tmp/requirements.lock \
     && groupadd --gid 10001 newcrown \
     && useradd --uid 10001 --gid 10001 --no-create-home newcrown
 COPY apps/crm/ /app/
-COPY --from=flow-builder /build/console/static/console/flow-workspace/ /app/console/static/console/flow-workspace/
-COPY --from=flow-builder /build/console/static/console/meta-help/ /app/console/static/console/meta-help/
+COPY --from=flow-builder /build/apps/crm/console/static/console/flow-workspace/ /app/console/static/console/flow-workspace/
+COPY --from=flow-builder /build/apps/crm/console/static/console/meta-help/ /app/console/static/console/meta-help/
 COPY apps/website/ /app/website-source/
 COPY apps/website/ /srv/website/releases/bundled/
 COPY VERSION /app/VERSION

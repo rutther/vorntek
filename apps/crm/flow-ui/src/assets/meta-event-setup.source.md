@@ -1,14 +1,14 @@
-# Meta conversion setup references — 2026-10-05
+# 数据集、事件与安装操作示意图
 
-User-supplied screenshots copied unchanged. These are navigation references, not current account state, installation evidence or test results.
+以下 SVG 均为项目自行绘制的中性示意图，不是截图，也不是平台实时状态：
 
-| Asset | Original clipboard attachment | SHA-256 |
-| --- | --- | --- |
-| meta-conversion-warning.png | codex-clipboard-86bca63a-efa8-47ed-8d8f-e95e6d7b45c5.png | 2731F0203DB2D520F81709049F6B2499B83AE79CE1CBD50D28AFE370D79A0A97 |
-| meta-standard-event-route.png | codex-clipboard-2ca36865-cd70-477c-9b6e-f4608ed4c976.png | FAB52D64E8C67A919772CD336540C2D6ADEA56B0F915FBF50101551AEA3F91B2 |
-| meta-add-event-code.png | codex-clipboard-2afd9922-1c73-42a8-939f-7b878d5bad3e.png | 6583ABDC56DA234C1128F55BC104B0AD16F56C48DE8909DB56F2EEB9701D28C5 |
-| meta-create-pixel.png | codex-clipboard-049aa95d-97b4-4476-847a-9f05059a6627.png | 378A2EA96B8FF9752E71703F91854E682F597B5626827E38B8EF03D30E818DAC |
-| meta-pixel-created.png | codex-clipboard-323733e2-9a75-41e3-852b-2566c2e05960.png | 952153E0BB7B3497CDA087E2C46B8DD66E5085BAF80F596BECBF365D07EC2DD4 |
-| meta-lead-installation.png | codex-clipboard-ab63c09d-b37f-4e0b-ae1c-f411c35de679.png | BD3DEFA3EBEB5961C542E3FC458B5DAB345ADE36DDC12E56FE07836DB3E0D70D |
+- `meta-conversion-warning.svg`：识别转化事件设置提示。
+- `meta-standard-event-route.svg`：选择标准事件安装路径。
+- `meta-add-event-code.svg`：查看事件代码的操作位置。
+- `meta-create-pixel.svg`：创建数据集的操作路径。
+- `meta-pixel-created.svg`：创建后核对自己的数据集编号。
+- `meta-lead-installation.svg`：Lead 事件安装和状态的核对位置。
 
-Step01: create and post-create originals beside the matching steps inside the new-dataset path. Step02: warning image beside the event recommendation; tracking-method and Lead-installation images beside the visible first-time click sequence. Step04: manual-code image beside the operation location. Screenshot names are not defaults; configuration uses the current flow's saved numeric ID. Closing the wizard does not install code. Reuse existing tracking after checking its ID rather than pasting duplicate code; Lead belongs after a confirmed successful inquiry.
+所有图示源数据在 `fixtures/guide-figures.json`，通过 `scripts/build-guide-figures.mjs` 可重复生成；测试、构建都会生成完整图集。数据集、网址、事件编号和名称均为示例，不包含真实账号绑定。
+
+图示不能证明当前环境已安装或接收到事件。关闭安装向导不等于安装完成；已有追踪应核对后复用，不能重复粘贴代码。Lead 只对应确认成功的留资。
