@@ -5,6 +5,18 @@
 This branch is an in-progress integration, not a deployed product release.
 The earlier observations below describe the prior public source baseline.
 
+- Current website examples are neutral configurable content, with preserved
+  bilingual pages, forms and synthetic chart/CSV; the former industrial
+  catalogue and concept images are retired from the candidate, not user data.
+- The source's trusted-proxy client-IP resolver and outer admin no-store policy
+  are retained. Deployment must bind actual proxy trust explicitly; no network
+  or host is silently trusted. Current source dependency patches are Django
+  5.2.18 and urllib3 2.8.0, with renewed installed-wheel license evidence.
+- SQL0043 adds optional example ownership. All old SQL checksums remain intact.
+  Local suites and isolated native runs are separate evidence; a failing image
+  build or partial native result is not acceptance. Target HTTPS deployment,
+  comprehensive example coverage and joint recovery remain open.
+
 - SQL0033–0042 append the current marketing runtime and recovery objects without
   rewriting the original32 checksums. A clean source image passed real PostgreSQL
   fresh installation and legacy27→42 upgrade with a non-superuser application

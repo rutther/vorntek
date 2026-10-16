@@ -951,7 +951,7 @@ class ContentRouteCapabilityTests(TestCase):
         ):
             response = self.client.get(file_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0')
+        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0, no-cache, must-revalidate')
         self.assertIn("script-src 'none'", response['Content-Security-Policy'])
         self.assertNotIn('private', response.get('Access-Control-Allow-Origin', ''))
 
@@ -972,7 +972,7 @@ class ContentRouteCapabilityTests(TestCase):
         ):
             unavailable = self.client.get(file_url)
         self.assertEqual(unavailable.status_code, 503)
-        self.assertEqual(unavailable['Cache-Control'], 'private, no-store, max-age=0')
+        self.assertEqual(unavailable['Cache-Control'], 'private, no-store, max-age=0, no-cache, must-revalidate')
         self.assertIn("connect-src 'none'", unavailable['Content-Security-Policy'])
         self.assertNotContains(unavailable, 'artifact_file_changed', status_code=503)
 

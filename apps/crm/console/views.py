@@ -367,8 +367,8 @@ def readable_content_locale_ids(
 
 
 def request_client_ip(request) -> str:
-    forwarded = (request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip()
-    return forwarded or (request.META.get('HTTP_X_REAL_IP') or '').strip() or request.META.get('REMOTE_ADDR', '')
+    from .client_ip import resolve_client_ip
+    return resolve_client_ip(request)
 
 
 def preview_base_url(request=None) -> str:

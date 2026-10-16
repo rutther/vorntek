@@ -32,6 +32,7 @@ email or place it in a public backup.
 | `NEWCROWN_HTTP_PORT` | Loopback front-door port | `8088` |
 | `NEWCROWN_SITE_URL` | Canonical browser origin used by CSRF and public-form checks | `http://localhost:8088` |
 | `NEWCROWN_ALLOWED_HOSTS` | Comma-separated Django host allowlist | `localhost,127.0.0.1,crm` |
+| `NEWCROWN_TRUSTED_PROXY_CIDRS` | Explicit append-only proxy peer IPs/CIDRs; maps to `SITEOS_TRUSTED_PROXY_CIDRS` | empty, no forwarded identity trusted |
 | `NEWCROWN_ARTICLE_PUBLIC_ORIGIN` | HTTPS origin used while rendering private article candidates | `https://vorntek.example` (non-live placeholder) |
 | `NEWCROWN_*_IMAGE` | Exact local/registry image references for CRM, website and maintenance | development tags |
 
@@ -64,6 +65,25 @@ real channel requires a separately reviewed override and platform acceptance; an
 通道必须通过单独审查的 override 和平台验收启用，不能只改 `.env`；WhatsApp 当前仍暂停。
 
 ## HTTPS and public operation / HTTPS 与公网运行
+
+Client identity is resolved from the socket peer unless that peer is in the
+explicit proxy allowlist. For a trusted peer, the resolver walks X-Forwarded-For
+right-to-left only through trusted hops. The bundled Nginx overwrites that header
+with its immediate peer; do not change it to pass arbitrary client headers.
+Configure the actual proxy peer address/range for each deployment and recheck it
+after network changes. Empty configuration is safe for direct/local use but
+collapses proxied traffic to the proxy IP, including rate limits. Do not publish
+a proxied installation before verifying this chain. Invalid/default-route ranges
+refuse startup; broad internet trust is not a workaround.
+
+客户端身份默认只取连接对端。仅对端位于明确可信代理范围时，才从转发链右侧向左
+核对可信跳点；自带Nginx用直接连接对端覆盖转发头，不透传任意客户端前缀。每次
+部署按实际代理地址配置并验证，网络变化后复核。留空适合直连/本机，但代理后的
+访问会共用代理IP及限流，公网代理部署前必须解决；不得用全网段代替验证。
+
+All `/admin/` and `/console/` responses, including redirects, permission errors
+and streams, are private/no-store; public static/API policies are left intact.
+This does not replace TLS, server-side permissions or a reverse-proxy review.
 
 The default is loopback HTTP for isolated acceptance. A public installation needs
 an independently tested HTTPS entrypoint plus correct allowed hosts, trusted

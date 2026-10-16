@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
 from .runtime_config import secret_value
+from console.client_ip import parse_proxy_networks
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
@@ -21,6 +22,7 @@ def env_bool(name: str, default: str = '0') -> bool:
 
 
 DEBUG = env_bool('SITEOS_ADMIN_DEBUG', '0')
+SITEOS_TRUSTED_PROXY_NETWORKS = parse_proxy_networks(env_list('SITEOS_TRUSTED_PROXY_CIDRS'))
 SITEOS_META_RUNTIME_ENABLED = env_bool('SITEOS_META_RUNTIME_ENABLED', '0')
 SITEOS_META_RUNTIME_ENVIRONMENT = os.getenv('SITEOS_META_RUNTIME_ENVIRONMENT', 'production')
 SITEOS_META_RUNTIME_LOADER_VERSION = int(os.getenv('SITEOS_META_RUNTIME_LOADER_VERSION', '0'))
@@ -67,6 +69,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'console.response_policy.AdminResponsePolicyMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

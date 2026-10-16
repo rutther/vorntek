@@ -25,9 +25,9 @@ class ReleaseManifestTests(unittest.TestCase):
             manifest['migrations']['tip'],
             '0043_site_example_bundle.sql',
         )
-        # Includes the real configurable inquiry controller introduced alongside
-        # the existing legacy form compatibility script.
-        self.assertEqual(manifest['website_tree']['tracked_files'], 28)
+        # Fifteen pages, four neutral visuals, four controllers/styles and robots.
+        # Seven legacy concept bitmaps were replaced by three neutral SVGs.
+        self.assertEqual(manifest['website_tree']['tracked_files'], 24)
         for key in (
             manifest['source_tree']['git_tree_sha256'],
             manifest['website_tree']['git_tree_sha256'],
