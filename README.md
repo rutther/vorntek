@@ -137,11 +137,16 @@ complete two-proxy deployment.
 ```sh
 python3 -m pip install -r apps/crm/requirements.lock -r requirements-dev.txt
 python3 -m unittest discover -s tests -v
+npm --prefix apps/crm/flow-ui ci
 node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
+npm --prefix apps/crm/flow-ui test
+npm --prefix apps/crm/flow-ui run build
 python3 scripts/run_application_tests.py
 ```
 
-Node is needed only for JS tests. The application runner uses synthetic SQLite
+Node dependencies are isolated under `apps/crm/flow-ui`; install them before the
+root JS checks because those checks deliberately reuse the declared `jsdom` version.
+The application runner uses synthetic SQLite
 and blocks non-loopback Python sockets; it does not replace PostgreSQL/browser
 acceptance. With separately installed PostgreSQL binaries, run
 `python3 scripts/test_postgres_install.py --pg-bin /path/to/bin --http`.

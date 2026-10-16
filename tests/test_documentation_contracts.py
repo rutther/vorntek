@@ -41,6 +41,15 @@ GUIDES = {
 
 
 class DocumentationContractTests(unittest.TestCase):
+    def test_node_checks_install_the_declared_flow_ui_dependencies_first(self):
+        install = 'npm --prefix apps/crm/flow-ui ci'
+        node_test = 'node --test scripts/test_measurement.mjs'
+        for relative in ('README.md', 'README.zh-CN.md', 'docs/DEVELOPMENT.md'):
+            text = (ROOT / relative).read_text(encoding='utf-8')
+            with self.subTest(document=relative):
+                self.assertIn(install, text)
+                self.assertLess(text.index(install), text.index(node_test))
+
     def test_readmes_link_every_operator_guide(self):
         for readme_name in ('README.md', 'README.zh-CN.md'):
             text = (ROOT/readme_name).read_text(encoding='utf-8')
