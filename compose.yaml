@@ -179,8 +179,8 @@ services:
       - crm_files:/data
       - website_runtime:/srv/website:ro
     depends_on:
-      initialize:
-        condition: service_completed_successfully
+      crm:
+        condition: service_healthy
     healthcheck:
       test: [CMD, python, manage.py, run_scheduled_tasks, --healthcheck]
       interval: 30s
