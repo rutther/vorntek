@@ -31,6 +31,18 @@ Each finding has observed RED and GREEN evidence, not a second reviewer claiming
 it fixed. Full-source regression follows the one fix pass. No deferred minor
 remains from this review.
 
+## Final native-image build finding
+
+The complete208-test flow build exposed jsdom's cascade difference for the
+generic hidden rule preceding `.button` display. The real local browser had
+hidden the loaded retry control, but the frozen-image gate correctly refused
+the failing contract. Added a final component-specific hidden-state rule and
+checked both failure-visible and recovered-hidden states. RED11/12 -> GREEN208/208;
+no skipped test or weakened consent/retry assertion. The first native attempt
+failed build-network DNS; the second reached this assertion. Both retained their
+terminal failed status, cleaned their temporary resources and left live services
+and database untouched. A new exact source candidate is required.
+
 ## Reviewer declined-to-judge: parent rulings
 
 - Visual pages, videos, real WebGL recovery and mobile were not independently

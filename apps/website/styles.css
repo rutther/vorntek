@@ -21,3 +21,5 @@
 .dimension-drawing rect{fill:#eef3f7;stroke:#19364c;stroke-width:1.5}.dimension-drawing path{fill:none;stroke:#526d86;stroke-width:1}
 .dimension-drawing text{fill:currentColor;font-family:inherit;font-size:15px}.equipment-dimensions figcaption{font-size:14px;line-height:1.7;color:#52677c}
 @media(max-width:600px){.dimension-drawing text{font-size:32px}.equipment-dimensions{padding:20px 12px}}
+/* Hidden controls must win over component display rules in every renderer. */
+.button[hidden]{display:none!important}

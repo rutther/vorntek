@@ -95,8 +95,10 @@ test('definition failure is recoverable but cannot submit an invented fallback f
   assert.equal(ui.status.dataset.kind,'error');assert.equal(ui.form.querySelector('[type=submit]').disabled,true);
   await ui.submit();assert.equal(ui.requests.filter(r=>r.payload).length,0);
   const retry=ui.form.querySelector('[data-form-retry]');assert.equal(retry.hidden,false);
+  assert.equal(ui.window.getComputedStyle(retry).display,'inline-flex');
   ui.recover();retry.click();await flush();await flush();
   assert.ok(ui.form.elements.email);assert.equal(ui.form.querySelector('[type=submit]').disabled,false);
+  assert.equal(retry.hidden,true);assert.equal(ui.window.getComputedStyle(retry).display,'none');
  }finally{ui.close();}
 });
 
