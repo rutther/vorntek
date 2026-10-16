@@ -48,14 +48,14 @@ class WebsiteSelectionTests(TestCase):
 
     def setUp(self):
         self.site = Site.objects.create(
-            code='selection-site',
+            code='selection_site',
             name='Selection site',
             default_locale='en',
             enabled=True,
             config_json={},
         )
         self.other_site = Site.objects.create(
-            code='selection-other',
+            code='selection_other',
             name='Other site',
             default_locale='en',
             enabled=True,

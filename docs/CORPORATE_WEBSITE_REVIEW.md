@@ -43,6 +43,14 @@ failed build-network DNS; the second reached this assertion. Both retained their
 terminal failed status, cleaned their temporary resources and left live services
 and database untouched. A new exact source candidate is required.
 
+The next native PostgreSQL run passed six affected application groups and the
+full source image build, but all six selection cases stopped in fixture setup:
+`selection-site` violated the original `site_code_format` underscore-only check.
+SQLite had not enforced this SQL constraint. Changed only the two fixture codes
+to valid underscores, retaining every selection/replay/cross-site/rollback
+assertion and the production constraint. This native failed run is preserved;
+the corrected exact source must pass the native gate before use.
+
 ## Reviewer declined-to-judge: parent rulings
 
 - Visual pages, videos, real WebGL recovery and mobile were not independently
