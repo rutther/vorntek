@@ -71,6 +71,11 @@ certifications.
 
 ### Changed
 
+- Standalone PostgreSQL acceptance follows current model/schema and scheduler
+  contracts, admits only the proven lossless literal-array restore reparse, and
+  verifies configurable neutral/personal inquiry flows rather than retired
+  fixed-industry defaults. Windows inventory uses an isolated real serving tree.
+
 - Import preview creation now serializes per site and safely reuses an existing
   batch when the same file is previewed again.
 - The customer import page accepts the standard CSV format with bounded reads.

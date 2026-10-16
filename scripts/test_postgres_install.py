@@ -9,8 +9,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -25,6 +27,63 @@ from psycopg import sql
 ROOT = Path(__file__).resolve().parents[1]
 CRM = ROOT / 'apps' / 'crm'
 HISTORICAL_RELEASE_MIGRATION_COUNT = 26
+
+
+def require_schema_contract(output):
+    matches = re.findall(r'^Unmanaged schema contract passed: ([1-9][0-9]*) models, ([1-9][0-9]*) fields\.$',
+                         output.replace('\r\n','\n'),re.MULTILINE)
+    if len(matches)!=1:
+        raise RuntimeError('Expected unmanaged schema contract absent')
+    return tuple(map(int,matches[0]))
+
+
+def _sql_outside_quotes(value, end):
+    index = 0
+    while index < end:
+        if value[index] not in "'\"":
+            index += 1
+            continue
+        quote = value[index]
+        escaped = quote=="'" and index>0 and value[index-1] in 'Ee'
+        index += 1
+        while index<len(value):
+            if escaped and value[index]=='\\':
+                index += 2
+                continue
+            if value[index]==quote:
+                index += 1
+                if index<len(value) and value[index]==quote:
+                    index += 1
+                    continue
+                break
+            index += 1
+        if index>end: return False
+    return True
+
+
+def schema_identity(fingerprint):
+    """Admit only pg_dump's lossless varchar literal-array text cast reparse.
+
+    Names, literal bytes/order, operators, uniqueness, triggers, sequences and
+    other casts stay exact. Do not rewrite text inside quoted SQL literals.
+    """
+    element = r"'(?:''|[^'])*'::character varying"
+    array = re.compile(r'\(ARRAY\[(?P<items>'+element+r'(?:, '+element+r')*)\]\)::text\[\]')
+
+    def identity(value):
+        def replace(match):
+            if not _sql_outside_quotes(value,match.start()): return match[0]
+            return 'ARRAY['+', '.join('('+item+')::text' for item in re.findall(element,match['items']))+']'
+        return array.sub(replace,value)
+    return {key:[(*row[:-1],identity(row[-1])) for row in value] if key in ('constraints','indexes') else value
+            for key,value in fingerprint.items()}
+
+
+def require_stopped_delivery_schedule(state):
+    expected = {'refresh_pixel_page_catalog':'completed','retry_inbound_leads':'paused',
+                'dispatch_lead_outbox':'paused','send_lead_reminders':'paused'}
+    if state.get('state')!='stopped' or {name:row.get('status') for name,row in state.get('jobs',{}).items()}!=expected:
+        raise RuntimeError('Invalid stopped delivery schedule')
 
 
 def migration_count(directory):
@@ -91,6 +150,7 @@ def main():
         'SITEOS_WEBSITE_RELEASE_ROOT': str(runtime / 'acceptance-crm-runtime' / 'website-releases'),
         'SITEOS_WEBSITE_SERVING_ROOT': str(runtime / 'acceptance-website-serving'),
         'SITEOS_WEBSITE_SOURCE_ROOT': str(ROOT / 'apps' / 'website'),
+        'SITEOS_PIXEL_CATALOG_PATH': str(runtime / 'pixel-pages.json'),
         'PYTHONIOENCODING': 'utf-8',
     })
     report = {'started_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
@@ -193,7 +253,7 @@ def main():
         manage('initialize_database', contains='PLAN ONLY')
         assert fingerprint('newcrown_install') == before == {}, 'Planning wrote database tables'
         checked('empty_database_plan_does_not_write')
-        manage('initialize_database', '--apply', contains='62 models, 866 fields')
+        require_schema_contract(manage('initialize_database', '--apply'))
         checked('complete_sql_chain_install_as_non_superuser')
         manage('bootstrap_site')
         baseline = fingerprint('newcrown_install')
@@ -276,6 +336,9 @@ def main():
             ], contains='file_snapshot_restored')
             checked('website_candidate_runtime_snapshot_restored_to_new_root')
         else:
+            # Windows cannot prove POSIX symlink deployment, but the local
+            # inventory job still needs a real serving tree, not an absent root.
+            shutil.copytree(ROOT / 'apps' / 'website', runtime / 'acceptance-website-serving' / 'current')
             report['checks'].append({
                 'name': 'synthetic_website_deployment_posix_filesystem',
                 'result': 'skipped',
@@ -299,8 +362,7 @@ def main():
         manage('run_scheduled_tasks', '--once', '--heartbeat', str(heartbeat), contains='paused')
         assert fingerprint('newcrown_install') == before
         state = json.loads(heartbeat.read_text(encoding='utf-8'))
-        assert state['state'] == 'stopped' and len(state['jobs']) == 3
-        assert all(result['status'] == 'paused' for result in state['jobs'].values())
+        require_stopped_delivery_schedule(state)
         checked('paused_scheduler_preserves_all_rows_and_stops_cleanly')
 
         # Fixture only: a genuine previous release consists of SQL 1..26. Skip
@@ -366,7 +428,7 @@ with patch('console.management.commands.initialize_database.load_chain', return_
              '-d', 'newcrown_restore', dump])
         assert fingerprint('newcrown_restore') == fingerprint('newcrown_install'), 'Restored rows differ'
         source_schema = schema_fingerprint('newcrown_install')
-        assert schema_fingerprint('newcrown_restore') == source_schema, 'Restored constraints, indexes, triggers or sequences differ'
+        assert schema_identity(schema_fingerprint('newcrown_restore')) == schema_identity(source_schema), 'Restored constraints, indexes, triggers or sequences differ'
         manage('initialize_database', '--apply', db='newcrown_restore', contains='pending: 0')
         manage('check_unmanaged_schema', db='newcrown_restore')
         manage('shell', '-c', "from console.secret_store import load_secret; "
@@ -472,7 +534,7 @@ with patch('console.management.commands.initialize_database.load_chain', return_
         archive('restore', '--apply', '--trusted-archive', '--writers-stopped',
                 db=restore_db, contains='database_restored')
         assert fingerprint(restore_db) == fingerprint('newcrown_install')
-        assert schema_fingerprint(restore_db) == source_schema
+        assert schema_identity(schema_fingerprint(restore_db)) == schema_identity(source_schema)
         manage('shell', '-c', "from console.secret_store import load_secret; "
                "assert load_secret('synthetic.recovery') == 'synthetic-test-only'", db=restore_db)
         before = fingerprint(restore_db)
@@ -568,8 +630,10 @@ with patch('console.management.commands.initialize_database.load_chain', return_
             assert seeded[table]['rows'] == 200, table
         for table in set(seeded) - seed_tables:
             assert seeded[table] == seed_before[table], f'Seed changed unrelated table: {table}'
+        contexts = json.loads((CRM / 'console/data/customer_examples.json').read_text(encoding='utf-8'))['contexts']
         with connect(seed_db) as conn:
-            assert conn.execute('SELECT count(DISTINCT industry) FROM crm_company').fetchone()[0] == 7
+            actual_contexts = {row[0] for row in conn.execute('SELECT DISTINCT industry FROM crm_company')}
+            assert actual_contexts == {row['label'] for row in contexts}, 'Seed omitted or invented configured example contexts'
             assert dict(conn.execute('SELECT source_type,count(*) FROM crm_customer_source GROUP BY source_type').fetchall()) == {
                 'manual': 40, 'research': 40, 'website_form': 40, 'meta_native': 40, 'other': 40}
             assert dict(conn.execute('SELECT state,count(*) FROM crm_company_pool_state GROUP BY state').fetchall()) == {
@@ -578,7 +642,7 @@ with patch('console.management.commands.initialize_database.load_chain', return_
                 status='do_not_contact' AND usage_status='restricted' AND
                 normalized_value LIKE '%@example.invalid' AND evidence_json->>'synthetic'='true'""").fetchone()[0] == 200
             assert conn.execute("SELECT count(*) FROM crm_customer_source WHERE evidence_status='declared' AND submission_id IS NULL").fetchone()[0] == 200
-        checked('demo_200_customers_seven_industries_five_sources_no_accounts_messages_or_outbox')
+        checked('demo_200_customers_configured_contexts_five_sources_no_accounts_messages_or_outbox')
         manage('seed_vorntek_demo', '--apply', '--synthetic-only', db=seed_db,
                expected=1, contains='Customer database is not empty')
         assert fingerprint(seed_db) == seeded

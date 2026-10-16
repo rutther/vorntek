@@ -5,6 +5,25 @@
 This branch is an in-progress integration, not a deployed product release.
 The earlier observations below describe the prior public source baseline.
 
+- Candidate `fc3e5c2` passed a full isolated two-instance DB/files/runtime/config
+  and vault recovery, including normal login, private attachment downloads,
+  uploaded public covers and bilingual published pages after a DB/application
+  restart. Table data, columns, constraints, indexes, functions, sequences,
+  triggers and files matched; 378 real read-only predicate evaluations confirmed
+  the sole admitted lossless varchar-array deparser rewrite. Derived serving
+  cache recovery changed no database rows. Only owned synthetic resources were
+  stopped/removed; original application services were not changed. This does not
+  establish the original running instance's backup or final HTTPS deployment.
+- The documented standalone PostgreSQL/HTTP acceptance command now checks the
+  current positive unmanaged-model contract and the four-job schedule: local
+  inventory completes while all delivery jobs remain paused. Its actual Windows
+  PostgreSQL17.11 run passed installation, upgrade, failed-write rollback,
+  independent archive/vault restore and neutral inquiry→assignment→task→conversion
+  HTTP checks, plus personal inquiry/deduplication without invented company or
+  industry fields. The Windows-only POSIX filesystem check remains explicitly
+  skipped; the separate Linux two-instance recovery above exercises real serving
+  links and cache reconstruction. No platform acceptance is implied.
+
 - Current website examples are neutral configurable content, with preserved
   bilingual pages, forms and synthetic chart/CSV; the former industrial
   catalogue and concept images are retired from the candidate, not user data.
@@ -15,7 +34,8 @@ The earlier observations below describe the prior public source baseline.
 - SQL0043 adds optional example ownership. All old SQL checksums remain intact.
   Local suites and isolated native runs are separate evidence; a failing image
   build or partial native result is not acceptance. Target HTTPS deployment,
-  comprehensive example coverage and joint recovery remain open.
+  comprehensive example coverage, original-instance backup protection and final
+  delivery remain open; the synthetic joint-recovery slice above has passed.
 
 - SQL0033–0042 append the current marketing runtime and recovery objects without
   rewriting the original32 checksums. A clean source image passed real PostgreSQL
