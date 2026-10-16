@@ -1,6 +1,6 @@
 # Implementation status / 实现状态
 
-## v0.2.0-rc.1 source candidate — 2026-10-17
+## v0.2.0-rc.2 source candidate — 2026-10-17
 
 This branch contains the complete website/CRM integration and replaceable
 industrial company package. Its earlier demonstration deployment is separate
@@ -34,6 +34,11 @@ version is VERSION and is reported by `/healthz/`.
   loops with diagrams/ten-step tasks, content/assets navigation and the 3D workspace.
   External delivery and scheduled tasks stayed disabled.
 - GitHub private vulnerability reporting was enabled and read back as enabled.
+
+The immutable `v0.2.0-rc.1` publication completed remote CI and anonymous hash/
+install checks, but its documented root test command produced eight errors because
+Git-only integrity tests did not distinguish an archive from a checkout. The rc.2
+candidate fixes that public verification path without changing application behavior.
 
 ## Remaining gates
 

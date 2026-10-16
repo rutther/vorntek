@@ -112,6 +112,8 @@ python3 scripts/run_application_tests.py
 Node 仅用于 JS 测试。应用运行器使用合成 SQLite 并阻断非回环 Python 网络，
 不能代替 PostgreSQL/浏览器验收。另行安装 PostgreSQL 后可执行
 `python3 scripts/test_postgres_install.py --pg-bin /path/to/bin --http`。
+公开下载的源码压缩包有意不包含 `.git`；在该环境中，根测试套件只明确跳过依赖
+Git 历史/跟踪清单的完整性检查。仓库检出仍会执行这些检查，其他压缩包可运行测试照常执行。
 
 网站内容由[目录配置](docs/vorntekDemo/catalog.json)和
 `scripts/build_vorntek_site.py` 生成。修改脚本/样式后应重新生成 `apps/website/`，

@@ -1,6 +1,6 @@
 # Public release review
 
-The v0.2.0-rc.1 source release is in preparation. Current facts are in
+The v0.2.0-rc.2 source release is in preparation. Current facts are in
 IMPLEMENTATION_STATUS.md; earlier observations are preserved in
 PUBLIC_RELEASE_REVIEW_HISTORY.md and are not evidence for this new revision.
 

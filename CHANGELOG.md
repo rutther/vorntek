@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0-rc.2] — source archive verification fix
+
+- Git-history and tracked-input tests now report explicit skips when run from a
+  downloaded source archive, which intentionally has no `.git` metadata.
+- Repository checkouts still run every history-dependent release-integrity test;
+  non-Git application and distribution tests continue to run inside archives.
+- Supersedes `0.2.0-rc.1`, whose application and CI checks passed but whose
+  documented archive test command ended with eight Git-metadata errors.
+
 ## [0.2.0-rc.1] — source release candidate
 
 - Complete desktop CRM and guided marketing workspace, illustrated guidance,
