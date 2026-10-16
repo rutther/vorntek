@@ -14,7 +14,15 @@ over website photographs, trademarks, customer material or unrelated content.
 | Tabler core | 1.4.0 | Package declares MIT; [existing notice](apps/crm/console/static/console/vendor/tabler/1.4.0/LICENSE) retained |
 | Bootstrap, bundled by Tabler | 5.3.7 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/BOOTSTRAP_LICENSE) |
 | Popper core, bundled by Tabler | 2.11.8 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/POPPER_LICENSE) |
-| Google model-viewer, authenticated local draft preview only | 4.4.0 | [Apache-2.0 license, original bundle notices and dependency notices](apps/crm/console/static/console/vendor/model-viewer/4.4.0/) |
+| Google model-viewer, scoped draft and enabled public GLB slots | 4.4.0 | [Apache-2.0 license, original bundle notices and dependency notices](apps/crm/console/static/console/vendor/model-viewer/4.4.0/) |
+| SuperSplat Viewer / bundled PlayCanvas engine | 1.37.0 / 2.23.0 | [MIT notices and exact npm integrity provenance](apps/crm/console/static/console/vendor/supersplat/1.37.0/) |
+
+The public splat runtime uses the original self-contained browser bundle from
+the exact official npm package. `scripts/vendor_splat_viewer.py` verifies both
+archive SHA-512 identities, retains notices and never runs npm lifecycle scripts.
+No hosted publishing API, CDN runtime, XR entry or external account is required
+by this adapter. Public candidates include vendor notices as `.txt` files.
+See [the upstream embedding contract](https://developer.playcanvas.com/user-manual/supersplat/viewer/embedding/).
 
 The model-viewer package is self-hosted, not fetched by a visitor from a CDN.
 `scripts/vendor_model_viewer.py` reproduces its original minified artifact and

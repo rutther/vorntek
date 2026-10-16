@@ -2,19 +2,18 @@
 
 ## Integration candidate — 2026-10-16
 
-- Current public app is `67202e3`; its exact-preview handoff was exercised on the
-  public hostname and reused the correct existing candidate. A subsequent draft
-  3D inspection reproduced a real model-URL 404. The new authenticated GLB
-  preview is now source-fixed and locally exercised: actual render, drag, camera
-  capture, ordinary save and reload preserve the view with the profile disabled.
-  This new preview is **not deployed yet**; exact-source native PG/image and
-  final-host checks remain. Legacy splat/PLY/public-slot rendering is not claimed
-  by this local GLB verification. See [preview boundaries](THREE_D_PREVIEW.md).
-- A paired snapshot of the currently public app/database/files/configuration and
-  immutable images was created and verified; its four current writer services
-  resumed after a 10.23-second freeze. Independent restoration of that latest
-  snapshot and final operational cleanup remain pending. Earlier restore drills
-  below must not be relabeled as restoration of the latest package.
+- Current public app is `0b7569d`. Its authenticated GLB editor preview now has
+  final-host render/drag/capture/save/reload evidence and remains disabled. The
+  earlier 404 is fixed. Subsequent public-slot publication work is **new source,
+  not deployed**: enabled-only model/runtime freezing, immutable camera versions,
+  and local generated-candidate GLB/PLY browser render/drag are exercised. Native
+  PG/image, SOG/control/failure cases and final-host publication remain pending.
+  See [preview and public-candidate boundaries](THREE_D_PREVIEW.md).
+- The paired package created while `67202e3` was current has now been independently
+  restored: full database/structure/vault, files, derived website cache, normal
+  HTTP login and restart passed; clone resources were cleaned. It does not include
+  later `0b7569d` image/writes. Terminal-version paired recovery material and final
+  operational/account cleanup remain pending, not inherited from an older drill.
 
 - Public app candidate `48ef086` and whole-site candidate 17 are now deployed.
   Editable select choices, rejected empty selects, corrected phone validation,

@@ -16,6 +16,9 @@ from sitecore.models import (
     ReleaseBuild,
     Site,
     SiteLocale,
+    MediaAsset,
+    ThreeDViewProfile,
+    ThreeDPlacement,
 )
 
 from .article_delivery import ArticleDeliveryError
@@ -35,6 +38,9 @@ class WebsiteCandidateTests(TestCase):
     unmanaged_models = (
         Site,
         SiteLocale,
+        MediaAsset,
+        ThreeDViewProfile,
+        ThreeDPlacement,
         PageRoute,
         Category,
         Article,

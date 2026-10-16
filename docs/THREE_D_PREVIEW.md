@@ -1,5 +1,33 @@
 # Authenticated 3D draft preview / 后台 3D 编辑预览
 
+## Public candidate integration / 公开候选整合
+
+New source now freezes enabled `homepage_hero` and `homepage_equipment_preview`
+placements into whole-site candidates, including only their active, site-owned
+models, saved camera/settings and self-hosted renderer dependencies. A disabled
+placement/profile publishes no model. Saving a profile is not deployment;
+candidate selection and deployment remain the existing explicit operations.
+Changing a view produces a different immutable candidate, not a modification of
+an old candidate. Corrupt/missing/unscoped files block the new candidate instead
+of leaving an empty successful public slot. Original files remain unchanged.
+
+GLB uses the same pinned model-viewer as authenticated editing. PLY/SOG use the
+pinned SuperSplat 1.37.0 bundle with its embedded PlayCanvas 2.23.0 engine; only
+the selected file and local dependencies are accessible under the generated
+document CSP. SOG publication rejects archive traversal, duplicate entries,
+unbounded metadata, encryption and texture references outside the archive.
+Model files are bounded to 128MiB, with the existing total candidate size cap.
+
+The new publication code has actual SQLite/ORM and immutable-candidate tests.
+Local browser acceptance has rendered/dragged both a synthetic GLB triangle and
+a synthetic binary PLY sphere from a real generated candidate. This is **not yet
+deployed** and not PostgreSQL/native acceptance of this new candidate. SOG file
+rendering, delayed/error states, public reset/auto-rotation/interaction controls,
+and final-host publication/restart still need runtime acceptance. This source
+status must not be described as all public 3D already passing.
+
+## Authenticated editing
+
 The 3D profile and slot editors can preview self-contained GLB (glTF 2) files through
 their existing site-scoped asset permission. A draft model need not be copied to
 the public website first. The viewer uses the authenticated asset read endpoint,

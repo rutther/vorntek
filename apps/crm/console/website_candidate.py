@@ -96,10 +96,16 @@ def _build_website_candidate(*, site, preview_record_id: int) -> dict:
                     asset_files[target] = image[0]
     website_store = website_release_store(site, initialize=True)
     website_current = website_store.current()
+    from .three_d_publication import build_three_d_publication
+    three_d = build_three_d_publication(site)
+    if set(asset_files).intersection(three_d['files']):
+        raise ArticleDeliveryError('website_upload_conflict')
+    asset_files.update(three_d['files'])
     website_version = website_store.stage(
         base_root=base_root,
         article_input=article_input,
         asset_files=asset_files,
+        home_slots=three_d['slots'],
     )
     manifest = website_store.verify(website_version)
     if (
