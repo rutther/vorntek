@@ -95,6 +95,7 @@ from .content_access import (
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
     effective_content_capabilities,
+    current_content_actor_for_commit,
 )
 from .audit import (
     integration_snapshot,
@@ -3012,6 +3013,16 @@ def releases(request):
     )
 
 
+def _authorize_article_commit(request, form, *, site, locale):
+    required = {CONTENT_READ, CONTENT_WRITE}
+    if form.cleaned_data.get('status') == 'published' or (form.article and form.article.status == 'published'):
+        required.add(CONTENT_SET_PUBLISHED)
+    required_sitewide = {ASSETS_READ} if form.cleaned_data.get('cover_asset') else ()
+    _actor, capabilities = current_content_actor_for_commit(request.user.pk, request.session.session_key,
+        site=site, locale=locale, required=required, required_sitewide=required_sitewide)
+    form.allow_publish = CONTENT_SET_PUBLISHED in capabilities
+
+
 @login_required
 @require_http_methods(['GET', 'POST'])
 def article_create(request):
@@ -3034,9 +3045,15 @@ def article_create(request):
             allow_assets=can_read_assets,
         )
         if form.is_valid():
-            article = form.save()
-            messages.success(request, f'文章已保存：{article.title}')
-            return redirect(f'{reverse("console:article_edit", args=[article.id])}?locale={locale.locale_code}')
+            try:
+                with transaction.atomic():
+                    _authorize_article_commit(request, form, site=site, locale=locale)
+                    article = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(request, f'文章已保存：{article.title}')
+                return redirect(f'{reverse("console:article_edit", args=[article.id])}?locale={locale.locale_code}')
     else:
         form = ArticleEditorForm(
             site=site,
@@ -3063,7 +3080,7 @@ def article_create(request):
             'preview_url': '',
             'editor_locale': locale,
             'category_tree': category_tree_data(site, locale),
-            'selected_category_id': None,
+            'selected_category_id': form['category'].value(),
             'canReadAssets': can_read_assets,
             'canWriteAssets': can_write_assets,
         },
@@ -3101,9 +3118,15 @@ def article_edit(request, article_id: int):
             allow_assets=can_read_assets,
         )
         if form.is_valid():
-            article = form.save()
-            messages.success(request, f'文章已更新：{article.title}')
-            return redirect(f'{reverse("console:article_edit", args=[article.id])}?locale={locale.locale_code}')
+            try:
+                with transaction.atomic():
+                    _authorize_article_commit(request, form, site=site, locale=locale)
+                    article = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(request, f'文章已更新：{article.title}')
+                return redirect(f'{reverse("console:article_edit", args=[article.id])}?locale={locale.locale_code}')
     else:
         form = ArticleEditorForm(
             site=site,
@@ -3129,10 +3152,13 @@ def article_edit(request, article_id: int):
             'editor_mode': 'edit',
             'article': article,
             'editor_path': article.route.path,
-            'preview_url': f'{PUBLIC_PREVIEW_BASE_URL}{article.route.path}',
+            'preview_url': (
+                f'{reverse("console:article_release_preview")}?{urlencode({"locale": locale.locale_code, "article": article.pk})}'
+                if {CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD}.issubset(asset_capabilities) else ''
+            ),
             'editor_locale': locale,
             'category_tree': category_tree_data(site, locale),
-            'selected_category_id': article.category_id,
+            'selected_category_id': form['category'].value(),
             'canReadAssets': can_read_assets,
             'canWriteAssets': can_write_assets,
         },
@@ -3152,6 +3178,7 @@ def article_import(request):
             site=site,
             locale=locale,
             allow_publish=allow_publish,
+            commit_authorizer=lambda entry_form: _authorize_article_commit(request, entry_form, site=site, locale=locale),
         )
         if form.is_valid():
             try:
@@ -3159,11 +3186,17 @@ def article_import(request):
             except forms.ValidationError as exc:
                 form.add_error(None, exc)
             else:
-                messages.success(
-                    request,
-                    f'导入完成：新增 {import_result["created"]} 篇，更新 {import_result["updated"]} 篇，'
-                    f'失败 {import_result["failed"]} 篇，跳过 {import_result["skipped"]} 个文件。',
-                )
+                if import_result.get('dry_run'):
+                    messages.info(request, f'预演完成：拟变更 {import_result["planned"]} 篇；未写入数据库。请核对明细，再决定是否执行。')
+                notify = messages.warning if import_result.get('unexecuted') else messages.success
+                if not import_result.get('dry_run'):
+                    notify(
+                        request,
+                        f'导入完成：新增 {import_result["created"]} 篇，更新 {import_result["updated"]} 篇，'
+                        f'失败 {import_result["failed"]} 篇，跳过 {import_result["skipped"]} 个文件。'
+                        + (f'授权已变化，剩余 {import_result["unexecuted"]} 个文件未执行；已提交文章保留，请核对下方明细。'
+                           if import_result.get('unexecuted') else ''),
+                    )
     else:
         form = ArticleImportZipForm(site=site, locale=locale, allow_publish=allow_publish)
 
@@ -3245,9 +3278,13 @@ def category_edit(request, category_id: int):
             allow_publish=allow_publish,
         )
         if form.is_valid():
-            category = form.save()
-            messages.success(request, f'分类已更新：{category.name}')
-            return redirect(f'{reverse("console:category_edit", args=[category.id])}?locale={locale.locale_code}')
+            try:
+                category = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(request, f'分类已更新：{category.name}')
+                return redirect(f'{reverse("console:category_edit", args=[category.id])}?locale={locale.locale_code}')
     else:
         form = CategoryEditorForm(
             site=site,
@@ -3410,20 +3447,50 @@ def release_build_preview(request):
 
 
 @login_required
-@require_POST
+@require_http_methods(['GET', 'POST'])
 def article_release_preview(request):
-    site, _locale, _capabilities = content_site_scope(request, 'article_release_preview')
+    site, locale, _capabilities = content_site_scope(request, 'article_release_preview')
+    selected = request.POST.get('article') if request.method == 'POST' else request.GET.get('article')
+    article = None
+    if selected:
+        if len(selected) > 18 or not selected.isascii() or not selected.isdigit():
+            raise Http404('文章不存在。')
+        article = get_object_or_404(Article.objects.select_related('route__locale','category'),
+            pk=int(selected), route__site=site, route__locale=locale)
     actor = request.user.get_username() or 'django-console'
-    try:
-        result = build_private_article_preview(site=site, actor=actor)
-    except (ArticleDeliveryError, OSError):
-        messages.error(request, '文章私有预览未生成；请检查内容与服务器预览配置。')
-    else:
-        messages.success(
-            request,
-            f'文章私有预览已生成：{result["articleCount"]} 篇；未发布到公开网站。',
-        )
-    return redirect('console:releases')
+    result, error = None, ''
+    if request.method == 'POST':
+        try:
+            result = build_private_article_preview(site=site, article=article, actor=actor) if article else build_private_article_preview(site=site, actor=actor)
+        except (ArticleDeliveryError, OSError):
+            error = '文章私有预览未生成；请检查内容与服务器预览配置。现有线上版本未改变。'
+            messages.error(request, error)
+        else:
+            messages.success(request, f'文章私有预览已生成：{result["articleCount"]} 篇；未发布到公开网站。')
+        # Existing POST build callers keep their redirect and whole-site contract.
+        if request.POST.get('workspace') != '1':
+            return redirect('console:releases')
+    from sitecore.models import Release
+    def links(manifest):
+        return [{'name':name, 'url':reverse('console:article_preview_file',
+            kwargs={'version':manifest['version'], 'artifact':name})} for name in manifest.get('files',[])] if manifest.get('version') else []
+    if result:
+        result['links'] = links(result)
+    history = []
+    for record in Release.objects.filter(site=site, snapshot_manifest__kind='articlePreview').order_by('-created_at')[:20]:
+        manifest = record.snapshot_manifest
+        history.append({'id':record.pk, 'wholeSite':manifest.get('scope')=='sitePublished',
+            'status':record.status, 'createdAt':record.created_at, 'version':manifest.get('version',''),
+            'error':manifest.get('errorCode',''), 'links':links(manifest) if record.status=='built' else []})
+    response = render_form_console(request, section_key='articles', locale_code=locale.locale_code,
+        page_payload={'title':'文章发布预览','sectionKey':'articles',
+            'description':'从已保存正文生成私有预览；预览不等于官网上线。'},
+        workspace_template='console/_article_release_preview.html',
+        extra_context={'preview_article':article, 'article_preview_result':result,
+            'article_preview_error':error, 'article_preview_history':history})
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
 
 
 @login_required

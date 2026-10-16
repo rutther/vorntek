@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 
 from .access import ROLE_CONTENT_OPS, ROLE_SYSTEM_ADMIN, user_role_keys
@@ -64,6 +64,16 @@ HIGH_RISK_CONTENT_CAPABILITIES = frozenset({
 })
 
 _NO_CONTENT_CAPABILITIES: frozenset[str] = frozenset()
+
+
+def validate_current_content_write(original, current, *, allow_publish: bool) -> None:
+    """Caller owns the transaction/row lock; stale saves cannot undo publication."""
+    if current is None:
+        raise ValidationError('内容已删除或已不属于当前范围，请刷新后重新核对。')
+    if current.status == 'published' and not allow_publish:
+        raise ValidationError('内容已由其他操作者发布，当前账号不能覆盖已发布内容。请刷新后重新核对。')
+    if current.updated_at != original.updated_at:
+        raise ValidationError('内容已由其他操作者更新，本次未覆盖。请刷新后核对最新内容再保存。')
 
 
 def _primary_key(value: Any) -> Any | None:
@@ -205,3 +215,23 @@ def require_content_capability(
     ):
         return True
     raise PermissionDenied('当前账号没有在此站点执行该内容操作的权限。')
+
+
+def current_content_actor_for_commit(actor_id, session_key, *, site, locale, required, required_sitewide=()):
+    """Caller holds a transaction; authority locks precede content-row locks."""
+    from .commit_authorization import CommitAuthorizationError, current_actor_for_commit
+    from .models import ContentAccessGrant
+
+    actor = current_actor_for_commit(actor_id, session_key, {ROLE_CONTENT_OPS, ROLE_SYSTEM_ADMIN})
+    if ROLE_SYSTEM_ADMIN not in user_role_keys(actor):
+        group_ids = actor.groups.values_list('pk', flat=True)
+        grants = ContentAccessGrant.objects.filter(site=site).filter(
+            Q(user_id=actor.pk) | Q(group_id__in=group_ids))
+        grants = grants.filter(Q(locale_id__isnull=True) | Q(locale=locale)) if locale else grants.filter(locale_id__isnull=True)
+        list(grants.select_for_update().order_by('pk'))
+    capabilities = effective_content_capabilities(actor, site=site, locale=locale)
+    sitewide_allowed = not required_sitewide or set(required_sitewide).issubset(
+        effective_content_capabilities(actor, site=site, locale=None))
+    if not set(required).issubset(capabilities) or not sitewide_allowed:
+        raise CommitAuthorizationError('内容操作权限已变化，本次未写入。请刷新并重新核对授权。')
+    return actor, capabilities

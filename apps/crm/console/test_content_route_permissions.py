@@ -541,6 +541,7 @@ class ContentRouteCapabilityTests(TestCase):
         data = {
             'title': 'Published article',
             'slug': 'published-article',
+            'content_key': 'publishedArticle',
             'status': 'published',
             'reading_minutes': '3',
             'robots': 'index,follow',
@@ -570,7 +571,7 @@ class ContentRouteCapabilityTests(TestCase):
         self.assertEqual(allowed.status_code, 302)
         self.assertIn('/admin/articles/', allowed.url)
         self.assertTrue(Article.objects.exists(), allowed.url)
-        article = Article.objects.select_related('route').get(slug='published_article')
+        article = Article.objects.select_related('route').get(slug='published-article')
         self.assertEqual(article.status, 'published')
         self.assertEqual(article.route.status, 'published')
 
@@ -746,6 +747,7 @@ class ContentRouteCapabilityTests(TestCase):
                 '---\n'
                 'title: Authorized replacement\n'
                 'slug: authorized_published\n'
+                'content_key: authorizedPublished\n'
                 'status: published\n'
                 '---\n'
                 'Authorized replacement body',
@@ -758,7 +760,7 @@ class ContentRouteCapabilityTests(TestCase):
 
         response = self.client.post(
             f'{reverse("console:article_import")}?locale=en',
-            {'default_status': 'draft', 'import_file': upload},
+            {'default_status': 'draft', 'import_file': upload, 'overwrite_existing': 'on'},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -1305,7 +1307,6 @@ class ContentRouteCapabilityTests(TestCase):
 
         with (
             patch('console.views.article_workspace_bundle', return_value=({}, workspace)),
-            patch('console.views.ArticleEditorForm', return_value=inert_form),
             patch('console.views.category_tree_data', return_value=[]),
             patch('console.views.assets_payload', return_value={}),
             patch('console.views.AssetImportPathForm', return_value=inert_form),
@@ -1369,7 +1370,9 @@ class ContentRouteCapabilityTests(TestCase):
 
         self.assertEqual(alias_post.status_code, 405)
         self.assertEqual(preview_get.status_code, 405)
-        self.assertEqual(article_preview_get.status_code, 405)
+        # The restored preview workspace GET reads history only; building still
+        # requires POST+CSRF and must not run as a side effect of opening it.
+        self.assertEqual(article_preview_get.status_code, 200)
         self.assertEqual(candidate_get.status_code, 405)
         self.assertEqual(candidate_select_put.status_code, 405)
         self.assertEqual(candidate_deploy_put.status_code, 405)

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from django import forms
+from django.db import transaction
 from django.utils.text import slugify
 
 from sitecore.models import Category, Site, SiteLocale
 
+from .content_access import validate_current_content_write
 from .taxonomy import category_depth_map, category_label_map, descendant_ids, ordered_categories
 
 
@@ -148,7 +150,14 @@ class CategoryEditorForm(forms.Form):
             self.add_error('parent', '只支持三级分类。请选一级或二级分类作为上级。')
         return cleaned
 
+    @transaction.atomic
     def save(self) -> Category:
+        if self.category:
+            current = Category.objects.select_for_update().filter(
+                pk=self.category.pk, site=self.site, locale=self.locale,
+            ).first()
+            validate_current_content_write(self.category, current, allow_publish=self.allow_publish)
+            self.category = current
         seo_json = {
             'title': (self.cleaned_data.get('seo_title') or '').strip(),
             'description': (self.cleaned_data.get('seo_description') or '').strip(),

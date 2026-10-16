@@ -14,6 +14,7 @@ from sitecore.models import Article, Category, Site, SiteLocale
 
 from .forms import ArticleEditorForm, CONTENT_UPLOAD_EXTENSIONS, STATUS_CHOICES, decode_text, normalize_markdown, normalize_slug
 from .taxonomy import category_label_map, ordered_categories
+from .commit_authorization import CommitAuthorizationError
 
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?(.*)\Z", re.DOTALL)
@@ -116,7 +117,11 @@ def build_form_payload(
     locale: SiteLocale,
 ) -> tuple[dict[str, object], str]:
     title = infer_title(metadata, body_markdown, filename)
-    slug = normalize_slug(metadata.get('slug', ''), title)
+    declared_locale = metadata.get('locale', '').strip().lower()
+    if declared_locale and declared_locale != locale.locale_code:
+        raise forms.ValidationError('稿件语言与当前导入语言不一致。请切换到对应语言后导入。')
+    supplied_slug = metadata.get('slug', '').strip()
+    slug = supplied_slug if re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,179}', supplied_slug) else normalize_slug(supplied_slug, title)
     explicit_category = (metadata.get('category_code') or metadata.get('category') or '').strip()
     category = resolve_category(
         site=site,
@@ -134,6 +139,7 @@ def build_form_payload(
     payload: dict[str, object] = {
         'title': title,
         'slug': slug,
+        'content_key': metadata.get('content_key', '').strip(),
         'category': category.id if category else '',
         'status': status,
         'published_at': metadata.get('published_at', '').strip(),
@@ -152,6 +158,8 @@ def build_form_payload(
 
 
 class ArticleImportZipForm(forms.Form):
+    dry_run = forms.BooleanField(label='仅预演，不写入数据库', required=False, initial=True)
+    overwrite_existing = forms.BooleanField(label='允许更新已有文章（会覆盖当前编辑）', required=False, initial=False)
     import_file = forms.FileField(
         label='批量导入包',
         help_text='上传 zip 文件。每篇文章对应一个 md、markdown 或 txt 文件；支持简单 front matter。',
@@ -171,12 +179,14 @@ class ArticleImportZipForm(forms.Form):
         site: Site,
         locale: SiteLocale,
         allow_publish: bool = False,
+        commit_authorizer=None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.site = site
         self.locale = locale
         self.allow_publish = bool(allow_publish)
+        self.commit_authorizer = commit_authorizer
         if not self.allow_publish:
             self.fields['default_status'].choices = [
                 choice for choice in STATUS_CHOICES if choice[0] != 'published'
@@ -212,13 +222,15 @@ class ArticleImportZipForm(forms.Form):
     def clean(self):
         cleaned = super().clean()
         uploaded = cleaned.get('import_file')
-        if self.allow_publish or uploaded is None:
+        if uploaded is None:
             return cleaned
-        if cleaned.get('default_status') == 'published':
+        if not self.allow_publish and cleaned.get('default_status') == 'published':
             self.add_error('default_status', '当前账号不能通过批量导入发布文章。')
             return cleaned
 
         try:
+            seen_keys = set()
+            seen_paths = set()
             uploaded.seek(0)
             with zipfile.ZipFile(uploaded) as archive:
                 for info in archive.infolist():
@@ -226,8 +238,17 @@ class ArticleImportZipForm(forms.Form):
                         continue
                     if info.file_size > MAX_ENTRY_BYTES:
                         continue
-                    metadata, _body = parse_front_matter(decode_text(archive.read(info)))
-                    if (metadata.get('status') or '').strip().lower() == 'published':
+                    metadata, body = parse_front_matter(normalize_markdown(decode_text(archive.read(info))))
+                    key = metadata.get('content_key', '').strip()
+                    supplied_slug = metadata.get('slug', '').strip()
+                    slug = supplied_slug if re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,179}', supplied_slug) else normalize_slug(supplied_slug, infer_title(metadata, body, info.filename))
+                    if slug in seen_paths or (key and key in seen_keys):
+                        self.add_error('import_file', '导入包存在重复文章路径或多语言关联标识；请拆分或修正后重试，整包未写入。')
+                        break
+                    seen_paths.add(slug)
+                    if key:
+                        seen_keys.add(key)
+                    if not self.allow_publish and (metadata.get('status') or '').strip().lower() == 'published':
                         self.add_error(
                             'import_file',
                             f'{info.filename} 请求发布状态；当前账号只能导入草稿或归档内容。',
@@ -249,11 +270,15 @@ class ArticleImportZipForm(forms.Form):
         updated = 0
         failed = 0
         skipped = 0
+        planned = 0
+        unexecuted = 0
+        dry_run = bool(self.cleaned_data.get('dry_run'))
+        seen_slugs = set()
 
         default_status = self.cleaned_data['default_status']
         default_category = self.cleaned_data.get('default_category')
 
-        for info in entries:
+        for index, info in enumerate(entries):
             file_path = Path(info.filename)
             if file_path.name.startswith('.'):
                 continue
@@ -301,10 +326,22 @@ class ArticleImportZipForm(forms.Form):
                     locale=self.locale,
                 )
                 existing = discover_existing_article(site=self.site, locale=self.locale, slug=slug)
+                if slug in seen_slugs:
+                    raise forms.ValidationError('导入包中包含重复文章路径，请移除重复项。')
+                seen_slugs.add(slug)
+                existing_key = (existing.config_json or {}).get('contentKey') if existing else None
+                if existing_key and payload['content_key'] and existing_key != payload['content_key']:
+                    raise forms.ValidationError('多语言关联标识冲突，未覆盖已有文章。')
                 if existing and existing.status == 'published' and not self.allow_publish:
                     raise forms.ValidationError(
                         '当前账号不能通过批量导入修改、降级或归档已发布文章。'
                     )
+                if existing and not self.cleaned_data.get('overwrite_existing'):
+                    skipped += 1
+                    results.append(ImportEntryResult(filename=info.filename,status='保留已有',
+                        title=existing.title,slug=existing.slug,path=existing.route.path,
+                        message='已有文章受保护，未覆盖正文、状态或元信息；请在编辑页核对差异。'))
+                    continue
 
                 with transaction.atomic():
                     form = ArticleEditorForm(
@@ -323,6 +360,15 @@ class ArticleImportZipForm(forms.Form):
                                 else:
                                     errors.append(f'{field}: {error}')
                         raise forms.ValidationError('；'.join(errors) or '表单校验失败。')
+                    if dry_run:
+                        planned += 1
+                        results.append(ImportEntryResult(filename=info.filename,
+                            status='拟更新' if existing else '拟新增',title=str(payload['title']),
+                            slug=slug,path=f'/{self.locale.locale_code}/articles/{slug}/',
+                            message='校验通过，仅预演，未写入数据库。'))
+                        continue
+                    if self.commit_authorizer is not None:
+                        self.commit_authorizer(form)
                     article = form.save()
 
                 result_status = 'updated' if existing else 'created'
@@ -340,6 +386,14 @@ class ArticleImportZipForm(forms.Form):
                         message='已写入数据库。',
                     )
                 )
+            except CommitAuthorizationError as exc:
+                for remaining in entries[index:]:
+                    if Path(remaining.filename).name.startswith('.'):
+                        continue
+                    unexecuted += 1
+                    results.append(ImportEntryResult(filename=remaining.filename, status='未执行',
+                        title='', slug='', path='', message=str(exc)))
+                break
             except forms.ValidationError as exc:
                 failed += 1
                 results.append(
@@ -367,10 +421,13 @@ class ArticleImportZipForm(forms.Form):
                 )
 
         return {
+            'dry_run': dry_run,
+            'planned': planned,
             'created': created,
             'updated': updated,
             'failed': failed,
             'skipped': skipped,
+            'unexecuted': unexecuted,
             'total': len(results),
             'entries': results,
         }

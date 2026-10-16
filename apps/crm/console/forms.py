@@ -14,6 +14,8 @@ from django.utils.text import slugify
 
 from sitecore.models import Article, Category, MediaAsset, MediaAssetBinding, PageRoute, Site, SiteLocale, Tag
 
+from .content_access import validate_current_content_write
+from . import asset_upload_recovery
 from .storage_security import (
     StorageSecurityError,
     configured_storage_roots,
@@ -21,7 +23,6 @@ from .storage_security import (
     resolve_storage_asset_path,
 )
 from .taxonomy import category_label_map, ordered_categories
-from . import asset_upload_recovery
 
 
 SLUG_RE = re.compile(r'^[a-z0-9][a-z0-9_-]*$')
@@ -395,17 +396,24 @@ def next_tag_identity(*, site: Site, locale: SiteLocale, raw_name: str) -> tuple
 
 
 class ArticleEditorForm(forms.Form):
+    content_key = forms.RegexField(
+        regex=r'^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$', required=False, max_length=160,
+        label='多语言文章关联标识',
+        help_text='同一篇文章的各语言版本填写相同标识，例如 articleGuide。建立后保持不变；草稿可留空，保存为已发布前必须补齐。',
+        error_messages={'invalid': '请使用小写字母开头的驼峰标识，只含英文字母和数字。'},
+        widget=forms.TextInput(attrs={'dir': 'ltr', 'placeholder': 'articleGuide'}),
+    )
     title = forms.CharField(
         label='文章标题',
         max_length=220,
-        widget=forms.TextInput(attrs={'placeholder': '例如：How to evaluate a water filling line project'}),
+        widget=forms.TextInput(attrs={'placeholder': '例如：How to prepare a project brief'}),
     )
     slug = forms.CharField(
         label='路径别名',
         max_length=180,
         required=False,
         help_text='用于生成访问路径，只允许小写英文、数字、下划线和短横线。',
-        widget=forms.TextInput(attrs={'placeholder': 'water_filling_line_project_evaluation'}),
+        widget=forms.TextInput(attrs={'placeholder': 'project-brief-guide'}),
     )
     category = forms.ModelChoiceField(
         label='文章分类',
@@ -475,6 +483,7 @@ class ArticleEditorForm(forms.Form):
             config_json = article.config_json or {}
             kwargs['initial'] = {
                 'title': article.title,
+                'content_key': config_json.get('contentKey', ''),
                 'slug': article.slug,
                 'category': article.category_id,
                 'status': article.status,
@@ -493,6 +502,15 @@ class ArticleEditorForm(forms.Form):
             }
 
         super().__init__(*args, **kwargs)
+        if article and (article.config_json or {}).get('contentKey'):
+            # Identity is not a translated label. A normal body edit must not
+            # detach this version from its sibling articles, even via POST.
+            self.fields['content_key'].disabled = True
+        for name in ('title', 'excerpt', 'body_markdown', 'meta_description', 'og_title', 'og_description'):
+            self.fields[name].widget.attrs.update({
+                'lang': locale.locale_code,
+                'dir': 'rtl' if locale.locale_code == 'ar' else 'ltr',
+            })
         if not self.allow_publish:
             self.fields['status'].choices = [
                 choice for choice in STATUS_CHOICES if choice[0] != 'published'
@@ -522,10 +540,28 @@ class ArticleEditorForm(forms.Form):
             self.fields.pop('cover_asset')
 
     def clean_slug(self) -> str:
-        slug = normalize_slug(self.cleaned_data.get('slug', ''), self.cleaned_data.get('title', ''))
+        supplied = self.cleaned_data.get('slug', '').strip()
+        # A normal content edit must preserve an already-valid public slug.
+        # Legacy normalization replaces hyphens, silently changing live URLs.
+        slug = supplied if SLUG_RE.fullmatch(supplied) else normalize_slug(supplied, self.cleaned_data.get('title', ''))
         if not SLUG_RE.fullmatch(slug):
             raise forms.ValidationError('请使用小写英文、数字、下划线或短横线。')
         return slug
+
+    def clean_content_key(self) -> str:
+        key = self.cleaned_data.get('content_key', '')
+        if key:
+            if not self.fields['content_key'].disabled and not re.fullmatch(r'[a-z][A-Za-z0-9]{0,79}', key):
+                raise forms.ValidationError('新标识请使用小写字母开头的驼峰命名，最多80字符。')
+            rows = Article.objects.filter(
+                route__site=self.site, route__locale=self.locale,
+                config_json__contentKey=key,
+            )
+            if self.article:
+                rows = rows.exclude(pk=self.article.pk)
+            if rows.exists():
+                raise forms.ValidationError('当前语言已有这个关联标识的文章，请编辑原文章，避免重复译文。')
+        return key
 
     def clean(self) -> dict:
         cleaned = super().clean()
@@ -535,6 +571,8 @@ class ArticleEditorForm(forms.Form):
 
         if status == 'published' and not self.allow_publish:
             self.add_error('status', '当前账号不能把文章设为已发布。')
+        if status == 'published' and not cleaned.get('content_key') and 'content_key' not in self.errors:
+            self.add_error('content_key', '发布前请填写多语言文章关联标识，否则无法生成文章网页。可先保存为草稿。')
         if status == 'published' and not published_at:
             cleaned['published_at'] = timezone.now()
 
@@ -555,6 +593,39 @@ class ArticleEditorForm(forms.Form):
     @transaction.atomic
     def save(self) -> Article:
         data = self.cleaned_data
+        key = data.get('content_key')
+        original_key = (self.article.config_json or {}).get('contentKey') if self.article else None
+        if key and not original_key:
+            # Only identity allocation needs this scoped transaction lock.
+            # Normal edits keep an immutable key and do not take an extra lock.
+            if connection.vendor == 'postgresql':
+                lock_id = int.from_bytes(hashlib.sha256(
+                    f'article-identity:{self.site.pk}:{self.locale.pk}:{key}'.encode('utf-8')
+                ).digest()[:8], 'big', signed=True)
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT pg_advisory_xact_lock(%s)', [lock_id])
+            existing = Article.objects.filter(
+                route__site=self.site, route__locale=self.locale, config_json__contentKey=key,
+            )
+            if self.article:
+                existing = existing.exclude(pk=self.article.pk)
+            if existing.exists():
+                raise forms.ValidationError({'content_key': '这个关联标识刚被同语言的另一篇文章使用，本次未保存。请刷新核对原文章。'})
+        if self.article:
+            original = self.article
+            # Existing saves write the route before the article.  Keep that
+            # lock order for native edits and ZIP imports alike.
+            route = PageRoute.objects.select_for_update().filter(
+                pk=original.route_id, site=self.site, locale=self.locale,
+            ).first()
+            validate_current_content_write(original.route, route, allow_publish=self.allow_publish)
+            current = Article.objects.select_for_update().filter(
+                pk=original.pk, route_id=original.route_id,
+            ).first()
+            validate_current_content_write(original, current, allow_publish=self.allow_publish)
+            self.article = current
+        else:
+            route = PageRoute(site=self.site, locale=self.locale)
         status = data['status']
         published_at = data['published_at'] if status == 'published' else None
         path = f'/{self.locale.locale_code}/articles/{data["slug"]}/'
@@ -563,7 +634,6 @@ class ArticleEditorForm(forms.Form):
         og_title = data.get('og_title', '').strip() or data['title']
         og_description = data.get('og_description', '').strip() or meta_description
 
-        route = self.article.route if self.article else PageRoute(site=self.site, locale=self.locale)
         route.path = path
         route.route_type = 'article'
         route.status = status
@@ -606,6 +676,8 @@ class ArticleEditorForm(forms.Form):
         article.reading_minutes = data['reading_minutes']
         article.seo_json = article.seo_json or {}
         article.config_json = article.config_json or {}
+        if data.get('content_key'):
+            article.config_json['contentKey'] = data['content_key']
         if cover_asset:
             article.config_json['coverAssetId'] = cover_asset.id
         elif not preserve_existing_cover_binding:
