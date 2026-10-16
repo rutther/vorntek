@@ -20,11 +20,16 @@ The earlier observations below describe the prior public source baseline.
   Candidate-only origin configuration recreates only its CRM and restarts its
   website, with original service identities/start times unchanged. This retained
   preview is not the final public HTTPS deployment or whole-product acceptance.
-- The browser walkthrough exposed an old developer-port shortcut and UTC/local
-  display disagreement between lead and task pages. Regression tests reproduced
-  both before correction; the new source still needs its own clean image and
-  deployed-browser verification. No database timestamps or existing integrations
-  were rewritten by these source fixes.
+- Clean candidate `28ddb36` subsequently passed native installation/upgrade and
+  was applied only to that retained copy. Browser verification confirmed matching
+  local lead/task display times, two different configured consultation submissions,
+  bulk soft-trash/restore and a marketing-only account's denied sales/user/content
+  access. The temporary role probe account was deactivated through the account UI.
+  No database timestamps or existing integrations were rewritten by these fixes.
+- Article editing exposed inconsistent category choices: the picker offered draft
+  categories rejected by the server. Regression cases reproduce the mismatch and
+  protect retention of an existing scoped unpublished binding. The source fix is
+  not yet accepted as a deployed-browser correction.
 
 - Candidate `fc3e5c2` passed a full isolated two-instance DB/files/runtime/config
   and vault recovery, including normal login, private attachment downloads,

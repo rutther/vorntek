@@ -521,7 +521,13 @@ class ArticleEditorForm(forms.Form):
             f'用于生成路径：/{self.locale.locale_code}/articles/{{slug}}/。'
             '只允许小写英文、数字、下划线和短横线。'
         )
-        category_rows = [row for row in ordered_categories(site, locale) if row.status == 'published']
+        # New assignments require a published category, but an ordinary edit
+        # must be able to retain this article's existing, scoped binding.
+        existing_category_id = article.category_id if article else None
+        category_rows = [
+            row for row in ordered_categories(site, locale)
+            if row.status == 'published' or row.id == existing_category_id
+        ]
         category_labels = category_label_map(category_rows)
         self.fields['category'].queryset = Category.objects.filter(id__in=[row.id for row in category_rows]).order_by(
             'parent_id', 'sort_order', 'name', 'id'

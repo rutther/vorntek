@@ -3082,7 +3082,7 @@ def article_create(request):
             'editor_path': f'/{locale.locale_code}/articles/{{slug}}/',
             'preview_url': '',
             'editor_locale': locale,
-            'category_tree': category_tree_data(site, locale),
+            'category_tree': category_tree_data(site, locale, categories=list(form.fields['category'].queryset)),
             'selected_category_id': form['category'].value(),
             'canReadAssets': can_read_assets,
             'canWriteAssets': can_write_assets,
@@ -3160,7 +3160,7 @@ def article_edit(request, article_id: int):
                 if {CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD}.issubset(asset_capabilities) else ''
             ),
             'editor_locale': locale,
-            'category_tree': category_tree_data(site, locale),
+            'category_tree': category_tree_data(site, locale, categories=list(form.fields['category'].queryset)),
             'selected_category_id': form['category'].value(),
             'canReadAssets': can_read_assets,
             'canWriteAssets': can_write_assets,

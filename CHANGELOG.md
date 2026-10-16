@@ -8,6 +8,8 @@ certifications.
 
 ### Fixed
 
+- Article category pickers now show only choices accepted by the editor, while
+  ordinary edits can retain an existing unpublished category in the same scope.
 - Standalone console website links inherit the configured site origin instead
   of an unrelated developer port; an explicit separate preview origin still wins.
 - Lead workspace timestamps use the active display timezone, matching task pages

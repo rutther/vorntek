@@ -45,6 +45,40 @@ class ContentCommitPortableTests(FileLifecycleFixture, TestCase):
     def editor(self, data, article=None, allow_publish=True):
         return ArticleEditorForm(data, site=self.site, locale=self.locale, article=article, allow_publish=allow_publish)
 
+    @override_settings(DEBUG=False, ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
+    def test_article_picker_does_not_offer_categories_the_form_will_reject(self):
+        actor=get_user_model().objects.create_superuser('category-picker','synthetic@example.invalid','synthetic-only')
+        published=Category.objects.create(site=self.site,locale=self.locale,code='allowed',slug='allowed',name='Allowed',status='published')
+        draft=Category.objects.create(site=self.site,locale=self.locale,code='draft',slug='draft',name='Draft',status='draft')
+        Category.objects.create(site=self.site,locale=self.locale,code='old',slug='old',name='Archived',status='archived')
+        child=Category.objects.create(site=self.site,locale=self.locale,parent=draft,code='allowed-child',slug='allowed-child',name='Allowed child',status='published')
+        other_locale=SiteLocale.objects.create(site=self.site,locale_code='zh',label='Chinese',enabled=True)
+        Category.objects.create(site=self.site,locale=other_locale,code='foreign',slug='foreign',name='Foreign locale',status='published')
+        row=self.article()
+        client=Client();client.force_login(actor)
+        def ids(nodes):
+            return {value for node in nodes for value in ({node['id']} | ids(node['children']))}
+        with patch('console.views._resolved_content_site_locale',return_value=(self.site,self.locale)):
+            for url in (reverse('console:article_create'),reverse('console:article_edit',args=[row.pk])):
+                with self.subTest(url=url):
+                    response=client.get(url)
+                    self.assertEqual(response.status_code,200)
+                    self.assertEqual(ids(response.context['category_tree']),{published.pk,child.pk})
+
+    def test_existing_draft_category_binding_survives_an_ordinary_body_edit(self):
+        category=Category.objects.create(site=self.site,locale=self.locale,code='existing',slug='existing',name='Existing draft',status='draft')
+        row=self.article();row.category=category;row.save(update_fields=['category'])
+        form=self.editor(self.payload(category=str(category.pk),body_markdown='UPDATED SYNTHETIC BODY'),row)
+        self.assertTrue(form.is_valid(),form.errors)
+        saved=form.save()
+        self.assertEqual((saved.category_id,saved.body_markdown),(category.pk,'UPDATED SYNTHETIC BODY'))
+
+    def test_new_article_cannot_select_an_unpublished_category(self):
+        category=Category.objects.create(site=self.site,locale=self.locale,code='unavailable',slug='unavailable',name='Unpublished',status='draft')
+        form=self.editor(self.payload(category=str(category.pk)))
+        self.assertFalse(form.is_valid())
+        self.assertIn('category',form.errors)
+
     def packed(self, entries, **options):
         data = io.BytesIO()
         with zipfile.ZipFile(data, 'w') as archive:
