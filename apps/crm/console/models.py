@@ -309,3 +309,20 @@ class AuditLog(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError('AuditLog is append-only.')
+
+
+class ExampleDataBundle(models.Model):
+    """Only seed-owned row identities and fingerprints, never account secrets."""
+
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name='example_bundles')
+    pack_key = models.CharField(max_length=80)
+    source_digest = models.CharField(max_length=64)
+    state = models.CharField(max_length=16, default='active')
+    manifest_json = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+
+    class Meta:
+        managed = False
+        db_table = 'site_example_bundle'
+        unique_together = (('site', 'pack_key'),)

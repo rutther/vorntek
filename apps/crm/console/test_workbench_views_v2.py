@@ -121,7 +121,7 @@ class WorkbenchV2ViewTests(TestCase):
         self.assertContains(response, '逾期 2 小时')
         self.assertContains(response, '/admin/sales/leads/7/')
         self.assertContains(response, '/static/console/vendor/tabler/1.4.0/tabler.min.css')
-        self.assertContains(response, '/static/console/v2/vorntek-v2.css?v=20260830-6')
+        self.assertContains(response, '/static/console/v2/vorntek-v2.css?v=')
         self.assertContains(response, '/static/console/v2/shell.js')
         self.assertNotContains(response, '/static/console/v2/leads.js')
         self.assertNotContains(response, '/static/console/admin-shell.css')

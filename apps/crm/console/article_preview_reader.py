@@ -8,18 +8,11 @@ import re
 from urllib.parse import urlsplit
 
 from .article_delivery import ArticleDeliveryError
+from .article_assets import IMAGE_TYPES, read_uploaded_article_image
 from .article_release_store import ArticleReleaseStore, _no_links
 
 
 STYLES = frozenset({'styles.css'})
-IMAGE_TYPES = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.webp': 'image/webp',
-    '.gif': 'image/gif',
-    '.avif': 'image/avif',
-}
 _BLOCKED_CONTAINERS = frozenset({'script', 'style', 'iframe', 'object', 'embed', 'form'})
 _ALLOWED_TAGS = frozenset({
     'html', 'head', 'meta', 'title', 'link', 'body', 'a', 'header', 'strong',
@@ -219,6 +212,7 @@ def read_private_preview(
     base: str,
     store: ArticleReleaseStore,
     asset_root: Path,
+    uploaded_site=None,
 ) -> tuple[bytes, str] | None:
     if not store.preview:
         raise ArticleDeliveryError('preview_store_scope_mismatch')
@@ -256,7 +250,13 @@ def read_private_preview(
         raise ArticleDeliveryError('preview_assets_not_configured')
     file = _asset_file(root, artifact)
     if file is None:
-        return None
+        # Uploads live in an explicitly allowlisted media volume, not the
+        # generated website tree. Only a referenced image owned by this site's
+        # reviewed preview may cross that boundary; never proxy public URLs or
+        # search another site's catalogue/private attachments.
+        result = read_uploaded_article_image(site=uploaded_site,artifact=artifact)
+        store.verify(version)
+        return result
     maximum = 2 * 1024 * 1024 if artifact in STYLES else 25 * 1024 * 1024
     if file.stat().st_size > maximum:
         raise ArticleDeliveryError('preview_asset_too_large')

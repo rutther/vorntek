@@ -17,7 +17,14 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from .crm_services import append_activity, create_task
-from .models import LeadEventOutbox, LeadSubmission, SalesTeam, SalesTeamMember, Task
+from .models import (
+    LeadConversion,
+    LeadEventOutbox,
+    LeadSubmission,
+    SalesTeam,
+    SalesTeamMember,
+    Task,
+)
 from .services import dispatch_outbox_event, queue_submission_event
 
 
@@ -210,6 +217,16 @@ class LeadDispositionResult:
 @dataclass(frozen=True)
 class LeadAssignmentResult:
     """The committed result of one dedicated owner-assignment operation."""
+
+    submission: LeadSubmission
+    changed: bool
+    activity_id: int | None
+    audit_id: int | None
+
+
+@dataclass(frozen=True)
+class LeadTrashResult:
+    """The committed result of one recoverable trash-state transition."""
 
     submission: LeadSubmission
     changed: bool
@@ -533,6 +550,8 @@ def assign_lead_owner(
             locked_submission_authorizer(submission)
         if locked_assignee_authorizer is not None:
             locked_assignee_authorizer(submission, resolved_assignee_id)
+        if submission.trashed_at is not None:
+            raise LeadWorkflowError('线索已移入回收站，请先恢复后再操作。', code='lead_trashed')
 
         before_assignee_id = submission.assignee_id
         before_team_id = submission.team_id
@@ -590,6 +609,216 @@ def assign_lead_owner(
             request=request,
         )
         return LeadAssignmentResult(
+            submission=submission,
+            changed=True,
+            activity_id=int(activity.pk),
+            audit_id=int(audit.pk),
+        )
+
+
+def move_lead_to_trash(
+    *,
+    submission_id: int,
+    actor,
+    reason: str = '',
+    request=None,
+    locked_submission_authorizer: Callable[[LeadSubmission], Any] | None = None,
+    activity_appender: Callable[..., Any] | None = None,
+    audit_recorder: Callable[..., Any] | None = None,
+    clock: Callable[[], datetime] | None = None,
+) -> LeadTrashResult:
+    """Move one unconverted lead to the recoverable trash exactly once."""
+
+    actor_id = int(getattr(actor, 'pk', 0) or 0)
+    if not actor_id or not getattr(actor, 'is_authenticated', True):
+        raise LeadWorkflowError('移入回收站必须有已登录的操作者。', code='actor_required')
+
+    activity_appender = activity_appender or append_activity
+    clock = clock or timezone.now
+    if audit_recorder is None:
+        from console.audit import record_audit
+
+        audit_recorder = record_audit
+
+    with transaction.atomic():
+        submission = _lock_submission(submission_id)
+        if locked_submission_authorizer is not None:
+            locked_submission_authorizer(submission)
+        if submission.trashed_at is not None:
+            return LeadTrashResult(
+                submission=submission,
+                changed=False,
+                activity_id=None,
+                audit_id=None,
+            )
+        if LeadConversion.objects.filter(submission_id=submission.pk).exists():
+            raise LeadWorkflowError(
+                '已转化为 CRM 对象的线索不能移入回收站。',
+                code='lead_already_converted',
+            )
+
+        now = _coerce_datetime(clock(), field_name='当前时间')
+        resolved_reason = str(reason or '').strip()
+        before = {
+            'trashed_at': submission.trashed_at,
+            'trashed_by_user_id': submission.trashed_by_id,
+            'trash_reason': submission.trash_reason,
+            'restored_at': submission.restored_at,
+            'restored_by_user_id': submission.restored_by_id,
+        }
+        submission.trashed_at = now
+        submission.trashed_by = actor
+        submission.trash_reason = resolved_reason
+        submission.restored_at = None
+        submission.restored_by = None
+        submission.updated_at = now
+        submission.save(
+            update_fields=[
+                'trashed_at',
+                'trashed_by',
+                'trash_reason',
+                'restored_at',
+                'restored_by',
+                'updated_at',
+            ]
+        )
+
+        activity = activity_appender(
+            site=submission.site,
+            actor=actor,
+            activity_type='system',
+            direction='internal',
+            subject='线索已移入回收站',
+            body=resolved_reason,
+            submission=submission,
+            metadata={
+                'workflow': 'lead_trash_v2',
+                'stage': submission.stage,
+            },
+            occurred_at=now,
+        )
+        audit = audit_recorder(
+            actor=actor,
+            action='lead_moved_to_trash',
+            entity_table='lead_submission',
+            entity_id=submission.pk,
+            before=before,
+            after={
+                'trashed_at': submission.trashed_at,
+                'trashed_by_user_id': submission.trashed_by_id,
+                'trash_reason': submission.trash_reason,
+                'restored_at': submission.restored_at,
+                'restored_by_user_id': submission.restored_by_id,
+                'updated_at': submission.updated_at,
+            },
+            request=request,
+            metadata={'workflow': 'lead_trash_v2'},
+        )
+        return LeadTrashResult(
+            submission=submission,
+            changed=True,
+            activity_id=int(activity.pk),
+            audit_id=int(audit.pk),
+        )
+
+
+def restore_lead_from_trash(
+    *,
+    submission_id: int,
+    actor,
+    request=None,
+    locked_submission_authorizer: Callable[[LeadSubmission], Any] | None = None,
+    activity_appender: Callable[..., Any] | None = None,
+    audit_recorder: Callable[..., Any] | None = None,
+    clock: Callable[[], datetime] | None = None,
+) -> LeadTrashResult:
+    """Restore one recoverable lead without rewriting its CRM history."""
+
+    actor_id = int(getattr(actor, 'pk', 0) or 0)
+    if not actor_id or not getattr(actor, 'is_authenticated', True):
+        raise LeadWorkflowError('恢复线索必须有已登录的操作者。', code='actor_required')
+
+    activity_appender = activity_appender or append_activity
+    clock = clock or timezone.now
+    if audit_recorder is None:
+        from console.audit import record_audit
+
+        audit_recorder = record_audit
+
+    with transaction.atomic():
+        submission = _lock_submission(submission_id)
+        if locked_submission_authorizer is not None:
+            locked_submission_authorizer(submission)
+        if submission.trashed_at is None:
+            return LeadTrashResult(
+                submission=submission,
+                changed=False,
+                activity_id=None,
+                audit_id=None,
+            )
+        if bool((submission.config_json or {}).get('privacy_deleted')):
+            raise LeadWorkflowError(
+                '已执行隐私匿名化的线索不能恢复。',
+                code='privacy_deleted',
+            )
+
+        now = _coerce_datetime(clock(), field_name='当前时间')
+        before = {
+            'trashed_at': submission.trashed_at,
+            'trashed_by_user_id': submission.trashed_by_id,
+            'trash_reason': submission.trash_reason,
+            'restored_at': submission.restored_at,
+            'restored_by_user_id': submission.restored_by_id,
+        }
+        submission.trashed_at = None
+        submission.trashed_by = None
+        submission.trash_reason = ''
+        submission.restored_at = now
+        submission.restored_by = actor
+        submission.updated_at = now
+        submission.save(
+            update_fields=[
+                'trashed_at',
+                'trashed_by',
+                'trash_reason',
+                'restored_at',
+                'restored_by',
+                'updated_at',
+            ]
+        )
+
+        activity = activity_appender(
+            site=submission.site,
+            actor=actor,
+            activity_type='system',
+            direction='internal',
+            subject='线索已从回收站恢复',
+            body='',
+            submission=submission,
+            metadata={
+                'workflow': 'lead_trash_v2',
+                'stage': submission.stage,
+            },
+            occurred_at=now,
+        )
+        audit = audit_recorder(
+            actor=actor,
+            action='lead_restored',
+            entity_table='lead_submission',
+            entity_id=submission.pk,
+            before=before,
+            after={
+                'trashed_at': submission.trashed_at,
+                'trashed_by_user_id': submission.trashed_by_id,
+                'trash_reason': submission.trash_reason,
+                'restored_at': submission.restored_at,
+                'restored_by_user_id': submission.restored_by_id,
+                'updated_at': submission.updated_at,
+            },
+            request=request,
+            metadata={'workflow': 'lead_trash_v2'},
+        )
+        return LeadTrashResult(
             submission=submission,
             changed=True,
             activity_id=int(activity.pk),
@@ -847,6 +1076,8 @@ def dispose_lead(
         submission = _lock_submission(submission_id)
         if locked_submission_authorizer is not None:
             locked_submission_authorizer(submission)
+        if submission.trashed_at is not None:
+            raise LeadWorkflowError('线索已移入回收站，请先恢复后再操作。', code='lead_trashed')
         replay = _replayed_result(
             submission,
             token_hash=resolved_token_hash,

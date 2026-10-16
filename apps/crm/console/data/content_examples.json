@@ -1,0 +1,31 @@
+{
+  "format": "vorntek-content-examples-v1",
+  "pack": "vorntek-content-v1",
+  "requires": "vorntek-general-v1",
+  "notice": "Synthetic Vorntek examples only / Vorntek 虚构示例；不代表真实客户、项目、平台接收或交付成果。",
+  "assets": [
+    {
+      "key": "collaboration_card",
+      "filename": "synthetic-collaboration.png",
+      "title": "示例 · 三阶段协作卡片",
+      "alt": "Synthetic diagram: three colored cards represent a request, collaboration, and review.",
+      "base64": "iVBORw0KGgoAAAANSUhEUgAAAeAAAADwCAIAAABXFyDtAAAE+0lEQVR42u3UMQ2AMBCG0SrARU1gpzYQ0wV1hKlJJwYs3ER64SWfgv8ur4z5SJIWrJhAkgAtSQK0JAFakgRoSQK0JAnQkiRASxKgJUmAliRAS5IALUkCtCQBWpIEaEkCtCQJ0JIEaEkSoCVJgJYkQEuSAC1JgJYkAVqSBGhJArQkCdCSBGhJEqAlCdCSJEBLkgAtSYCWJAFakgAtSQK0JAnQkgRoSRKgJQnQkiRASxKgrSBJgJYkAVqSAC1JArQkAVqSBGhJEqAlCdCSJEBLEqAlSYCWJAFakgAtSQK0JAFakgRoSQK0JAnQkiRASxKgJUlJgK7tUrx037OdXfHS3ffYb8UDNKABDWhAAxrQgAY0oLELaAEa0IAGNKABDWhAAxrQgAa0AA1oQAMa0IAGNKABDWhAA1qABjSgAQ1oQAMa0IAGNKABLUADGtCABjSgAQ1oQAMa0IAWoAVoQAMa0IAGNKABDWhAAxrQAjSgAQ1oQAMa0IAGNKABDWgBGtCABjSgAQ1oQAMa0IAGtAANaEADGtCABjSgAQ1oQANagBagAQ1oQAMa0IAGNKABDWhAC9CABjSgAQ1oQAMa0IAGNKAFaEADGtCABjSgAQ1oQAMa0AI0oAENaEADGtCABjSgAQ1oAVqABjSgAQ1oQAMa0IAGNKABLUADGtCABjSgAQ1oQAMa0IAWoAENaEADGtCABjSgAQ1oQAvQgAY0oAENaEADGtCABjSgBWhAAxrQgAY0oAENaEADGtDYBbQADWhAAxrQgAY0oAENaEADWoAGNKABDWhAAxrQgAY0oAEtQAMa0IAGNKABDWhAAxrQgBagAQ1oQAMa0IAGNKABDWhAC9ACNKABDWhAAxrQgAY0oAENaAEa0IAGNKABDWhAAxrQgAa0AA1oQAMa0IAGNKABDWhAA1qABjSgAQ1oQAMa0IAGNKABLUAL0IAGNKABDWhAAxrQgAY0oAVoQAMa0IAGNKABDWhAAxrQAjSgAQ1oQAMa0IAGNKABDWgBGtCABjSgAQ1oQAMa0IAGtAAtQAMa0IAGNKABDWhAA5q5gBagAQ1oQAMa0IAGNKABDWhAC9CABjSgAQ1oQAMa0IAGNKAFaEADGtCABjSgAQ1oQAMa0AI0oAENaEADGtCABjSgAQ1oAVqABjSgAQ1oQAMa0IAGNKABLUADGtCABjSgAQ1oQAMa0IAWoAENaEADGtCABjSgAQ1oQAvQgAY0oAENaEADGtCABjSgBWgBGtCABjSgAQ1oQAMa0IAGtAANaEADGtCABjSgAQ1oQANagAY0oAENaEADGtCABjSgAS1AAxrQgAY0oAENaEADGtCAFqAFaEADGtCABjSgAQ1oQAMa0AI0oAENaEADGtCABjSgAQ1oARrQgAY0oAENaEADGtCABrQADWhAAxrQgAY0oAENaEADWoAWoAENaEB/B7QkCdCSBGhJEqAlCdCSJEBLkgAtSYCWJAFakgAtSQK0JAnQkgRoSRKgJQnQkiRAS5IALUmAliQBWpIALUkCtCQBWpIEaEkSoCUJ0JIkQEsSoCVJgJYkAVqSAC1JArQkAVqSBGhJArQkCdCSJEBLEqAlSYCWJEBLkgAtSQK0JAFakgRoSQK0JAnQkgRoSRKgJUmAliRAS5IALUmAliQBWpIEaEkCtCQJ0JIEaEkSoCUJ0CaQJEBLkgAtSYCWJAFakv7VC8RR5vMOVgXEAAAAAElFTkSuQmCC"
+    },
+    {
+      "key": "geometry_triangle",
+      "filename": "synthetic-triangle.glb",
+      "title": "示例 · 几何三角形（非产品模型）",
+      "base64": "Z2xURgIAAACEAgAAcAIAAEpTT057ImFzc2V0Ijp7InZlcnNpb24iOiIyLjAiLCJnZW5lcmF0b3IiOiJWb3JudGVrIHN5bnRoZXRpYyBzYW1wbGUifSwic2NlbmUiOjAsInNjZW5lcyI6W3sibm9kZXMiOlswXX1dLCJub2RlcyI6W3sibWVzaCI6MH1dLCJtZXNoZXMiOlt7InByaW1pdGl2ZXMiOlt7ImF0dHJpYnV0ZXMiOnsiUE9TSVRJT04iOjB9LCJtYXRlcmlhbCI6MH1dfV0sIm1hdGVyaWFscyI6W3siZG91YmxlU2lkZWQiOnRydWUsInBick1ldGFsbGljUm91Z2huZXNzIjp7ImJhc2VDb2xvckZhY3RvciI6WzAuMTQ1LDAuMzg4LDAuOTIyLDFdLCJtZXRhbGxpY0ZhY3RvciI6MCwicm91Z2huZXNzRmFjdG9yIjowLjh9fV0sImJ1ZmZlcnMiOlt7ImJ5dGVMZW5ndGgiOjM2LCJ1cmkiOiJkYXRhOmFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbTtiYXNlNjQsQUFDQXZ3QUFnTDhBQUFBQUFBQ0FQd0FBZ0w4QUFBQUFBQUFBQUFBQWdEOEFBQUFBIn1dLCJidWZmZXJWaWV3cyI6W3siYnVmZmVyIjowLCJieXRlT2Zmc2V0IjowLCJieXRlTGVuZ3RoIjozNn1dLCJhY2Nlc3NvcnMiOlt7ImJ1ZmZlclZpZXciOjAsImNvbXBvbmVudFR5cGUiOjUxMjYsImNvdW50IjozLCJ0eXBlIjoiVkVDMyIsIm1pbiI6Wy0xLC0xLDBdLCJtYXgiOlsxLDEsMF19XX0="
+    }
+  ],
+  "attachments": [
+    {"key":"request_notes", "filename":"synthetic-request-notes.txt", "target":"inquiry", "title":"示例 · 需求核对笔记", "text":"Synthetic example only / 虚构示例。\nRequest: explain the desired outcome, preferred reply channel, and optional supporting files.\nNext step: review the request with its owner. No real contact or delivery is represented.\n"},
+    {"key":"collaboration_notes", "filename":"synthetic-collaboration-notes.txt", "target":"opportunity", "title":"示例 · 项目协作记录", "text":"Synthetic example only / 虚构示例。\nScope: a general collaboration exercise, not a real customer project.\nReview: confirm responsibilities, acceptance evidence, and the next task.\nAmounts and outcomes in example records do not represent revenue.\n"}
+  ],
+  "articles": [
+    {"key":"working_with_examples_en", "locale":"en", "slug":"synthetic-workflow-guide", "content_key":"syntheticWorkflowGuide", "title":"Synthetic example · From request to review", "excerpt":"A fictional, industry-neutral collaboration exercise.", "body":"# From request to review\n\nThis is synthetic Vorntek example content, not a real customer case.\n\n## 1. Clarify the request\n\nRecord the intended outcome and preferred reply channel. An organization is optional for a personal request.\n\n## 2. Collaborate\n\nUse the related task and private attachment to capture the next step. Private attachments are not public website assets.\n\n## 3. Review evidence\n\nA saved setting is not delivery proof. Preview the content before deliberately publishing. No external platform acceptance is asserted by these examples.", "cover":"collaboration_card"},
+    {"key":"working_with_examples_zh", "locale":"zh", "slug":"synthetic-workflow-guide", "content_key":"syntheticWorkflowGuide", "title":"虚构示例 · 从需求到复核", "excerpt":"一个不绑定行业的通用协作练习。", "body":"# 从需求到复核\n\n这是 Vorntek 虚构示例，不是真实客户案例。\n\n## 1. 说明需求\n\n记录预期结果和回复渠道。个人咨询不必虚构企业信息。\n\n## 2. 推进协作\n\n通过关联任务与私有附件记录下一步。私有附件不等于公开网站素材。\n\n## 3. 复核证据\n\n配置已保存不等于已经交付。先私下预览内容，再明确决定是否发布。示例数据不代表外部平台已接收或去重通过。", "cover":"collaboration_card"}
+  ],
+  "profiles": [{"key":"synthetic_geometry", "name":"示例 · 通用几何展示（停用）", "asset":"geometry_triangle"}],
+  "placements": [{"key":"synthetic_geometry_slot", "slot":"homepage_equipment_preview", "name":"示例 · 几何预览槽位（未启用）", "profile":"synthetic_geometry"}]
+}

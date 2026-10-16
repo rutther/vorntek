@@ -1,0 +1,23 @@
+/* Opt-in resource workspaces only; existing sales workspace layout is unchanged. */
+.nc-resource-open,.nc-resource-close,.nc-resource-backdrop{display:none}
+@media(max-width:1120px){
+  .nc-resource-navigation .nc-shell{grid-template-columns:minmax(0,1fr)}
+  .nc-resource-navigation .nc-app{grid-column:1}
+  .nc-resource-navigation .nc-topbar{gap:10px;padding-left:12px}
+  .nc-resource-navigation .nc-breadcrumb{flex:1;min-width:0}
+  .nc-resource-navigation .nc-sidebar{display:none}
+  .nc-resource-navigation .nc-resource-open,.nc-resource-navigation .nc-resource-close{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex-shrink:0;border:1px solid #dce4ef;border-radius:6px;background:white;color:#182d48}
+  .nc-resource-open svg,.nc-resource-close svg{width:20px;height:20px}
+  .nc-resource-navigation .nc-resource-close{position:absolute;top:12px;right:10px;z-index:2}
+  .nc-resource-navigation .is-resource-nav-open .nc-sidebar{display:flex;width:min(300px,calc(100vw - 48px));z-index:101}
+  .nc-resource-navigation .is-resource-nav-open .nc-brand{padding:0 58px 0 16px;justify-content:flex-start;gap:10px}
+  .nc-resource-navigation .is-resource-nav-open .nc-brand span,.nc-resource-navigation .is-resource-nav-open .nc-nav-item span{display:flex}
+  .nc-resource-navigation .is-resource-nav-open .nc-primary-nav{overflow-x:hidden;padding:16px 12px}
+  .nc-resource-navigation .is-resource-nav-open .nc-nav-item{display:grid;grid-template-columns:22px minmax(0,1fr);flex-shrink:0;justify-content:initial}
+  .nc-resource-navigation .is-resource-nav-open .nc-nav-item svg{flex-shrink:0}
+  .nc-resource-navigation .is-resource-nav-open .nc-nav-children{display:grid}
+  .nc-resource-navigation .nc-sidebar-footer{display:none}
+  .nc-resource-navigation .nc-resource-backdrop:not([hidden]){display:block;position:fixed;inset:0;width:100%;height:100%;z-index:100;background:rgb(24 45 72 / 32%);border:0}
+  .nc-resource-navigation:has(.is-resource-nav-open){overflow:hidden}
+  .nc-resource-navigation :is(.nc-resource-open,.nc-resource-close):focus-visible{outline:3px solid #a9c5fb;outline-offset:3px}
+}

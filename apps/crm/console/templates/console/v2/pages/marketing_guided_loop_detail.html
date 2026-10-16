@@ -1,0 +1,199 @@
+{% extends 'console/v2/base.html' %}
+
+{% block title %}{{ loop.name }} · 引导式闭环{% endblock %}
+{% block breadcrumb %}<a href="{% url 'console:marketing_guided_loop' %}">引导式闭环</a><i data-lucide="chevron-right" aria-hidden="true"></i><strong>{{ loop.name }}</strong>{% endblock %}
+
+{% block extra_head %}
+<style>
+    .nc-workflow-header { display:flex; align-items:start; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
+    .nc-workflow-header h1 { margin:0; }
+    .nc-workflow-meta { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-top:.4rem; }
+    .nc-workflow-workspace { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(19rem,.9fr); align-items:start; gap:1rem; }
+    .nc-workflow-canvas, .nc-workflow-inspector { min-width:0; border:1px solid var(--tblr-border-color); border-radius:var(--tblr-border-radius); background:var(--tblr-bg-surface); }
+    .nc-workflow-canvas-head, .nc-workflow-inspector-head { padding:1rem 1.15rem; border-bottom:1px solid var(--tblr-border-color); }
+    .nc-workflow-canvas-head h2, .nc-workflow-inspector-head h2 { font-size:1rem; margin:0; }
+    .nc-workflow-canvas-head p, .nc-workflow-inspector-head p { margin:.35rem 0 0; max-width:70ch; }
+    .nc-workflow-lanes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; padding:1rem 1.15rem 1.2rem; }
+    .nc-workflow-lane { min-width:0; }
+    .nc-workflow-lane h3 { display:flex; justify-content:space-between; gap:.5rem; font-size:.82rem; margin:0 0:.75rem; }
+    .nc-workflow-list { display:grid; gap:.65rem; margin:0; padding:0 0 0:1.2rem; list-style:none; border-left:2px solid var(--tblr-border-color); }
+    .nc-workflow-list li { position:relative; min-width:0; }
+    .nc-workflow-list li::before { content:''; position:absolute; left:-1.56rem; top:1.15rem; width:.65rem; height:.65rem; border-radius:50%; background:var(--tblr-secondary); box-shadow:0 0 0 3px var(--tblr-bg-surface); }
+    .nc-workflow-list li:has(.nc-workflow-step[data-status="ready"])::before,
+    .nc-workflow-list li:has(.nc-workflow-step[data-status="waiting"])::before { background:var(--tblr-blue); }
+    .nc-workflow-list li:has(.nc-workflow-step[data-status="done"])::before { background:var(--tblr-green); }
+    .nc-workflow-list li:has(.nc-workflow-step[data-status="failed"])::before { background:var(--tblr-red); }
+    .nc-workflow-step { display:block; padding:.75rem .8rem; border:1px solid var(--tblr-border-color); border-radius:.45rem; color:var(--tblr-body-color); text-decoration:none; background:var(--tblr-bg-surface); min-height:5.1rem; }
+    .nc-workflow-step:hover, .nc-workflow-step:focus-visible { border-color:var(--tblr-primary); color:var(--tblr-body-color); text-decoration:none; }
+    .nc-workflow-step.is-selected { border-color:var(--tblr-primary); background:var(--tblr-bg-surface-secondary); box-shadow:0 0 0 1px var(--tblr-primary); }
+    .nc-workflow-step-top { display:flex; justify-content:space-between; gap:.5rem; align-items:baseline; }
+    .nc-workflow-step strong { font-size:.84rem; line-height:1.35; }
+    .nc-workflow-step small { display:block; margin-top:.4rem; color:var(--tblr-secondary); font-size:.75rem; line-height:1.4; }
+    .nc-workflow-step-index { color:var(--tblr-secondary); font-size:.72rem; font-variant-numeric:tabular-nums; }
+    .nc-workflow-state { flex:none; font-size:.72rem; white-space:nowrap; }
+    .nc-workflow-state[data-status="ready"], .nc-workflow-state[data-status="waiting"] { color:var(--tblr-blue); }
+    .nc-workflow-state[data-status="done"] { color:var(--tblr-green); }
+    .nc-workflow-state[data-status="failed"] { color:var(--tblr-red); }
+    .nc-workflow-inspector { position:sticky; top:1rem; }
+    .nc-workflow-inspector-body { padding:1rem 1.15rem 1.2rem; }
+    .nc-workflow-tabs { display:flex; gap:.4rem; border-bottom:1px solid var(--tblr-border-color); margin:0 0 1rem; }
+    .nc-workflow-tabs a { padding:.55rem .65rem; border-bottom:2px solid transparent; color:var(--tblr-secondary); text-decoration:none; font-size:.82rem; }
+    .nc-workflow-tabs a.is-selected { border-bottom-color:var(--tblr-primary); color:var(--tblr-primary); font-weight:600; }
+    .nc-workflow-tabs a:hover, .nc-workflow-tabs a:focus-visible { color:var(--tblr-primary); }
+    .nc-workflow-source { display:grid; gap:.25rem; padding:.6rem 0; border-bottom:1px solid var(--tblr-border-color); }
+    .nc-workflow-source:last-child { border-bottom:0; }
+    .nc-workflow-source small { color:var(--tblr-secondary); }
+    .nc-workflow-evidence { margin:1rem 0 0; padding:.8rem; border-radius:.4rem; background:var(--tblr-bg-surface-secondary); font-size:.82rem; }
+    .nc-workflow-evidence strong { display:block; margin-bottom:.25rem; }
+    .nc-workflow-runtime { margin-top:1rem; border:1px solid var(--tblr-border-color); border-radius:var(--tblr-border-radius); background:var(--tblr-bg-surface); }
+    .nc-workflow-runtime summary { padding:.9rem 1.1rem; cursor:pointer; font-weight:600; }
+    .nc-workflow-runtime-body { border-top:1px solid var(--tblr-border-color); padding:1rem 1.1rem; }
+    .nc-workflow-runtime-list { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin:0; padding:0; list-style:none; }
+    .nc-workflow-runtime-list li { padding:.45rem .6rem; border:1px solid var(--tblr-border-color); border-radius:.35rem; font-size:.75rem; }
+    .nc-workflow-runtime-list li[data-status="healthy"] { border-color:var(--tblr-green); }
+    .nc-workflow-runtime-list li[data-status="failed"] { border-color:var(--tblr-red); }
+    .nc-workflow-runtime-list li[data-status="configured"], .nc-workflow-runtime-list li[data-status="waiting_user"] { border-color:var(--tblr-blue); }
+    .nc-workflow-runtime-list .nc-workflow-arrow { padding:0; border:0; color:var(--tblr-secondary); }
+    @media (max-width:1199.98px) { .nc-workflow-workspace { grid-template-columns:minmax(0,1fr); } .nc-workflow-inspector { position:static; } }
+    @media (max-width:767.98px) { .nc-workflow-lanes { grid-template-columns:1fr; } .nc-workflow-header { display:block; } .nc-workflow-header .badge { margin-top:.5rem; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="nc-workflow-header">
+        <div>
+            <a class="text-secondary small" href="{% url 'console:marketing_guided_loop' %}">← 返回闭环目录</a>
+            <h1 class="page-title mt-2">{{ loop.name }}</h1>
+            <div class="nc-workflow-meta">
+                <span>Meta / 网站线索闭环</span>
+                <span aria-hidden="true">·</span>
+                <span>{% if loop.environment == 'production' %}正式业务{% else %}演练测试{% endif %}</span>
+                <span aria-hidden="true">·</span>
+                <span>模板：网站表单获客</span>
+            </div>
+        </div>
+        <span class="badge bg-secondary-lt text-secondary">{% if loop.status == 'draft' %}草稿{% elif loop.status == 'configuring' %}设置中{% elif loop.status == 'running' %}运行中{% else %}{{ loop.status }}{% endif %}</span>
+    </div>
+
+    <div class="nc-workflow-workspace">
+        <section class="nc-workflow-canvas" aria-labelledby="workflow-title">
+            <div class="nc-workflow-canvas-head">
+                <h2 id="workflow-title">搭建工作流</h2>
+                <p class="text-secondary small">这是预设路线，按节点配置和验收。选择节点查看操作；灰色表示尚未开放，不能当作已完成。</p>
+            </div>
+            <div class="nc-workflow-lanes">
+                <section class="nc-workflow-lane" aria-labelledby="workflow-data-title">
+                    <h3 id="workflow-data-title">数据与网站 <span class="text-secondary fw-normal">准备连接</span></h3>
+                    <ol class="nc-workflow-list">
+                        {% for step in workflow_steps %}{% if step.task.sequence_no <= 4 %}
+                        <li>
+                            <a class="nc-workflow-step {% if selected_task.task_key == step.task.task_key %}is-selected{% endif %}" data-status="{{ step.task.status }}" href="?node={{ step.task.task_key }}" {% if selected_task.task_key == step.task.task_key %}aria-current="step"{% endif %}>
+                                <span class="nc-workflow-step-top"><span class="nc-workflow-step-index">{{ step.task.sequence_no|stringformat:'02d' }}</span><span class="nc-workflow-state" data-status="{{ step.task.status }}">{% if step.task.status == 'done' %}已验证{% elif step.task.status == 'waiting' %}待验证{% elif step.task.status == 'ready' %}可配置{% elif step.task.status == 'failed' %}异常{% else %}待开放{% endif %}</span></span>
+                                <strong>{{ step.task.title }}</strong>
+                                <small>{{ step.evidence }}</small>
+                            </a>
+                        </li>
+                        {% endif %}{% endfor %}
+                    </ol>
+                </section>
+                <section class="nc-workflow-lane" aria-labelledby="workflow-ads-title">
+                    <h3 id="workflow-ads-title">验证与投放 <span class="text-secondary fw-normal">按条件启用</span></h3>
+                    <ol class="nc-workflow-list">
+                        {% for step in workflow_steps %}{% if step.task.sequence_no > 4 %}
+                        <li>
+                            <a class="nc-workflow-step {% if selected_task.task_key == step.task.task_key %}is-selected{% endif %}" data-status="{{ step.task.status }}" href="?node={{ step.task.task_key }}" {% if selected_task.task_key == step.task.task_key %}aria-current="step"{% endif %}>
+                                <span class="nc-workflow-step-top"><span class="nc-workflow-step-index">{{ step.task.sequence_no|stringformat:'02d' }}</span><span class="nc-workflow-state" data-status="{{ step.task.status }}">{% if step.task.status == 'done' %}已验证{% elif step.task.status == 'waiting' %}待验证{% elif step.task.status == 'ready' %}可配置{% elif step.task.status == 'failed' %}异常{% else %}待开放{% endif %}</span></span>
+                                <strong>{{ step.task.title }}</strong>
+                                <small>{{ step.evidence }}</small>
+                            </a>
+                        </li>
+                        {% endif %}{% endfor %}
+                    </ol>
+                </section>
+            </div>
+        </section>
+
+        <aside class="nc-workflow-inspector" aria-labelledby="inspector-title">
+            <div class="nc-workflow-inspector-head">
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                    <h2 id="inspector-title">{{ selected_task.title }}</h2>
+                    <span class="text-secondary small text-nowrap">{{ selected_task.sequence_no }}/{{ tasks|length }}</span>
+                </div>
+                {% for step in workflow_steps %}{% if step.task.task_key == selected_task.task_key %}<p class="text-secondary small">{{ step.summary }}</p>{% endif %}{% endfor %}
+            </div>
+            <div class="nc-workflow-inspector-body">
+                {% if selected_task.task_key == 'dataset_setup' %}
+                    {% if dataset_binding.external_id %}
+                        <div class="alert alert-info mb-3" role="status"><strong>已记录，尚未验证</strong><br>数据源 ID：{{ dataset_binding.external_id }}</div>
+                        <p class="small text-secondary mb-0">此处只保存关联。网站 Pixel、CRM 回传及 Lead 事件仍需分别验收；更换数据源要走受控迁移，不能直接覆盖。</p>
+                    {% else %}
+                        <div class="nc-workflow-tabs" aria-label="数据源接入方式">
+                            <a class="{% if source_view == 'reuse' %}is-selected{% endif %}" href="?node=dataset_setup&amp;source=reuse" {% if source_view == 'reuse' %}aria-current="page"{% endif %}>使用已有</a>
+                            <a class="{% if source_view == 'register' %}is-selected{% endif %}" href="?node=dataset_setup&amp;source=register" {% if source_view == 'register' %}aria-current="page"{% endif %}>登记新建</a>
+                        </div>
+                        {% if source_view == 'reuse' %}
+                            {% if source_candidates %}
+                            <p class="small text-secondary">优先复用同一网站、同一环境的数据源，不必为每条闭环再建一个。</p>
+                            <form action="{% url 'console:marketing_guided_loop_dataset' loop.loop_key %}" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="source_mode" value="reuse">
+                                <label class="form-label" for="existing-dataset-id">选择已登记的数据源</label>
+                                <select class="form-select mb-2" id="existing-dataset-id" name="dataset_id" required>
+                                    <option value="">请选择，不自动绑定</option>
+                                    {% for candidate in source_candidates %}<option value="{{ candidate.id }}">{{ candidate.name }} · {{ candidate.id }}</option>{% endfor %}
+                                </select>
+                                {% for candidate in source_candidates %}<div class="nc-workflow-source small"><strong>{{ candidate.name }}</strong><span class="font-monospace">{{ candidate.id }}</span><small>{{ candidate.origin }} · 仍需核验权限和事件</small></div>{% endfor %}
+                                <button class="btn btn-primary mt-3" type="submit">关联所选数据源</button>
+                            </form>
+                            {% else %}
+                            <div class="alert alert-info mb-0">当前站点与环境没有可复用的数据源。若刚在 Meta 创建了数据集，请切换到“登记新建”。</div>
+                            {% endif %}
+                        {% else %}
+                            <p class="small text-secondary">只登记你已在 Meta 创建的数据集；这里不会再次创建，也不会自动打开转化 API。</p>
+                            <form action="{% url 'console:marketing_guided_loop_dataset' loop.loop_key %}" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="source_mode" value="register">
+                                <label class="form-label" for="id_dataset_id">Meta 数据集数字 ID</label>
+                                <input class="form-control" id="id_dataset_id" name="dataset_id" inputmode="numeric" pattern="[1-9][0-9]{5,24}" maxlength="25" required placeholder="粘贴 Meta 显示的数字 ID">
+                                <div class="form-hint">数据集名称不是 ID；保存后仍是“待验证”。</div>
+                                <button class="btn btn-primary mt-3" type="submit">登记数据源 ID</button>
+                            </form>
+                            <details class="mt-3 small">
+                                <summary>查看此前建议的数据集名称</summary>
+                                <div class="font-monospace mt-2">{{ dataset_name }}</div>
+                            </details>
+                            <p class="small text-secondary mt-3 mb-0">Meta 的“为所有新旧数据集启用转化 API”是商务管理平台级选择，不是本闭环必选项；请单独评估该设置。</p>
+                        {% endif %}
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-secondary mb-0"><strong>此节点暂未开放操作</strong><br>目前只有数据源的人工登记能力。节点可查看计划，但不会因为浏览过或手动填写而变成“已验证”。</div>
+                    <a class="btn btn-outline-primary btn-sm mt-3" href="?node=dataset_setup">返回可配置节点</a>
+                {% endif %}
+                {% for step in workflow_steps %}{% if step.task.task_key == selected_task.task_key %}
+                <div class="nc-workflow-evidence"><strong>验收需要什么</strong>{{ step.evidence }}</div>
+                {% endif %}{% endfor %}
+            </div>
+        </aside>
+    </div>
+
+    <details class="nc-workflow-runtime">
+        <summary>查看投放后的事件链与连接状态</summary>
+        <div class="nc-workflow-runtime-body">
+            <p class="text-secondary small mb-3">上方是搭建顺序；下面是上线后线索和事件的实际流向。节点及连线都要有证据，录入数据源 ID 不代表整条链已连通。</p>
+            <ol class="nc-workflow-runtime-list" aria-label="投放后的线索流向">
+                {% for node in nodes %}
+                    {% if not forloop.first %}<li class="nc-workflow-arrow" aria-hidden="true">→</li>{% endif %}
+                    <li data-status="{{ node.status }}">{{ node.title }} · {% if node.status == 'healthy' %}已验证{% elif node.status == 'configured' %}已记录{% elif node.status == 'waiting_user' %}待操作{% elif node.status == 'failed' %}异常{% else %}待验收{% endif %}</li>
+                {% endfor %}
+            </ol>
+            <details class="mt-3"><summary class="small">逐条查看连接证据</summary>
+                <ul class="list-group list-group-flush mt-2">
+                    {% for edge in edges %}<li class="list-group-item px-0 small">{{ edge.source_node.title }} → {{ edge.target_node.title }}：{% if edge.status == 'healthy' %}已验证{% elif edge.status == 'failed' %}异常{% else %}待验证{% endif %}</li>{% endfor %}
+                </ul>
+            </details>
+        </div>
+    </details>
+    <details class="mt-3 text-secondary small"><summary>查看内部识别码</summary><div class="mt-2">{{ loop.binding_key }}</div></details>
+</div>
+{% endblock %}

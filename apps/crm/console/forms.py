@@ -3,18 +3,19 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-import shutil
 import stat
+import uuid
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from django import forms
-from django.db import models, transaction
+from django.db import connection, models, transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
 from sitecore.models import Article, Category, MediaAsset, MediaAssetBinding, PageRoute, Site, SiteLocale, Tag
 
+from .content_access import validate_current_content_write
+from . import asset_upload_recovery
 from .storage_security import (
     StorageSecurityError,
     configured_storage_roots,
@@ -159,9 +160,8 @@ def asset_filename(original_name: str, digest: str, suffix: str) -> str:
     return f'{digest[:16]}-{stem[:72]}{suffix}'
 
 
-def store_uploaded_asset(*, site: Site, uploaded_file, title: str, alt_text: str, caption: str, created_by: str) -> MediaAsset:
-    asset_type, suffix = classify_asset(uploaded_file.name)
-    size = int(getattr(uploaded_file, 'size', 0) or 0)
+def _store_asset_stream(*,site:Site,name:str,size:int,chunks,title:str,alt_text:str,caption:str,created_by:str) -> MediaAsset:
+    asset_type,suffix=classify_asset(name)
     max_bytes = ASSET_MAX_BYTES[asset_type]
     if size <= 0:
         raise forms.ValidationError('文件为空，无法入库。')
@@ -170,149 +170,71 @@ def store_uploaded_asset(*, site: Site, uploaded_file, title: str, alt_text: str
         raise forms.ValidationError(f'文件过大。{asset_type} 当前限制为 {max_mb}MB。')
 
     storage_root = asset_storage_root()
-    digest = hashlib.sha256()
-    temp_path: Path | None = None
+    now=timezone.now()
+    token=uuid.uuid4().hex
+    directory_name=ASSET_DIR_BY_TYPE[asset_type]
+    filename=f'{token[:16]}-upload-{token}{suffix}'
+    target=_managed_asset_target(directory_name=directory_name,year=f'{now:%Y}',month=f'{now:%m}',filename=filename)
+    marker=None
+    keep_file=False
     try:
-        with NamedTemporaryFile(delete=False, dir=storage_root) as temporary:
-            temp_path = Path(temporary.name)
-            for chunk in uploaded_file.chunks():
-                digest.update(chunk)
-                temporary.write(chunk)
-
-        sha256 = digest.hexdigest()
-        existing = MediaAsset.objects.filter(site=site, sha256=sha256).first()
-        if existing:
-            resolve_storage_path(existing.storage_path)
-            changed_fields = []
-            if existing.status != 'active':
-                existing.status = 'active'
-                changed_fields.append('status')
-            if title and not existing.title:
-                existing.title = title
-                changed_fields.append('title')
-            if alt_text and not existing.alt_text:
-                existing.alt_text = alt_text
-                changed_fields.append('alt_text')
-            if caption and not existing.caption:
-                existing.caption = caption
-                changed_fields.append('caption')
-            if changed_fields:
-                changed_fields.append('updated_at')
-                existing.save(update_fields=changed_fields)
-            return existing
-
-        now = timezone.now()
-        directory_name = ASSET_DIR_BY_TYPE[asset_type]
-        filename = asset_filename(uploaded_file.name, sha256, suffix)
-        target = _managed_asset_target(
-            directory_name=directory_name,
-            year=f'{now:%Y}',
-            month=f'{now:%m}',
-            filename=filename,
-        )
-        shutil.move(str(temp_path), target)
-        temp_path = None
-
-        storage_path = (Path('storage') / 'assets' / directory_name / f'{now:%Y}' / f'{now:%m}' / filename).as_posix()
-        public_path = f'/assets/{directory_name}/{now:%Y}/{now:%m}/{filename}'
-        # Never persist the client-declared Content-Type.  asset_file serves
-        # this value on our origin, so the MIME must come from our extension
-        # allowlist and be paired with X-Content-Type-Options: nosniff.
-        mime_type = asset_mime_type(uploaded_file.name)
-
-        return MediaAsset.objects.create(
-            site=site,
-            asset_type=asset_type,
-            original_name=Path(uploaded_file.name).name,
-            title=title or Path(uploaded_file.name).stem,
-            alt_text=alt_text,
-            caption=caption,
-            mime_type=mime_type,
-            file_ext=suffix,
-            file_size_bytes=size,
-            sha256=sha256,
-            storage_path=storage_path,
-            public_path=public_path,
-            status='active',
-            created_by=created_by or 'system',
-        )
+        with transaction.atomic():
+            marker,data=asset_upload_recovery.begin_upload(root=storage_root,target=target,site_id=site.pk,token=token)
+            digest=hashlib.sha256();written=0
+            # Exclusive creation never overwrites a prior path, even on a token collision.
+            with asset_upload_recovery.private_file(target,binary=True) as stream:
+                asset_upload_recovery.confirm_created(marker,data)
+                for chunk in chunks():
+                    written+=len(chunk)
+                    if written>max_bytes: raise forms.ValidationError('文件超过允许大小，未入库。')
+                    digest.update(chunk);stream.write(chunk)
+                stream.flush();os.fsync(stream.fileno())
+            if written!=size: raise forms.ValidationError('文件内容发生变化或不完整，请重新选择文件。')
+            target.chmod(0o644)
+            sha256=digest.hexdigest()
+            if connection.vendor=='postgresql':
+                # Only same-site/same-content requests serialize; different assets remain independent.
+                lock_id=int.from_bytes(hashlib.sha256(f'asset-content:{site.pk}:{sha256}'.encode()).digest()[:8],'big',signed=True)
+                with connection.cursor() as cursor: cursor.execute('SELECT pg_advisory_xact_lock(%s)',[lock_id])
+            existing=MediaAsset.objects.filter(site=site,sha256=sha256).first()
+            if existing:
+                resolve_storage_path(existing.storage_path)
+                changed=[]
+                if existing.status!='active': existing.status='active';changed.append('status')
+                for field,value in (('title',title),('alt_text',alt_text),('caption',caption)):
+                    if value and not getattr(existing,field): setattr(existing,field,value);changed.append(field)
+                if changed: existing.save(update_fields=changed+['updated_at'])
+                return existing
+            relative=target.relative_to(storage_root).as_posix()
+            row=MediaAsset.objects.create(site=site,asset_type=asset_type,original_name=Path(name).name,
+                title=title or Path(name).stem,alt_text=alt_text,caption=caption,mime_type=asset_mime_type(name),
+                file_ext=suffix,file_size_bytes=written,sha256=sha256,storage_path='storage/assets/'+relative,
+                public_path='/assets/'+relative,status='active',created_by=created_by or 'system')
+            keep_file=True
+            transaction.on_commit(lambda selected=marker:asset_upload_recovery.clear_committed_marker(selected),robust=True)
+            return row
     finally:
-        if temp_path and temp_path.exists():
-            temp_path.unlink()
+        if marker is not None and not keep_file and not connection.in_atomic_block:
+            # An uncertain database outcome must keep its durable marker.
+            # Reconciliation queries committed references before deleting our own file.
+            try:
+                asset_upload_recovery.reconcile_marker(root=storage_root,marker=marker,site_id=site.pk,token=token,execute=True)
+            except Exception:
+                asset_upload_recovery.logger.warning('Asset upload recovery remains pending after a failed write.')
+
+
+def store_uploaded_asset(*, site: Site, uploaded_file, title: str, alt_text: str, caption: str, created_by: str) -> MediaAsset:
+    return _store_asset_stream(site=site,name=uploaded_file.name,size=int(getattr(uploaded_file,'size',0) or 0),
+        chunks=uploaded_file.chunks,title=title,alt_text=alt_text,caption=caption,created_by=created_by)
 
 
 def store_local_asset(*, site: Site, source_path: Path, title: str, alt_text: str, caption: str, created_by: str) -> MediaAsset:
     source_path = resolve_import_source_path(source_path)
-    asset_type, suffix = classify_asset(source_path.name)
-
-    size = int(source_path.stat().st_size or 0)
-    max_bytes = ASSET_MAX_BYTES[asset_type]
-    if size <= 0:
-        raise forms.ValidationError('源文件为空，无法入库。')
-    if size > max_bytes:
-        max_mb = max_bytes // (1024 * 1024)
-        raise forms.ValidationError(f'文件过大。{asset_type} 当前限制为 {max_mb}MB。')
-
-    asset_storage_root()
-
-    digest = hashlib.sha256()
-    with source_path.open('rb') as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
-            digest.update(chunk)
-    sha256 = digest.hexdigest()
-
-    existing = MediaAsset.objects.filter(site=site, sha256=sha256).first()
-    if existing:
-        resolve_storage_path(existing.storage_path)
-        changed_fields = []
-        if existing.status != 'active':
-            existing.status = 'active'
-            changed_fields.append('status')
-        if title and not existing.title:
-            existing.title = title
-            changed_fields.append('title')
-        if alt_text and not existing.alt_text:
-            existing.alt_text = alt_text
-            changed_fields.append('alt_text')
-        if caption and not existing.caption:
-            existing.caption = caption
-            changed_fields.append('caption')
-        if changed_fields:
-            changed_fields.append('updated_at')
-            existing.save(update_fields=changed_fields)
-        return existing
-
-    now = timezone.now()
-    directory_name = ASSET_DIR_BY_TYPE[asset_type]
-    filename = asset_filename(source_path.name, sha256, suffix)
-    target = _managed_asset_target(
-        directory_name=directory_name,
-        year=f'{now:%Y}',
-        month=f'{now:%m}',
-        filename=filename,
-    )
-    shutil.copy2(source_path, target)
-
-    storage_path = (Path('storage') / 'assets' / directory_name / f'{now:%Y}' / f'{now:%m}' / filename).as_posix()
-    public_path = f'/assets/{directory_name}/{now:%Y}/{now:%m}/{filename}'
-    mime_type = asset_mime_type(source_path.name)
-
-    return MediaAsset.objects.create(
-        site=site,
-        asset_type=asset_type,
-        original_name=source_path.name,
-        title=title or source_path.stem,
-        alt_text=alt_text,
-        caption=caption,
-        mime_type=mime_type,
-        file_ext=suffix,
-        file_size_bytes=size,
-        sha256=sha256,
-        storage_path=storage_path,
-        public_path=public_path,
-        status='active',
-        created_by=created_by or 'system',
-    )
+    def chunks():
+        with source_path.open('rb') as handle:
+            yield from iter(lambda:handle.read(1024*1024),b'')
+    return _store_asset_stream(site=site,name=source_path.name,size=int(source_path.stat().st_size or 0),
+        chunks=chunks,title=title,alt_text=alt_text,caption=caption,created_by=created_by)
 
 
 class AssetUploadForm(forms.Form):
@@ -474,17 +396,24 @@ def next_tag_identity(*, site: Site, locale: SiteLocale, raw_name: str) -> tuple
 
 
 class ArticleEditorForm(forms.Form):
+    content_key = forms.RegexField(
+        regex=r'^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$', required=False, max_length=160,
+        label='多语言文章关联标识',
+        help_text='同一篇文章的各语言版本填写相同标识，例如 articleGuide。建立后保持不变；草稿可留空，保存为已发布前必须补齐。',
+        error_messages={'invalid': '请使用小写字母开头的驼峰标识，只含英文字母和数字。'},
+        widget=forms.TextInput(attrs={'dir': 'ltr', 'placeholder': 'articleGuide'}),
+    )
     title = forms.CharField(
         label='文章标题',
         max_length=220,
-        widget=forms.TextInput(attrs={'placeholder': '例如：How to evaluate a water filling line project'}),
+        widget=forms.TextInput(attrs={'placeholder': '例如：How to prepare a project brief'}),
     )
     slug = forms.CharField(
         label='路径别名',
         max_length=180,
         required=False,
         help_text='用于生成访问路径，只允许小写英文、数字、下划线和短横线。',
-        widget=forms.TextInput(attrs={'placeholder': 'water_filling_line_project_evaluation'}),
+        widget=forms.TextInput(attrs={'placeholder': 'project-brief-guide'}),
     )
     category = forms.ModelChoiceField(
         label='文章分类',
@@ -554,6 +483,7 @@ class ArticleEditorForm(forms.Form):
             config_json = article.config_json or {}
             kwargs['initial'] = {
                 'title': article.title,
+                'content_key': config_json.get('contentKey', ''),
                 'slug': article.slug,
                 'category': article.category_id,
                 'status': article.status,
@@ -572,6 +502,15 @@ class ArticleEditorForm(forms.Form):
             }
 
         super().__init__(*args, **kwargs)
+        if article and (article.config_json or {}).get('contentKey'):
+            # Identity is not a translated label. A normal body edit must not
+            # detach this version from its sibling articles, even via POST.
+            self.fields['content_key'].disabled = True
+        for name in ('title', 'excerpt', 'body_markdown', 'meta_description', 'og_title', 'og_description'):
+            self.fields[name].widget.attrs.update({
+                'lang': locale.locale_code,
+                'dir': 'rtl' if locale.locale_code == 'ar' else 'ltr',
+            })
         if not self.allow_publish:
             self.fields['status'].choices = [
                 choice for choice in STATUS_CHOICES if choice[0] != 'published'
@@ -582,7 +521,13 @@ class ArticleEditorForm(forms.Form):
             f'用于生成路径：/{self.locale.locale_code}/articles/{{slug}}/。'
             '只允许小写英文、数字、下划线和短横线。'
         )
-        category_rows = [row for row in ordered_categories(site, locale) if row.status == 'published']
+        # New assignments require a published category, but an ordinary edit
+        # must be able to retain this article's existing, scoped binding.
+        existing_category_id = article.category_id if article else None
+        category_rows = [
+            row for row in ordered_categories(site, locale)
+            if row.status == 'published' or row.id == existing_category_id
+        ]
         category_labels = category_label_map(category_rows)
         self.fields['category'].queryset = Category.objects.filter(id__in=[row.id for row in category_rows]).order_by(
             'parent_id', 'sort_order', 'name', 'id'
@@ -601,10 +546,28 @@ class ArticleEditorForm(forms.Form):
             self.fields.pop('cover_asset')
 
     def clean_slug(self) -> str:
-        slug = normalize_slug(self.cleaned_data.get('slug', ''), self.cleaned_data.get('title', ''))
+        supplied = self.cleaned_data.get('slug', '').strip()
+        # A normal content edit must preserve an already-valid public slug.
+        # Legacy normalization replaces hyphens, silently changing live URLs.
+        slug = supplied if SLUG_RE.fullmatch(supplied) else normalize_slug(supplied, self.cleaned_data.get('title', ''))
         if not SLUG_RE.fullmatch(slug):
             raise forms.ValidationError('请使用小写英文、数字、下划线或短横线。')
         return slug
+
+    def clean_content_key(self) -> str:
+        key = self.cleaned_data.get('content_key', '')
+        if key:
+            if not self.fields['content_key'].disabled and not re.fullmatch(r'[a-z][A-Za-z0-9]{0,79}', key):
+                raise forms.ValidationError('新标识请使用小写字母开头的驼峰命名，最多80字符。')
+            rows = Article.objects.filter(
+                route__site=self.site, route__locale=self.locale,
+                config_json__contentKey=key,
+            )
+            if self.article:
+                rows = rows.exclude(pk=self.article.pk)
+            if rows.exists():
+                raise forms.ValidationError('当前语言已有这个关联标识的文章，请编辑原文章，避免重复译文。')
+        return key
 
     def clean(self) -> dict:
         cleaned = super().clean()
@@ -614,6 +577,8 @@ class ArticleEditorForm(forms.Form):
 
         if status == 'published' and not self.allow_publish:
             self.add_error('status', '当前账号不能把文章设为已发布。')
+        if status == 'published' and not cleaned.get('content_key') and 'content_key' not in self.errors:
+            self.add_error('content_key', '发布前请填写多语言文章关联标识，否则无法生成文章网页。可先保存为草稿。')
         if status == 'published' and not published_at:
             cleaned['published_at'] = timezone.now()
 
@@ -634,6 +599,39 @@ class ArticleEditorForm(forms.Form):
     @transaction.atomic
     def save(self) -> Article:
         data = self.cleaned_data
+        key = data.get('content_key')
+        original_key = (self.article.config_json or {}).get('contentKey') if self.article else None
+        if key and not original_key:
+            # Only identity allocation needs this scoped transaction lock.
+            # Normal edits keep an immutable key and do not take an extra lock.
+            if connection.vendor == 'postgresql':
+                lock_id = int.from_bytes(hashlib.sha256(
+                    f'article-identity:{self.site.pk}:{self.locale.pk}:{key}'.encode('utf-8')
+                ).digest()[:8], 'big', signed=True)
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT pg_advisory_xact_lock(%s)', [lock_id])
+            existing = Article.objects.filter(
+                route__site=self.site, route__locale=self.locale, config_json__contentKey=key,
+            )
+            if self.article:
+                existing = existing.exclude(pk=self.article.pk)
+            if existing.exists():
+                raise forms.ValidationError({'content_key': '这个关联标识刚被同语言的另一篇文章使用，本次未保存。请刷新核对原文章。'})
+        if self.article:
+            original = self.article
+            # Existing saves write the route before the article.  Keep that
+            # lock order for native edits and ZIP imports alike.
+            route = PageRoute.objects.select_for_update().filter(
+                pk=original.route_id, site=self.site, locale=self.locale,
+            ).first()
+            validate_current_content_write(original.route, route, allow_publish=self.allow_publish)
+            current = Article.objects.select_for_update().filter(
+                pk=original.pk, route_id=original.route_id,
+            ).first()
+            validate_current_content_write(original, current, allow_publish=self.allow_publish)
+            self.article = current
+        else:
+            route = PageRoute(site=self.site, locale=self.locale)
         status = data['status']
         published_at = data['published_at'] if status == 'published' else None
         path = f'/{self.locale.locale_code}/articles/{data["slug"]}/'
@@ -642,7 +640,6 @@ class ArticleEditorForm(forms.Form):
         og_title = data.get('og_title', '').strip() or data['title']
         og_description = data.get('og_description', '').strip() or meta_description
 
-        route = self.article.route if self.article else PageRoute(site=self.site, locale=self.locale)
         route.path = path
         route.route_type = 'article'
         route.status = status
@@ -685,6 +682,8 @@ class ArticleEditorForm(forms.Form):
         article.reading_minutes = data['reading_minutes']
         article.seo_json = article.seo_json or {}
         article.config_json = article.config_json or {}
+        if data.get('content_key'):
+            article.config_json['contentKey'] = data['content_key']
         if cover_asset:
             article.config_json['coverAssetId'] = cover_asset.id
         elif not preserve_existing_cover_binding:

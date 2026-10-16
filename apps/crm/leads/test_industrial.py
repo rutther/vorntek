@@ -58,7 +58,8 @@ class IndustrialInquiryTests(SimpleTestCase):
         payload = self.payload()
         payload['extra_fields']['application_context'] = '<script>example</script>'
         cleaned = self.clean(payload)
-        submission = SimpleNamespace(id=1, submitted_at=timezone.now(), **cleaned)
+        submission = SimpleNamespace(id=1, submitted_at=timezone.now(),
+            form=SimpleNamespace(category='industrial', form_schema={}), **cleaned)
         plain = _text_body(submission, reminder=False)
         markup = _html_body(submission, reminder=False)
         self.assertIn('应用背景', plain)

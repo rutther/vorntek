@@ -9,8 +9,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -25,6 +27,63 @@ from psycopg import sql
 ROOT = Path(__file__).resolve().parents[1]
 CRM = ROOT / 'apps' / 'crm'
 HISTORICAL_RELEASE_MIGRATION_COUNT = 26
+
+
+def require_schema_contract(output):
+    matches = re.findall(r'^Unmanaged schema contract passed: ([1-9][0-9]*) models, ([1-9][0-9]*) fields\.$',
+                         output.replace('\r\n','\n'),re.MULTILINE)
+    if len(matches)!=1:
+        raise RuntimeError('Expected unmanaged schema contract absent')
+    return tuple(map(int,matches[0]))
+
+
+def _sql_outside_quotes(value, end):
+    index = 0
+    while index < end:
+        if value[index] not in "'\"":
+            index += 1
+            continue
+        quote = value[index]
+        escaped = quote=="'" and index>0 and value[index-1] in 'Ee'
+        index += 1
+        while index<len(value):
+            if escaped and value[index]=='\\':
+                index += 2
+                continue
+            if value[index]==quote:
+                index += 1
+                if index<len(value) and value[index]==quote:
+                    index += 1
+                    continue
+                break
+            index += 1
+        if index>end: return False
+    return True
+
+
+def schema_identity(fingerprint):
+    """Admit only pg_dump's lossless varchar literal-array text cast reparse.
+
+    Names, literal bytes/order, operators, uniqueness, triggers, sequences and
+    other casts stay exact. Do not rewrite text inside quoted SQL literals.
+    """
+    element = r"'(?:''|[^'])*'::character varying"
+    array = re.compile(r'\(ARRAY\[(?P<items>'+element+r'(?:, '+element+r')*)\]\)::text\[\]')
+
+    def identity(value):
+        def replace(match):
+            if not _sql_outside_quotes(value,match.start()): return match[0]
+            return 'ARRAY['+', '.join('('+item+')::text' for item in re.findall(element,match['items']))+']'
+        return array.sub(replace,value)
+    return {key:[(*row[:-1],identity(row[-1])) for row in value] if key in ('constraints','indexes') else value
+            for key,value in fingerprint.items()}
+
+
+def require_stopped_delivery_schedule(state):
+    expected = {'refresh_pixel_page_catalog':'completed','retry_inbound_leads':'paused',
+                'dispatch_lead_outbox':'paused','send_lead_reminders':'paused'}
+    if state.get('state')!='stopped' or {name:row.get('status') for name,row in state.get('jobs',{}).items()}!=expected:
+        raise RuntimeError('Invalid stopped delivery schedule')
 
 
 def migration_count(directory):
@@ -52,9 +111,15 @@ def postgres_start_options(runtime, port, platform=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pg-bin', type=Path, required=True)
+    parser.add_argument('--baseline-checkout',type=Path,
+                        help='Separate clean frozen public main checkout for an actual source upgrade.')
     parser.add_argument('--http', action='store_true', help='Also exercise website-to-CRM HTTP using synthetic accounts.')
     parser.add_argument('--review-seconds', type=int, default=0, help='Keep the isolated HTTP server available briefly for browser review (max 900s).')
     args = parser.parse_args()
+    candidate_commit = None
+    if args.baseline_checkout:
+        from test_release_upgrade import validate_baseline_checkout
+        _,_,candidate_commit=validate_baseline_checkout(args.baseline_checkout,ROOT)
     if not 0 <= args.review_seconds <= 900 or (args.review_seconds and not args.http):
         parser.error('--review-seconds requires --http and must be between 0 and 900.')
     if (CRM / '.env').exists():
@@ -91,11 +156,14 @@ def main():
         'SITEOS_WEBSITE_RELEASE_ROOT': str(runtime / 'acceptance-crm-runtime' / 'website-releases'),
         'SITEOS_WEBSITE_SERVING_ROOT': str(runtime / 'acceptance-website-serving'),
         'SITEOS_WEBSITE_SOURCE_ROOT': str(ROOT / 'apps' / 'website'),
+        'SITEOS_PIXEL_CATALOG_PATH': str(runtime / 'pixel-pages.json'),
         'PYTHONIOENCODING': 'utf-8',
     })
     report = {'started_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
               'scope': 'unique local cluster; synthetic data only; no external integrations',
               'runtime_directory': str(runtime), 'checks': []}
+    if candidate_commit:
+        report['candidate_commit'] = candidate_commit
 
     def run(
         command,
@@ -104,13 +172,14 @@ def main():
         expected=0,
         contains=None,
         env_overrides=None,
+        cwd=None,
     ):
         child_env = dict(env, SITEOS_ADMIN_DATABASE_NAME=db, PGDATABASE=db)
         child_env.update(env_overrides or {})
         # A Windows postgres child can inherit pg_ctl's pipe handles after
         # pg_ctl exits. Files avoid waiting for the server to close those pipes.
         with tempfile.TemporaryFile() as output_file:
-            result = subprocess.run([str(part) for part in command], env=child_env, cwd=CRM,
+            result = subprocess.run([str(part) for part in command], env=child_env, cwd=cwd or CRM,
                                     stdout=output_file, stderr=subprocess.STDOUT, timeout=180)
             output_file.seek(0)
             output = output_file.read().decode('utf-8', errors='replace').replace(password, '[redacted]')
@@ -186,14 +255,15 @@ def main():
             conn.execute(sql.SQL('CREATE ROLE newcrown_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD {}')
                          .format(sql.Literal(password)))
             for db in ('newcrown_install', 'newcrown_restore', 'newcrown_upgrade', 'newcrown_unowned',
-                       'newcrown_archive_restore', 'newcrown_archive_failure', 'newcrown_archive_policy'):
+                       'newcrown_archive_restore', 'newcrown_archive_failure', 'newcrown_archive_policy',
+                       'newcrown_public_upgrade'):
                 conn.execute(sql.SQL('CREATE DATABASE {} OWNER newcrown_app').format(sql.Identifier(db)))
         checked('isolated_loopback_cluster_non_superuser_app', report['postgres_version'])
         before = fingerprint('newcrown_install')
         manage('initialize_database', contains='PLAN ONLY')
         assert fingerprint('newcrown_install') == before == {}, 'Planning wrote database tables'
         checked('empty_database_plan_does_not_write')
-        manage('initialize_database', '--apply', contains='62 models, 866 fields')
+        require_schema_contract(manage('initialize_database', '--apply'))
         checked('complete_sql_chain_install_as_non_superuser')
         manage('bootstrap_site')
         baseline = fingerprint('newcrown_install')
@@ -276,6 +346,9 @@ def main():
             ], contains='file_snapshot_restored')
             checked('website_candidate_runtime_snapshot_restored_to_new_root')
         else:
+            # Windows cannot prove POSIX symlink deployment, but the local
+            # inventory job still needs a real serving tree, not an absent root.
+            shutil.copytree(ROOT / 'apps' / 'website', runtime / 'acceptance-website-serving' / 'current')
             report['checks'].append({
                 'name': 'synthetic_website_deployment_posix_filesystem',
                 'result': 'skipped',
@@ -299,8 +372,7 @@ def main():
         manage('run_scheduled_tasks', '--once', '--heartbeat', str(heartbeat), contains='paused')
         assert fingerprint('newcrown_install') == before
         state = json.loads(heartbeat.read_text(encoding='utf-8'))
-        assert state['state'] == 'stopped' and len(state['jobs']) == 3
-        assert all(result['status'] == 'paused' for result in state['jobs'].values())
+        require_stopped_delivery_schedule(state)
         checked('paused_scheduler_preserves_all_rows_and_stops_cleanly')
 
         # Fixture only: a genuine previous release consists of SQL 1..26. Skip
@@ -330,6 +402,61 @@ with patch('console.management.commands.initialize_database.load_chain', return_
         )
         manage('check_unmanaged_schema', db='newcrown_upgrade')
         checked('upgrade_from_real_0026_schema_to_current')
+
+        if args.baseline_checkout:
+            from test_release_upgrade import preserved_original_rows
+            old_crm=args.baseline_checkout.resolve()/'apps/crm'
+            manage_old=lambda *cmd:run([sys.executable,'manage.py',*cmd],db='newcrown_public_upgrade',cwd=old_crm)
+            manage_old('initialize_database','--apply')
+            manage_old('bootstrap_site')
+            fixture='''from django.contrib.auth import get_user_model
+from django.utils import timezone
+from sitecore.models import Site,SiteLocale
+from leads.models import LeadSubmission,LeadFormDefinition,Company,Task,SalesTeam,SalesTeamMember
+from console.secret_store import store_secret
+site=Site.objects.get(code='siteos_demo')
+user=get_user_model().objects.create_superuser('upgrade-synthetic','upgrade@example.invalid','synthetic-test-only')
+team=SalesTeam.objects.get(site=site,code='default')
+SalesTeamMember.objects.create(team=team,user=user,membership_role='manager')
+company=Company.objects.create(site=site,name='Synthetic retained organization',normalized_name='synthetic retained organization',owner_user=user,team=team)
+lead=LeadSubmission.objects.create(site=site,form=LeadFormDefinition.objects.first(),full_name='Synthetic retained inquiry',email='inquiry@example.invalid',company=company.name,assignee=user,team=team,message='Retain this original inquiry',submitted_at=timezone.now(),stage_updated_at=timezone.now())
+Task.objects.create(site=site,submission=lead,company=company,team=team,owner_user=user,created_by_user=user,title='Synthetic retained next step',due_at=timezone.now(),status='open')
+store_secret(secret_key='synthetic-upgrade-vault',plaintext='synthetic-test-value',updated_by=user.username)
+'''
+            manage_old('shell','-c',fixture)
+            with connect('newcrown_public_upgrade') as conn:
+                old_columns={}
+                for table,column in conn.execute("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position"):
+                    if table != 'siteos_schema_migration':
+                        old_columns.setdefault(table,[]).append(column)
+                def original_rows():
+                    state={}
+                    for table,columns in old_columns.items():
+                        statement=sql.SQL('SELECT row_to_json(original)::text FROM (SELECT {} FROM public.{}) original ORDER BY row_to_json(original)::text').format(
+                            sql.SQL(',').join(map(sql.Identifier,columns)),sql.Identifier(table))
+                        state[table]=[hashlib.sha256(row[0].encode()).hexdigest() for row in conn.execute(statement)]
+                    return state
+                before_upgrade=original_rows()
+                require_schema_contract(manage('initialize_database','--apply',db='newcrown_public_upgrade'))
+                after_upgrade=original_rows()
+                differences=[{'table':table,'before_rows':len(before_upgrade[table]),'after_rows':len(after_upgrade[table])}
+                             for table in before_upgrade if before_upgrade[table]!=after_upgrade[table]]
+                report['public_upgrade_differences']=differences
+                assert preserved_original_rows(before_upgrade,after_upgrade),'Actual public-source upgrade changed original column values: '+json.dumps(differences)
+                manage('initialize_database','--apply',db='newcrown_public_upgrade',contains='pending: 0')
+                assert original_rows()==after_upgrade,'Repeated upgrade changed original rows'
+            verification='''from django.contrib.auth import authenticate
+from console.secret_store import load_secret
+from leads.models import Task,LeadSubmission
+assert authenticate(username='upgrade-synthetic',password='synthetic-test-only') is not None
+assert load_secret('synthetic-upgrade-vault')=='synthetic-test-value'
+assert Task.objects.get(title='Synthetic retained next step').status=='open'
+assert LeadSubmission.objects.get(email='inquiry@example.invalid').message=='Retain this original inquiry'
+print('SYNTHETIC_UPGRADE_PRESERVED')
+'''
+            manage('shell','-c',verification,db='newcrown_public_upgrade',contains='SYNTHETIC_UPGRADE_PRESERVED')
+            checked('actual_public_main_0032_upgrade_preserves_all_old_columns_password_vault_and_tasks',
+                    {'baseline':'6d3eefe7e5e124c31d175a1bfc971b58dd197082','original_tables':len(old_columns)})
 
         failure = '''import os; os.environ['DJANGO_SETTINGS_MODULE']='siteos_admin.settings'
 import django; django.setup()
@@ -366,7 +493,7 @@ with patch('console.management.commands.initialize_database.load_chain', return_
              '-d', 'newcrown_restore', dump])
         assert fingerprint('newcrown_restore') == fingerprint('newcrown_install'), 'Restored rows differ'
         source_schema = schema_fingerprint('newcrown_install')
-        assert schema_fingerprint('newcrown_restore') == source_schema, 'Restored constraints, indexes, triggers or sequences differ'
+        assert schema_identity(schema_fingerprint('newcrown_restore')) == schema_identity(source_schema), 'Restored constraints, indexes, triggers or sequences differ'
         manage('initialize_database', '--apply', db='newcrown_restore', contains='pending: 0')
         manage('check_unmanaged_schema', db='newcrown_restore')
         manage('shell', '-c', "from console.secret_store import load_secret; "
@@ -472,7 +599,7 @@ with patch('console.management.commands.initialize_database.load_chain', return_
         archive('restore', '--apply', '--trusted-archive', '--writers-stopped',
                 db=restore_db, contains='database_restored')
         assert fingerprint(restore_db) == fingerprint('newcrown_install')
-        assert schema_fingerprint(restore_db) == source_schema
+        assert schema_identity(schema_fingerprint(restore_db)) == schema_identity(source_schema)
         manage('shell', '-c', "from console.secret_store import load_secret; "
                "assert load_secret('synthetic.recovery') == 'synthetic-test-only'", db=restore_db)
         before = fingerprint(restore_db)
@@ -568,8 +695,10 @@ with patch('console.management.commands.initialize_database.load_chain', return_
             assert seeded[table]['rows'] == 200, table
         for table in set(seeded) - seed_tables:
             assert seeded[table] == seed_before[table], f'Seed changed unrelated table: {table}'
+        contexts = json.loads((CRM / 'console/data/customer_examples.json').read_text(encoding='utf-8'))['contexts']
         with connect(seed_db) as conn:
-            assert conn.execute('SELECT count(DISTINCT industry) FROM crm_company').fetchone()[0] == 7
+            actual_contexts = {row[0] for row in conn.execute('SELECT DISTINCT industry FROM crm_company')}
+            assert actual_contexts == {row['label'] for row in contexts}, 'Seed omitted or invented configured example contexts'
             assert dict(conn.execute('SELECT source_type,count(*) FROM crm_customer_source GROUP BY source_type').fetchall()) == {
                 'manual': 40, 'research': 40, 'website_form': 40, 'meta_native': 40, 'other': 40}
             assert dict(conn.execute('SELECT state,count(*) FROM crm_company_pool_state GROUP BY state').fetchall()) == {
@@ -578,7 +707,7 @@ with patch('console.management.commands.initialize_database.load_chain', return_
                 status='do_not_contact' AND usage_status='restricted' AND
                 normalized_value LIKE '%@example.invalid' AND evidence_json->>'synthetic'='true'""").fetchone()[0] == 200
             assert conn.execute("SELECT count(*) FROM crm_customer_source WHERE evidence_status='declared' AND submission_id IS NULL").fetchone()[0] == 200
-        checked('demo_200_customers_seven_industries_five_sources_no_accounts_messages_or_outbox')
+        checked('demo_200_customers_configured_contexts_five_sources_no_accounts_messages_or_outbox')
         manage('seed_vorntek_demo', '--apply', '--synthetic-only', db=seed_db,
                expected=1, contains='Customer database is not empty')
         assert fingerprint(seed_db) == seeded
@@ -661,6 +790,30 @@ for username,role in [('local-admin','system_admin'),('local-sales','sales')]:
                 with connect('newcrown_http_test') as conn:
                     browser_rows = conn.execute("SELECT count(*) FROM lead_submission WHERE email='browser-local-check@example.invalid'").fetchone()[0]
                 report['browser_review_submission_count'] = browser_rows
+        # Exercise the added importer against the actual SQL constraints, not
+        # merely SQLite's generated model tables. This cluster is exclusively
+        # synthetic; ordinary application role still cannot create databases.
+        with connect('postgres','postgres') as conn:
+            conn.execute('CREATE DATABASE newcrown_native_test OWNER newcrown_app')
+        manage('initialize_database','--apply',db='newcrown_native_test')
+        native_tests='''import os, socket, django
+os.environ['DJANGO_SETTINGS_MODULE']='siteos_admin.settings'
+from unittest.mock import patch
+from django.conf import settings
+assert settings.DATABASES['default']['NAME']=='newcrown_native_test'
+settings.DATABASES['default']['TEST']={'NAME':'newcrown_native_test'}
+django.setup()
+from django.core.management import call_command
+original=socket.socket.connect
+def guarded(sock,address):
+    if not isinstance(address,tuple) or address[0] not in ('127.0.0.1','::1','localhost'):
+        raise OSError('Native test refuses external connections')
+    return original(sock,address)
+with patch.object(socket.socket,'connect',guarded):
+    call_command('test','console.test_industrial_examples',keepdb=True,interactive=False,verbosity=1)
+'''
+        run([sys.executable,'-c',native_tests],db='newcrown_native_test',contains='OK')
+        checked('industrial_example_lifecycle_under_canonical_postgres_constraints')
         report['result'] = 'passed'
     except Exception as exc:
         report['result'] = 'failed'

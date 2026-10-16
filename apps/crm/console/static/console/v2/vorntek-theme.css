@@ -61,6 +61,18 @@ body.nc-body {
     text-decoration: none;
 }
 
+/* 链接式按钮：文字用按钮自身的颜色（否则主按钮上会是深色字）。 */
+.nc-body a.btn {
+    color: var(--tblr-btn-color);
+}
+
+.nc-body a.btn:hover,
+.nc-body a.btn:focus-visible,
+.nc-body a.btn:active,
+.nc-body a.btn.active {
+    color: var(--tblr-btn-hover-color);
+}
+
 .nc-body button,
 .nc-body input,
 .nc-body select,
@@ -78,6 +90,7 @@ body.nc-body {
     outline-offset: 2px;
 }
 
+/* 按钮只有三档：实心＝主行动（700）、描边·幽灵＝次（650）、悬停一律软底，只有实心按钮才在悬停时加深。 */
 .nc-body .btn-primary {
     --tblr-btn-bg: var(--nc-blue);
     --tblr-btn-border-color: var(--nc-blue);
@@ -87,8 +100,16 @@ body.nc-body {
     box-shadow: none;
 }
 
+.nc-body .btn-danger {
+    font-weight: 700;
+    box-shadow: none;
+}
+
+.nc-body .btn-outline-primary,
 .nc-body .btn-outline-secondary,
-.nc-body .btn-ghost-secondary {
+.nc-body .btn-outline-danger,
+.nc-body .btn-ghost-secondary,
+.nc-body .btn-ghost-danger {
     font-weight: 650;
 }
 
@@ -98,6 +119,44 @@ body.nc-body {
     --tblr-btn-hover-bg: #f4f7fb;
     --tblr-btn-hover-color: var(--nc-text);
     --tblr-btn-hover-border-color: #aebbc9;
+}
+
+.nc-body .btn-outline-primary {
+    --tblr-btn-color: var(--nc-blue-strong);
+    --tblr-btn-border-color: var(--nc-blue);
+    --tblr-btn-hover-bg: var(--nc-blue-soft);
+    --tblr-btn-hover-color: var(--nc-blue-strong);
+    --tblr-btn-hover-border-color: var(--nc-blue-strong);
+}
+
+.nc-body .btn-ghost-secondary {
+    --tblr-btn-color: #40506a;
+    --tblr-btn-hover-bg: var(--nc-slate-soft);
+    --tblr-btn-hover-color: var(--nc-text);
+    --tblr-btn-hover-border-color: transparent;
+    --tblr-btn-active-bg: var(--nc-slate-soft);
+    --tblr-btn-active-color: var(--nc-text);
+    --tblr-btn-active-border-color: transparent;
+    --tblr-btn-active-shadow: none;
+}
+
+.nc-body .btn-outline-danger {
+    --tblr-btn-color: var(--nc-red);
+    --tblr-btn-border-color: var(--nc-red);
+    --tblr-btn-hover-bg: var(--nc-red-soft);
+    --tblr-btn-hover-color: var(--nc-red);
+    --tblr-btn-hover-border-color: var(--nc-red);
+}
+
+.nc-body .btn-ghost-danger {
+    --tblr-btn-color: var(--nc-red);
+    --tblr-btn-hover-bg: var(--nc-red-soft);
+    --tblr-btn-hover-color: var(--nc-red);
+    --tblr-btn-hover-border-color: transparent;
+    --tblr-btn-active-bg: var(--nc-red-soft);
+    --tblr-btn-active-color: var(--nc-red);
+    --tblr-btn-active-border-color: transparent;
+    --tblr-btn-active-shadow: none;
 }
 
 .nc-body .dropdown-menu,

@@ -100,29 +100,38 @@ def _diagnostic_evidence_level(diagnostic: dict) -> str:
     return 'local'
 
 
-@transaction.atomic
 def record_integration_diagnostic(
     *,
     integration: MarketingIntegration,
     actor,
+    diagnostic: dict | None = None,
 ) -> tuple[dict, IntegrationCheck]:
-    diagnostic = diagnose_marketing_integration(integration)
-    evidence = IntegrationCheck.objects.create(
-        integration=integration,
-        actor_user=actor if getattr(actor, 'is_authenticated', False) else None,
-        check_type='connection',
-        delivery_mode='validation',
-        status={
-            'pass': 'passed',
-            'warn': 'warning',
-            'fail': 'failed',
-        }.get(str(diagnostic.get('overall') or ''), 'unknown'),
-        evidence_level=_diagnostic_evidence_level(diagnostic),
-        summary=str(diagnostic.get('summary') or ''),
-        details_json=diagnostic,
-    )
-    integration.config_json = {**(integration.config_json or {}), 'last_diagnostic': diagnostic}
-    integration.save(update_fields=['config_json', 'updated_at'])
+    expected_version = integration.updated_at
+    if diagnostic is None:
+        diagnostic = diagnose_marketing_integration(integration)
+    with transaction.atomic():
+        current = MarketingIntegration.objects.select_for_update(of=('self',)).get(
+            pk=integration.pk, site_id=integration.site_id)
+        if current.updated_at != expected_version:
+            raise ValidationError({'version': '接入配置已更新，请刷新后重新检查连接。'})
+        evidence = IntegrationCheck.objects.create(
+            integration=current,
+            actor_user=actor if getattr(actor, 'is_authenticated', False) else None,
+            check_type='connection',
+            delivery_mode='validation',
+            status={
+                'pass': 'passed',
+                'warn': 'warning',
+                'fail': 'failed',
+            }.get(str(diagnostic.get('overall') or ''), 'unknown'),
+            evidence_level=_diagnostic_evidence_level(diagnostic),
+            summary=str(diagnostic.get('summary') or ''),
+            details_json=diagnostic,
+        )
+        current.config_json = {**(current.config_json or {}), 'last_diagnostic': diagnostic}
+        current.save(update_fields=['config_json', 'updated_at'])
+        integration.config_json = current.config_json
+        integration.updated_at = current.updated_at
     return diagnostic, evidence
 
 
@@ -301,6 +310,7 @@ def execute_privacy_action(
     *,
     privacy_request: PrivacyRequest,
     actor,
+    operator_note: str = '',
 ) -> dict:
     if privacy_request.status != 'processing':
         raise ValidationError({'status': '隐私请求进入“处理中”后才能执行。'})
@@ -415,7 +425,8 @@ def execute_privacy_action(
         ).count()
         resolution = (
             f'已匿名化 {len(submission_ids)} 条线索和 {len(contact_ids)} 个联系人；'
-            f'删除 {attachments_removed} 个仅绑定个人记录的私有附件；'
+            f'已退役 {attachments_removed} 个仅绑定个人记录的私有附件记录；'
+            '文件物理清理结果需在系统数据治理中单独核对；'
             f'{retained_evidence} 条不可变业务活动记录按审计策略保留。'
         )
     else:
@@ -428,6 +439,10 @@ def execute_privacy_action(
         'contact_count': len(contact_ids),
         'retained_immutable_activity_count': retained_evidence,
     }
+    note = str(operator_note or '').strip()
+    if note:
+        privacy_request.request_json.update(execution_note=note, execution_summary=resolution)
+        resolution = f'人工处理说明：{note}\n\n系统执行摘要：{resolution}'
     privacy_request.save(update_fields=['request_json', 'updated_at'])
     transition_privacy_request(
         privacy_request=privacy_request,
@@ -446,6 +461,12 @@ def execute_privacy_action(
         'submission_count': len(submission_ids),
         'contact_count': len(contact_ids),
         'retained_immutable_activity_count': retained_evidence,
+        'private_attachments_retired': attachments_removed if privacy_request.request_type == 'delete' else 0,
+        'private_attachment_cleanup_status': (
+            'separate_verification_required' if privacy_request.request_type == 'delete' and attachments_removed
+            else 'not_applicable'
+        ),
+        # Compatibility alias counts retired records, never physical unlink success.
         'private_attachments_removed': attachments_removed if privacy_request.request_type == 'delete' else 0,
         'resolution': resolution,
     }

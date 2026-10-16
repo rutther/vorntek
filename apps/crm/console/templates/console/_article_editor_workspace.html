@@ -31,6 +31,12 @@
                         {% for error in editor_form.slug.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
                     </label>
                 </div>
+                    <label class="field field-block">
+                        <span class="field-label">多语言文章关联标识</span>
+                        {{ editor_form.content_key }}
+                        <small class="field-help">{{ editor_form.content_key.help_text }}</small>
+                        {% for error in editor_form.content_key.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
                 <div class="field-grid cols-3 article-editor-routing-grid">
                     <div class="field field-block">
                         <span class="field-label">文章分类</span>
@@ -184,7 +190,7 @@
                 <div class="editor-card-head">
                     <div>
                         <h2>操作</h2>
-                        <p>完成编辑后保存；预览会在新窗口打开前台页面。</p>
+                        <p>先保存正文，再打开私有预览工作区；生成预览不会公开发布。</p>
                     </div>
                 </div>
                 <div class="side-actions">

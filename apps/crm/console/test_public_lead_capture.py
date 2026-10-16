@@ -21,6 +21,9 @@ from leads.models import (
     Contact,
     LeadConversion,
     LeadEventOutbox,
+    LeadNotificationAttempt,
+    LeadEventResult,
+    LeadEventAttempt,
     LeadFormDefinition,
     LeadSubmission,
     Opportunity,
@@ -58,6 +61,9 @@ class PublicLeadCaptureVerticalTests(TestCase):
         Activity,
         Task,
         LeadEventOutbox,
+        LeadNotificationAttempt,
+        LeadEventResult,
+        LeadEventAttempt,
         AuditLog,
     )
 
@@ -216,7 +222,7 @@ class PublicLeadCaptureVerticalTests(TestCase):
         self.assertEqual(body['queued_events'], 0)
         self.assertEqual(body['dispatch_attempted'], 0)
         self.assertEqual(body['dispatch_succeeded'], 0)
-        notify.assert_called_once()
+        notify.assert_not_called()
         dispatch.assert_not_called()
 
         submission = LeadSubmission.objects.get()
@@ -279,7 +285,7 @@ class PublicLeadCaptureVerticalTests(TestCase):
         self.assertEqual(LeadSubmission.objects.count(), 1)
         self.assertEqual(ConsentRecord.objects.count(), 3)
         self.assertEqual(LeadEventOutbox.objects.count(), 0)
-        notify.assert_called_once()
+        notify.assert_not_called()
         dispatch.assert_not_called()
 
     def test_invalid_payload_matrix_fails_closed_without_persistence(self):
@@ -385,7 +391,7 @@ class PublicLeadCaptureVerticalTests(TestCase):
         self.assertEqual(LeadSubmission.objects.count(), 2)
         self.assertEqual(ConsentRecord.objects.count(), 6)
         self.assertEqual(LeadEventOutbox.objects.count(), 0)
-        self.assertEqual(notify.call_count, 2)
+        notify.assert_not_called()
         dispatch.assert_not_called()
 
     def test_service_failure_rolls_back_submission_and_consent(self):
@@ -412,8 +418,13 @@ class PublicLeadCaptureVerticalTests(TestCase):
         payload = self.valid_payload(suffix='race', marketing=False)
         cleaned = clean_submission_input(payload, form_definition=self.form)
         competing = {}
+        from leads import services
+        original_lock = services._acquire_dedupe_lock
 
         def insert_competing_submission(dedupe_key):
+            original_lock(dedupe_key)
+            if dedupe_key != cleaned['dedupe_key'] or competing:
+                return
             created = LeadSubmission.objects.create(
                 form=self.form,
                 site=self.site,

@@ -16,3 +16,8 @@
 *.jpeg binary
 *.webp binary
 *.woff2 binary
+*.sog binary
+# Preserve the pinned upstream bundle, including whitespace inside shader text.
+apps/crm/console/static/console/vendor/supersplat/1.37.0/index.js -text -whitespace
+# Generated from that exact bundle with the documented local camera API addition.
+apps/crm/console/static/console/vendor/supersplat/1.37.0/siteos-viewer.js -text -whitespace

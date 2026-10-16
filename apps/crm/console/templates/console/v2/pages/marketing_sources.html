@@ -1,0 +1,27 @@
+{% extends 'console/v2/base.html' %}
+{% load static %}
+{% block title %}来源分析 · Vorntek{% endblock %}
+{% block breadcrumb %}<span>营销</span><i data-lucide="chevron-right" aria-hidden="true"></i><strong>来源分析</strong>{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/integration-registry.css' %}?v=20261008-system-r1"><link rel="stylesheet" href="{% static 'console/marketing-sources.css' %}?v=20261008-system">{% endblock %}
+{% block content %}
+<div class="ir-workspace sources-workspace">
+  <header class="ir-heading"><div><h1>来源分析</h1><p>查看 CRM 记录的来源与销售阶段，不是广告平台归因报告。</p></div><a class="ir-button" href="{% url 'console:marketing_plans' %}">管理获客方案 <i data-lucide="arrow-right" aria-hidden="true"></i></a></header>
+  <nav class="sources-tabs" aria-label="分析内容"><a href="{% url 'console:marketing_attribution' %}" {% if not matching_tab %}aria-current="page"{% endif %}>来源与销售结果</a><a href="{% url 'console:marketing_attribution' %}?tab=matching" {% if matching_tab %}aria-current="page"{% endif %}>匹配字段完整率</a></nav>
+  {% if load_error %}<section class="ir-card ir-empty" role="alert"><h2>来源数据暂时无法读取</h2><p>这不表示没有线索。请稍后重新载入。</p><a class="ir-button" href="{{ request.get_full_path }}">重新载入</a></section>
+  {% else %}
+    {% if matching_tab %}
+      <div class="sources-basis"><strong>字段完整不等于平台匹配成功</strong><p>统计本站已同意营销的 {{ overview.matching_completeness.eligible_leads }} 条线索。这里检查标识字段是否存在，不验证真实性、平台接收或匹配结果。</p></div>
+      {% if overview.matching_completeness.eligible_leads %}
+      <div class="ir-card"><table class="sources-table"><caption class="visually-hidden">已同意营销的线索字段完整率</caption><thead><tr><th scope="col">字段类别</th><th scope="col">已填写</th><th scope="col">可统计线索</th><th scope="col">完整率</th></tr></thead><tbody>{% for row in matching_rows %}<tr><th scope="row">{{ row.label }}</th><td data-label="已填写">{{ row.count }}</td><td data-label="可统计线索">{{ overview.matching_completeness.eligible_leads }}</td><td data-label="完整率">{{ row.percent }}%</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="ir-card ir-empty"><h2>暂无可统计的营销同意线索</h2><p>没有统计样本，不代表字段质量已通过。</p></div>{% endif %}
+    {% else %}
+      <dl class="sources-totals"><div><dt>本站累计线索</dt><dd>{{ overview.funnel.total }}</dd></div><div><dt>曾经联系</dt><dd>{{ overview.funnel.contacted }}</dd></div><div><dt>曾经合格</dt><dd>{{ overview.funnel.qualified }}</dd></div><div><dt>当前成交</dt><dd>{{ overview.funnel.won }}</dd></div></dl>
+      <div class="ir-card"><table class="sources-table"><caption class="visually-hidden">按CRM来源字段汇总的销售结果</caption><thead><tr><th scope="col">CRM 来源</th><th scope="col">线索</th><th scope="col">曾经联系</th><th scope="col">曾经合格</th><th scope="col">当前成交</th><th scope="col">成交金额</th></tr></thead><tbody>{% for row in sources %}<tr><th scope="row">{{ row.label }}</th><td data-label="线索">{{ row.leads }}</td><td data-label="曾经联系">{{ row.contacted }}</td><td data-label="曾经合格">{{ row.qualified }}</td><td data-label="当前成交">{{ row.won }}</td><td data-label="成交金额">{{ row.won_value }}</td></tr>{% empty %}<tr><td colspan="6"><div class="ir-empty"><h2>本站尚无线索记录</h2><p>来源统计会在 CRM 接收到实际线索后出现。空数据不代表接入已验证。</p></div></td></tr>{% endfor %}</tbody></table></div>
+      <details class="sources-method" open><summary>统计口径</summary><ul><li>本站累计数据，按 CRM 的 <code>source_channel</code> 分组；没有时间窗、广告曝光或跨设备归因。</li><li>联系与合格按对应时间记录是否存在统计；成交按当前阶段为“成交”统计。历史时间记录缺失会影响累计数量。</li><li>成交金额来自 CRM；不同币种分别列出，不换汇合计。没有广告成本数据，不计算 ROI 或 ROAS。</li><li>未知来源如实保留；不把未知来源推定为自然访问或广告贡献。</li></ul></details>
+    {% endif %}
+    <p class="ir-footnote">读取时间：<time datetime="{{ overview.generated_at|date:'c' }}">{{ overview.generated_at|date:'Y-m-d H:i:s' }}</time> · {{ site.name }}</p>
+  {% endif %}
+  <footer class="sources-footer"><a href="{% url 'console:marketing_events' %}">查看事件收发证据 <i data-lucide="arrow-right" aria-hidden="true"></i></a><details><summary>高级追踪配置</summary><p>保留原有规则维护入口，不影响当前方案。</p><div><a href="{% url 'console:marketing' %}?tab=ctas">CTA</a><a href="{% url 'console:marketing' %}?tab=rules">追踪规则</a><a href="{% url 'console:marketing' %}?tab=mappings">事件映射</a></div></details></footer>
+</div>
+{% endblock %}
+{% block extra_scripts %}<script src="{% static 'console/marketing-legacy-entry.js' %}?v=20261008-system"></script>{% endblock %}

@@ -29,9 +29,12 @@ from .content_access import (
 )
 from .marketing_queries import build_marketing_overview
 from .navigation import SECTION_MAP
+from .preview_navigation import custom_preview_configured, preview_workflow_entry
 
 
-PUBLIC_PREVIEW_BASE_URL = os.getenv('SITEOS_PREVIEW_BASE_URL', 'http://127.0.0.1:25000').rstrip('/')
+PUBLIC_PREVIEW_BASE_URL = os.getenv(
+    'SITEOS_PREVIEW_BASE_URL', os.getenv('NEWCROWN_SITE_URL', 'http://127.0.0.1:25000'),
+).rstrip('/')
 
 
 def admin_locale_label(locale: SiteLocale) -> str:
@@ -91,6 +94,8 @@ def latest_content_update(site: Site):
 def format_admin_datetime(value) -> str:
     if not value:
         return '未设置'
+    if timezone.is_aware(value):
+        value = timezone.localtime(value)
     return value.strftime('%Y-%m-%d %H:%M')
 
 
@@ -1221,15 +1226,17 @@ def releases_payload(
         {'key': 'releases', 'label': '内容快照'},
     ]
     payload['actions'] = []
-    if RELEASES_PREVIEW_BUILD in capabilities:
+    preview_entry = preview_workflow_entry(capabilities)
+    if preview_entry['url']:
+        action_builder = link_action if preview_entry['method'] == 'get' else post_action
         payload['actions'].append(
-            post_action('生成预览产物', reverse('console:release_build_preview'), tone='primary')
+            action_builder('生成预览产物', preview_entry['url'], tone='primary')
         )
-    if can_article_preview:
+    if can_article_preview and custom_preview_configured():
         payload['actions'].append(
             post_action(
-                '生成文章私有预览',
-                reverse('console:article_release_preview'),
+                '构建自定义前端',
+                reverse('console:release_build_preview'),
                 tone='secondary',
             )
         )

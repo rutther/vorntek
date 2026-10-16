@@ -196,9 +196,11 @@ class GenericTablePayloadContractTests(SimpleTestCase):
         incomplete = payload_for({RELEASES_READ, RELEASES_PREVIEW_BUILD})
         complete = payload_for({CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD})
 
-        self.assertNotIn('生成文章私有预览', [action['label'] for action in incomplete['actions']])
+        preview_url = reverse('console:article_release_preview')
+        self.assertNotIn(preview_url, [action['href'] for action in incomplete['actions']])
         self.assertEqual(incomplete['views']['releases']['table']['rows'][0]['actions'], [])
-        self.assertIn('生成文章私有预览', [action['label'] for action in complete['actions']])
+        entry = next(action for action in complete['actions'] if action['href'] == preview_url)
+        self.assertEqual((entry['kind'], entry['tone']), ('link', 'primary'))
         self.assertEqual(
             complete['views']['releases']['table']['rows'][0]['actions'][0]['label'],
             '打开文章私有预览',
@@ -348,6 +350,12 @@ class GenericTablePayloadContractTests(SimpleTestCase):
 
 
 class ContentAccessibilityDomContractTests(SimpleTestCase):
+    def test_rendered_deployment_guidance_is_independent_of_customer_environment(self):
+        from django.template.loader import render_to_string
+        html = render_to_string('console/_website_deployment_workspace.html', {'resume_allowed': True})
+        self.assertIn('会改变本安装的公开网站服务指针', html)
+        self.assertNotIn('香港', html)
+
     def test_candidate_selection_template_states_non_deploying_boundary(self):
         template = (
             TEMPLATE_ROOT / '_website_candidate_selection_workspace.html'
@@ -441,7 +449,7 @@ class ThreeDResponsiveTableContractTests(SimpleTestCase):
                     'name': '首页设备预览',
                     'code': 'home-equipment',
                     'assetName': '灌装线模型',
-                    'purposeLabel': '首页 3D 设备预览',
+                    'purposeLabel': '首页 3D 展示区',
                     'background': '#ffffff',
                     'fov': 45,
                     'autoRotateLabel': '自动 / 20 秒',

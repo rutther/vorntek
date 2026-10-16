@@ -14,6 +14,9 @@ from .marketing_services import (
     privacy_subject_submissions,
 )
 from .models import AuditLog
+from .crm_files import attachment_storage_root
+from .crm_upload_recovery import pending_upload_count
+from django.core.exceptions import ValidationError
 from .payloads import format_admin_datetime
 from .privacy_retention import retention_preview
 from .privacy_versions import retention_policy_version_token
@@ -41,9 +44,11 @@ PRIVACY_AUDIT_ACTIONS = frozenset({
     'privacy_request_executed',
     'privacy_retention_policy_updated',
     'privacy_retention_policy_executed',
+    'private_attachment_cleanup_requested',
 })
 
 AUDIT_ACTION_LABELS = {
+    'private_attachment_cleanup_requested': '重试附件物理清理',
     'privacy_request_created': '登记隐私请求',
     'privacy_request_status_changed': '更新隐私请求状态',
     'privacy_request_exported': '下载数据导出包',
@@ -237,6 +242,19 @@ def build_data_governance_workspace(*, site) -> dict:
             'metadata': entry.metadata_json or {},
         })
     candidate_counts = preview['candidates']
+    pending_files = CrmAttachment.objects.filter(site=site).exclude(purge_storage_path='')
+    cleanup = pending_files.aggregate(
+        pending_retired=Count('pk'),
+        filesystem=Count('pk', filter=Q(purge_error_code='filesystem')),
+        shared=Count('pk', filter=Q(purge_error_code='shared')),
+        invalid_path=Count('pk', filter=Q(purge_error_code='invalid_path')),
+    )
+    try:
+        cleanup['pending_uploads'] = pending_upload_count(root=attachment_storage_root(), site_id=site.pk)
+        cleanup['upload_available'] = True
+    except (OSError, ValidationError):
+        cleanup['pending_uploads'] = None
+        cleanup['upload_available'] = False
     destructive_candidate_total = sum(
         candidate_counts[key]
         for key in (
@@ -255,4 +273,5 @@ def build_data_governance_workspace(*, site) -> dict:
         'high_risk_rows': high_risk_rows,
         'high_risk_count': high_risk_queryset.count(),
         'audit_rows': audit_rows,
+        'file_cleanup': cleanup,
     }

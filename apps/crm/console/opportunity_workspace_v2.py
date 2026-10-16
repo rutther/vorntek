@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from leads.crm_services import OPPORTUNITY_STAGE_TRANSITIONS
+from leads.form_schema import CORE_FIELDS, FormSchemaError, configured_submission_fields
 from leads.models import (
     Activity,
     CrmAttachment,
@@ -370,7 +371,8 @@ def _row_payload(item: Opportunity, *, filters: OpportunityWorkspaceV2Filters, n
         'name': item.name,
         'detail_url': detail_url,
         'company': item.company.name if item.company else '未关联企业',
-        'contact': item.primary_contact.full_name if item.primary_contact else '未关联联系人',
+        'contact': (item.primary_contact.full_name or item.primary_contact.email or item.primary_contact.phone
+                    or f'联系人 #{item.primary_contact.pk}') if item.primary_contact else '未关联联系人',
         'stage': {
             'value': item.stage,
             'label': STAGE_LABELS.get(item.stage, item.stage or '未知阶段'),
@@ -652,7 +654,7 @@ def build_opportunity_detail_workspace_v2(*, request, site, opportunity_id: int,
     now = now or timezone.now()
     scoped = opportunity_queryset_for_user(
         Opportunity.objects.filter(site=site).select_related(
-            'company', 'primary_contact', 'owner_user', 'team', 'source_submission'
+            'company', 'primary_contact', 'owner_user', 'team', 'source_submission__form'
         ),
         request.user,
     )
@@ -709,6 +711,26 @@ def build_opportunity_detail_workspace_v2(*, request, site, opportunity_id: int,
             args=[opportunity.source_submission_id],
         )
 
+    scope = {'product_scope_label':'需求范围', 'capacity_target_label':'项目参数',
+             'packaging_format_label':'补充要求', 'source_fields':[], 'source_fields_error':''}
+    # Do not expose extra inquiry values to someone who can read only the
+    # opportunity, not its source lead. Existing source-link permissions apply.
+    if source_lead_url:
+        try:
+            fields = configured_submission_fields(opportunity.source_submission)
+        except FormSchemaError:
+            scope['source_fields_error'] = '来源表单配置无效；已保存的项目资料仍保留。'
+        else:
+            if fields is None:
+                scope.update(product_scope_label='产品范围', capacity_target_label='产能目标',
+                             packaging_format_label='包装形式')
+            else:
+                labels = {field['name']:field['label'] for field in fields}
+                scope['product_scope_label'] = labels.get('product_category', '需求范围')
+                scope['capacity_target_label'] = labels.get('capacity', '项目参数')
+                scope['source_fields'] = [field for field in fields
+                    if field['name'] not in CORE_FIELDS | {'product_category', 'capacity'}]
+
     can_write = can_sales(request.user, SalesCapability.WRITE, record=opportunity)
     can_assign = can_sales(request.user, SalesCapability.ASSIGN, record=opportunity)
     for choice in owner_choices:
@@ -733,6 +755,7 @@ def build_opportunity_detail_workspace_v2(*, request, site, opportunity_id: int,
         'back_url': back_url,
         'record': {
             **row,
+            **scope,
             'source_channel': SOURCE_LABELS.get(opportunity.source_channel, opportunity.source_channel or '未填写'),
             'source_detail': (opportunity.source_detail or '').strip() or '未填写',
             'source_lead_id': opportunity.source_submission_id,

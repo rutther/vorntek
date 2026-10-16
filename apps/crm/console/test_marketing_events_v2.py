@@ -6,7 +6,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import DatabaseError, connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -39,7 +39,10 @@ from marketing.models import (
 from sitecore.models import Cta, PageRoute, Site, SiteLocale
 
 
+@override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
 class MarketingEventWorkspaceTests(TestCase):
+    # Retry contract cases explicitly opt into dispatch inside a credential-free,
+    # transport-blocked test process; do not depend on the runner's quiet default.
     unmanaged_models = (
         Site,
         SiteLocale,
@@ -96,11 +99,11 @@ class MarketingEventWorkspaceTests(TestCase):
         self.sales = self._user('marketing-sales', ROLE_SALES)
         self.site, self.locale, self.form = self._site_bundle('siteos_demo')
         self.other_site, self.other_locale, self.other_form = self._site_bundle('other')
-        self.meta = MarketingProvider.objects.create(
-            code='meta', name='Meta', enabled=True, capabilities={},
+        self.meta, _ = MarketingProvider.objects.get_or_create(
+            code='meta', defaults={'name': 'Meta', 'enabled': True, 'capabilities': {}},
         )
-        self.google = MarketingProvider.objects.create(
-            code='google', name='Google', enabled=True, capabilities={},
+        self.google, _ = MarketingProvider.objects.get_or_create(
+            code='google', defaults={'name': 'Google', 'enabled': True, 'capabilities': {}},
         )
         self.outbound = self._integration(
             site=self.site,
@@ -183,6 +186,7 @@ class MarketingEventWorkspaceTests(TestCase):
             provider=provider,
             name=name,
             integration_type=integration_type,
+            routing_mode='legacy_site',  # Existing pre-upgrade integration.
             public_id=public_id,
             secret_ref='vault:test-reference',
             enabled=enabled,
@@ -473,6 +477,40 @@ class MarketingEventWorkspaceTests(TestCase):
             {row['id'] for row in due_only.context['workspace']['rows']},
             {null_due.id, past_due.id},
         )
+
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False)
+    def test_quiet_environment_hides_retry_and_preserves_outbox_on_attempt(self):
+        outbox = self._outbox(suffix='quiet-outbound')
+        response = self._get()
+        workspace = response.context['workspace']
+        retry_metric = next(item for item in workspace['summary'] if item['label'] == '可安全重试')
+        self.assertEqual(retry_metric['value'], 0)
+        row = next(item for item in workspace['rows'] if item['id'] == outbox.id)
+        self.assertEqual(row['action']['kind'], 'manual')
+        self.assertNotContains(response, 'aria-label="精确重试 Outbox #')
+
+        self.client.force_login(self.marketing)
+        with patch('console.marketing_views.dispatch_claimed_outbox_event') as dispatch:
+            rejected = self.client.post(reverse('console:marketing_outbox_retry', args=[outbox.id]))
+        self.assertEqual(rejected.status_code, 409)
+        outbox.refresh_from_db()
+        self.assertEqual((outbox.status, outbox.attempts), ('failed', 1))
+        dispatch.assert_not_called()
+
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False)
+    def test_quiet_worker_preserves_stale_inbound_claim_without_processing(self):
+        stale = self._inbound(
+            suffix='quiet-worker-stale', status='processing', submission=self.lead, payload={},
+        )
+        original_updated_at = self.now - timedelta(minutes=16)
+        LeadInboundEvent.objects.filter(id=stale.id).update(updated_at=original_updated_at)
+        with patch('leads.inbound.process_claimed_inbound_receipt') as process:
+            result = retry_inbound_events(limit=100, max_attempts=8)
+        self.assertEqual(result, (0, 0))
+        stale.refresh_from_db()
+        self.assertEqual((stale.status, stale.attempts), ('processing', 1))
+        self.assertEqual(stale.updated_at, original_updated_at)
+        process.assert_not_called()
 
     def test_exact_outbound_retry_claims_only_requested_due_id(self):
         requested = self._outbox(suffix='requested')
@@ -950,6 +988,35 @@ class MarketingEventWorkspaceTests(TestCase):
         self.assertEqual(failed.status_code, 503)
         self.assertContains(failed, '事件队列暂时无法读取', status_code=503)
         self.assertContains(failed, '重新载入', status_code=503)
+
+    def test_source_analysis_is_aggregate_only_and_explains_its_actual_basis(self):
+        self.client.force_login(self.marketing)
+        self.client.raise_request_exception = False
+        response = self.client.get(reverse('console:marketing_attribution'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'console/v2/pages/marketing_sources.html')
+        self.assertContains(response, 'source_channel')
+        self.assertContains(response, '不是广告平台归因报告')
+        self.assertNotContains(response, self.lead.email)
+        self.assertEqual(response.context['overview']['funnel']['total'], 1)
+        self.assertNotContains(response, '平台与归因')
+
+    def test_source_analysis_failure_is_not_presented_as_zero_leads(self):
+        self.client.force_login(self.marketing)
+        with patch('console.marketing_source_views.build_marketing_overview', side_effect=DatabaseError('private-sql')):
+            response = self.client.get(reverse('console:marketing_attribution'))
+        self.assertEqual(response.status_code, 503)
+        self.assertContains(response, '来源数据暂时无法读取', status_code=503)
+        self.assertNotContains(response, 'private-sql', status_code=503)
+
+    def test_source_website_link_uses_configured_public_origin(self):
+        self.client.force_login(self.marketing)
+        self.client.raise_request_exception = False
+        self.site.base_url = 'https://public.example.invalid'
+        self.site.save(update_fields=['base_url'])
+        with patch('console.marketing_source_views.PUBLIC_PREVIEW_BASE_URL', 'https://public.example.invalid'):
+            response = self.client.get(reverse('console:marketing_attribution'))
+        self.assertContains(response, 'href="https://public.example.invalid/?lang=en"')
 
     def test_template_has_named_table_controls_and_redacts_sensitive_errors(self):
         self._outbox(

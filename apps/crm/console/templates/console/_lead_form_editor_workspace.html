@@ -104,6 +104,14 @@
                                 <span class="sr-only">{{ row.default_label }} 输入提示</span>
                                 {{ row.placeholder_field }}
                             </label>
+                            {% if row.options_field %}
+                            <label class="field lead-field-options" role="cell">
+                                <span class="field-label">{{ row.options_field.label }}</span>
+                                {{ row.options_field }}
+                                <span class="field-help">{{ row.options_field.help_text }}</span>
+                                {{ row.options_field.errors }}
+                            </label>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>

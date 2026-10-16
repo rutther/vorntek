@@ -174,7 +174,7 @@ def main() -> int:
 
     run_key = uuid.uuid4().hex[:10]
     client_event_id = str(uuid.uuid4())
-    company_name = f'Vorntek Synthetic Industrial Buyer {run_key}'
+    company_name = f'Vorntek Synthetic Organization {run_key}'
     email = f'website-qa-{run_key}@example.test'
     payload = {
         'website': '',
@@ -195,14 +195,7 @@ def main() -> int:
         },
         'fbclid': f'synthetic-{run_key}',
         'client_event_id': client_event_id,
-        'extra_fields': {
-            'product_category': 'Beverage production line',
-            'capacity': '12,000 bottles/hour',
-            'packaging_format': 'PET bottle',
-            'project_type': 'new_line',
-            'purchase_timeline': '6-12 months',
-            'contact_role': 'Project team',
-        },
+        'extra_fields': {},
         'consent': {
             'contact': True,
             'privacy_notice': True,
@@ -210,13 +203,8 @@ def main() -> int:
         },
         'form_started_at': (timezone.now() - timedelta(seconds=5)).isoformat(),
     }
-    industrial = LeadFormDefinition.objects.get(site=site, code='project-inquiry').category == 'industrial'
-    if industrial:
-        payload['extra_fields'] = {
-            'business_line': 'circulatingWaterControl',
-            'product_category': 'Circulating water control systems',
-            'application_context': 'Synthetic water-loop monitoring',
-        }
+    form = LeadFormDefinition.objects.get(site=site, code='project-inquiry')
+    assert form.category == 'general' and form.form_schema.get('fields'), 'Fresh install must use a configurable general inquiry'
     # Match the endpoint used by the actual packaged homepage/contact scripts.
     submit_url = urljoin(base_url, 'admin/api/leads/forms/project-inquiry/submit/')
     before = {
@@ -227,14 +215,14 @@ def main() -> int:
         'opportunities': Opportunity.objects.filter(site=site).count(),
     }
 
-    invalid_payload = {**payload, 'company': ''}
+    invalid_payload = {**payload, 'full_name': ''}
     invalid = requests.post(
         submit_url,
         data=json.dumps(invalid_payload),
         headers={'Content-Type': 'application/json', 'Origin': 'https://local-website.test'},
         timeout=15,
     )
-    assert invalid.status_code == 400
+    assert invalid.status_code == 400, 'Missing required name was accepted'
     assert not invalid.json()['ok']
     assert LeadSubmission.objects.filter(site=site).count() == before['submissions']
 
@@ -244,7 +232,7 @@ def main() -> int:
         headers={
             'Content-Type': 'application/json',
             'Origin': 'https://local-website.test',
-            'User-Agent': 'New-Crown-Local-Website-CRM-Verifier/1.0',
+            'User-Agent': 'Vorntek-Local-Website-CRM-Verifier/1.0',
         },
         timeout=15,
     )
@@ -268,7 +256,7 @@ def main() -> int:
         headers={
             'Content-Type': 'application/json',
             'Origin': 'https://local-website.test',
-            'User-Agent': 'New-Crown-Local-Website-CRM-Verifier/1.0',
+            'User-Agent': 'Vorntek-Local-Website-CRM-Verifier/1.0',
         },
         timeout=15,
     )
@@ -303,11 +291,7 @@ def main() -> int:
     detail.raise_for_status()
     detail_html = decoded(detail)
     assert company_name in detail_html
-    if industrial:
-        assert submission.payload_json['business_line'] == 'circulatingWaterControl'
-        assert 'capacity' not in submission.payload_json
-        assert 'Synthetic water-loop monitoring' in detail_html
-        assert '应用背景' in detail_html
+    assert 'capacity' not in submission.payload_json and 'business_line' not in submission.payload_json
     disposition_url = urljoin(base_url, f'admin/api/sales/leads/{submission.pk}/disposition/')
     due_at = timezone.localtime(timezone.now() + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M')
     qualification_data = {
@@ -329,25 +313,7 @@ def main() -> int:
         disposition_url,
         referer=detail_url,
         csrf=csrf_token(detail_html),
-        data=qualification_data if industrial else {
-            'expected_updated_at': submission.updated_at.isoformat(),
-            'idempotency_token': f'website-http-qualify-{run_key}',
-            'continue_action': 'stay',
-            'current_url': f'/admin/sales/leads/{submission.pk}/',
-            'quick_action': 'qualified',
-            'country': submission.country,
-            'company': submission.company,
-            'product_category': payload['extra_fields']['product_category'],
-            'capacity': payload['extra_fields']['capacity'],
-            'packaging_format': payload['extra_fields']['packaging_format'],
-            'project_type': payload['extra_fields']['project_type'],
-            'purchase_timeline': payload['extra_fields']['purchase_timeline'],
-            'contact_role': payload['extra_fields']['contact_role'],
-            'task_title': 'Synthetic local follow-up task',
-            'task_due_at': due_at,
-            'task_priority': 'normal',
-            'decision_notes': 'Synthetic local qualification evidence for HTTP verification.',
-        },
+        data=qualification_data,
         accept_json=True,
     )
     qualified_json = qualified.json()
@@ -422,33 +388,25 @@ def main() -> int:
     visible.raise_for_status()
     assert company_name in decoded(visible)
 
-    if industrial:
-        from leads.industrial import BUSINESS_LINES
-        for line, label in BUSINESS_LINES.items():
-            case = {**payload, 'company': f'Vorntek synthetic {line} {run_key}',
-                    'email': f'{line.lower()}-{run_key}@example.invalid',
-                    'client_event_id': str(uuid.uuid4()),
-                    'extra_fields': {'business_line': line, 'product_category': label,
-                                     'application_context': 'Synthetic application ' + line}}
-            response = requests.post(submit_url, json=case, headers={'Origin': 'https://local-website.test'}, timeout=15)
-            response.raise_for_status()
-            assert response.json()['ok'] and not response.json()['duplicate']
-            row = LeadSubmission.objects.get(pk=response.json()['submission_id'])
-            assert row.payload_json['business_line'] == line and 'capacity' not in row.payload_json
-            assert row.email == case['email']
-            view = admin.get(urljoin(base_url, f'admin/sales/leads/{row.pk}/'), timeout=10)
-            view.raise_for_status()
-            assert case['extra_fields']['application_context'] in decoded(view)
-            replay = requests.post(submit_url, json=case, headers={'Origin': 'https://local-website.test'}, timeout=15)
-            replay.raise_for_status()
-            assert replay.json()['duplicate'] and replay.json()['submission_id'] == row.pk
-        assert LeadSubmission.objects.filter(site=site).count() == before['submissions'] + 8
-        assert LeadEventOutbox.objects.filter(submission__site=site).count() == before['outbox']
-        print('- all seven industrial areas persisted without beverage capacity, appeared in CRM and deduplicated')
+    personal = {**payload, 'company':'', 'country':'', 'phone':'',
+                'email':f'personal-{run_key}@example.invalid', 'client_event_id':str(uuid.uuid4()),
+                'extra_fields':{'capacity':'ignored disabled field'}}
+    response = requests.post(submit_url,json=personal,headers={'Origin':'https://local-website.test'},timeout=15)
+    response.raise_for_status()
+    assert response.json()['ok'] and not response.json()['duplicate']
+    personal_row = LeadSubmission.objects.get(pk=response.json()['submission_id'])
+    assert personal_row.company == personal_row.country == ''
+    assert 'capacity' not in personal_row.payload_json
+    replay = requests.post(submit_url,json=personal,headers={'Origin':'https://local-website.test'},timeout=15)
+    replay.raise_for_status()
+    assert replay.json()['duplicate'] and replay.json()['submission_id']==personal_row.pk
+    assert LeadSubmission.objects.filter(site=site).count()==before['submissions']+2
+    assert LeadEventOutbox.objects.filter(submission__site=site).count()==before['outbox']
 
     print('Website-to-CRM HTTP E2E passed on local PostgreSQL:')
     print('- invalid submission was rejected without a database row')
     print('- one synthetic website submission was accepted and exact replay was deduplicated')
+    print('- personal inquiry accepted without invented company/country or disabled project fields and deduplicated')
     print('- administrator assigned the lead and sales qualified it with a follow-up task')
     print('- conversion created one owned company, contact, opportunity, source, and two contact points')
     print('- Meta campaign attribution remained attribution while the customer source remained website_form')

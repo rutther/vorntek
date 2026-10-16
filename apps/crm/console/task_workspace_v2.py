@@ -20,6 +20,7 @@ from .access import (
     ROLE_SALES_MANAGER,
     ROLE_SYSTEM_ADMIN,
     activity_queryset_for_user,
+    active_task_queryset,
     assignee_queryset_for_user,
     task_queryset_for_user,
     user_role_keys,
@@ -323,6 +324,9 @@ def _row(item, *, filters: TaskListFilters, now) -> dict[str, object]:
     status_label, status_tone = STATUS_OPTIONS.get(item.status, (item.status, 'secondary'))
     priority_label, priority_tone = PRIORITIES.get(item.priority, (item.priority, 'secondary'))
     due_label, due_tone = _due_label(item.due_at, now=now)
+    paused = bool(item.submission_id and item.submission.trashed_at is not None)
+    if paused and item.status in ACTIONABLE:
+        status_label, status_tone = '线索已回收，任务暂停', 'secondary'
     return {
         'id': item.pk,
         'title': item.title,
@@ -340,8 +344,8 @@ def _row(item, *, filters: TaskListFilters, now) -> dict[str, object]:
         'targets': _target_links(item),
         'detail_url': _url('console:task_workspace_detail_v2', filters, args=(item.pk,)),
         'version': task_version_token(item.updated_at),
-        'can_start': item.status == 'open',
-        'can_close': item.status in ACTIONABLE,
+        'can_start': not paused and item.status == 'open',
+        'can_close': not paused and item.status in ACTIONABLE,
     }
 
 
@@ -367,6 +371,8 @@ def build_task_list_workspace_v2(*, request, site) -> dict[str, object]:
         team_ids=(int(item['value']) for item in teams),
         allow_team=allow_team,
     )
+    if filters.status in {'actionable', 'open', 'in_progress'}:
+        base = active_task_queryset(base)
     queryset = _apply_filters(base, filters).select_related(
         'owner_user', 'team', 'submission', 'company', 'contact', 'opportunity'
     ).distinct()
@@ -375,7 +381,7 @@ def build_task_list_workspace_v2(*, request, site) -> dict[str, object]:
     if page_obj.number != filters.page:
         filters = replace(filters, page=page_obj.number)
     now, today_start, tomorrow = _local_day_bounds()
-    actionable = base.filter(status__in=ACTIONABLE)
+    actionable = active_task_queryset(base).filter(status__in=ACTIONABLE)
     high_priority = actionable.filter(priority__in=('high', 'urgent')).count()
     metrics = [
         {'label': '逾期', 'value': actionable.filter(due_at__lt=now).count(), 'href': _url('console:task_workspace_v2', TaskListFilters(due='overdue')), 'tone': 'danger', 'icon': 'alarm-clock'},
@@ -442,7 +448,10 @@ def build_task_detail_workspace_v2(*, request, site, task_id: int) -> dict[str, 
     status_label, status_tone = STATUS_OPTIONS.get(task.status, (task.status, 'secondary'))
     priority_label, priority_tone = PRIORITIES.get(task.priority, (task.priority, 'secondary'))
     due_label, due_tone = _due_label(task.due_at)
-    can_write = can_sales(user, SalesCapability.WRITE, record=task)
+    paused = bool(task.submission_id and task.submission.trashed_at is not None)
+    if paused and task.status in ACTIONABLE:
+        status_label, status_tone = '线索已回收，任务暂停', 'secondary'
+    can_write = not paused and can_sales(user, SalesCapability.WRITE, record=task)
     owner_candidates = []
     if task.team_id:
         users = assignee_queryset_for_user(user, site=site).filter(
@@ -513,7 +522,7 @@ def build_task_detail_workspace_v2(*, request, site, task_id: int) -> dict[str, 
             ),
         },
         'owner_candidates': owner_candidates,
-        'can_assign': can_sales(user, SalesCapability.ASSIGN, record=task),
+        'can_assign': not paused and can_sales(user, SalesCapability.ASSIGN, record=task),
         'can_write': can_write,
         'can_edit': can_write and task.status in ACTIONABLE,
         'can_start': can_write and task.status == 'open',

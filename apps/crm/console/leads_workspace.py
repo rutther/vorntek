@@ -19,6 +19,7 @@ from .error_redaction import redact_event_error
 from .access import (
     MARKETING_ROLES,
     SALES_ROLES,
+    active_lead_queryset,
     lead_attribution_assignee_queryset_for_user,
     lead_attribution_queryset_for_user,
     user_has_any_role,
@@ -90,7 +91,7 @@ def build_leads_workspace(request, locale_code: str | None = None) -> dict:
 
 def _build_tabs(site, request, locale_code: str | None, allowed_tabs: tuple[str, ...]) -> list[dict]:
     submissions = lead_attribution_queryset_for_user(
-        LeadSubmission.objects.filter(site=site), request.user
+        active_lead_queryset(LeadSubmission.objects.filter(site=site)), request.user
     )
     totals = submissions.aggregate(
         submissions=Count('id'),
@@ -133,7 +134,7 @@ def _build_submissions_context(site, request, locale_code: str | None, locale_op
     overdue_cutoff = now - timedelta(hours=settings.SITEOS_LEAD_REMINDER_HOURS)
 
     qs = lead_attribution_queryset_for_user(
-        LeadSubmission.objects.filter(site=site)
+        active_lead_queryset(LeadSubmission.objects.filter(site=site))
         .select_related('form', 'locale', 'assignee', 'team', 'duplicate_of'),
         request.user,
     ).order_by('-submitted_at', '-id')
@@ -217,7 +218,7 @@ def _build_submissions_context(site, request, locale_code: str | None, locale_op
         )
 
     counts = lead_attribution_queryset_for_user(
-        LeadSubmission.objects.filter(site=site),
+        active_lead_queryset(LeadSubmission.objects.filter(site=site)),
         request.user,
     ).aggregate(
         total=Count('id'),

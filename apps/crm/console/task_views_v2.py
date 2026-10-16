@@ -28,7 +28,10 @@ from leads.task_workflow_services import (
 )
 
 from .access import (
+    ROLE_SALES_MANAGER,
+    ROLE_SYSTEM_ADMIN,
     activity_queryset_for_user,
+    active_lead_queryset,
     assignee_queryset_for_user,
     contact_queryset_for_user,
     crm_owned_queryset_for_user,
@@ -38,6 +41,7 @@ from .access import (
     task_queryset_for_user,
 )
 from .capabilities import SalesCapability, can_sales, require_sales
+from .commit_authorization import CommitAuthorizationError,current_actor_for_commit
 from .navigation import build_navigation
 from .payloads import PUBLIC_PREVIEW_BASE_URL, default_site_locale
 from .task_forms_v2 import (
@@ -102,7 +106,7 @@ def _parse_version(value: str):
 def _scoped_target(*, site, user, target_type: str, target_id: int):
     if target_type == 'lead':
         value = lead_queryset_for_user(
-            LeadSubmission.objects.filter(site=site), user
+            active_lead_queryset(LeadSubmission.objects.filter(site=site)), user
         ).select_related('team').filter(pk=target_id).first()
         key = 'submission'
     elif target_type == 'company':
@@ -158,7 +162,7 @@ def task_target_search_v2(request):
         return JsonResponse({'ok': True, 'items': [], 'message': '请输入至少 2 个字符。'})
     if target_type == 'lead':
         queryset = lead_queryset_for_user(
-            LeadSubmission.objects.filter(site=site), request.user
+            active_lead_queryset(LeadSubmission.objects.filter(site=site)), request.user
         ).filter(Q(full_name__icontains=query) | Q(company__icontains=query))
         rows = list(queryset.select_related('team').order_by('-submitted_at', '-id')[:21])
         label = lambda item: item.full_name or item.company or f'线索 #{item.pk}'
@@ -557,7 +561,7 @@ def task_bulk_assign_v2(request):
 
     results = []
     seen_ids = set()
-    for item in items:
+    for index,item in enumerate(items):
         task_id = str(item.get('id') if isinstance(item, dict) else '').strip()
         version = str(item.get('version') if isinstance(item, dict) else '').strip()
         if not task_id.isdigit() or int(task_id) in seen_ids:
@@ -565,14 +569,21 @@ def task_bulk_assign_v2(request):
             continue
         seen_ids.add(int(task_id))
         try:
-            result = reassign_task_workflow(
-                task_id=int(task_id),
-                actor=request.user,
-                owner_user=owner,
-                expected_updated_at=_parse_version(version),
-                locked_task_authorizer=_locked_task_authorizer(site=site, user=request.user),
-                request=request,
-            )
+            with transaction.atomic():
+                actor=current_actor_for_commit(request.user.pk,request.session.session_key,
+                    {ROLE_SALES_MANAGER,ROLE_SYSTEM_ADMIN}, related_user_ids=(owner.pk,))
+                result = reassign_task_workflow(
+                    task_id=int(task_id),
+                    actor=actor,
+                    owner_user=owner,
+                    expected_updated_at=_parse_version(version),
+                    locked_task_authorizer=_locked_task_authorizer(site=site, user=actor),
+                    request=request,
+                )
+        except CommitAuthorizationError as exc:
+            results.extend({'id':pending.get('id') if isinstance(pending,dict) else '',
+                'status':'authorization_changed','message':str(exc)} for pending in items[index:])
+            break
         except Http404:
             results.append({'id': int(task_id), 'status': 'hidden', 'message': '任务不存在或不在当前范围。'})
         except PermissionDenied:
@@ -590,13 +601,18 @@ def task_bulk_assign_v2(request):
                 'version': task_version_token(result.task.updated_at),
             })
     succeeded = sum(item['status'] == 'succeeded' for item in results)
+    authority_changed=any(item['status']=='authorization_changed' for item in results)
+    status=403 if not succeeded and authority_changed else 207 if succeeded!=len(results) else 200
+    message=(f'已分配 {succeeded} 条；登录或操作权限已变化，剩余 {len(results)-succeeded} 条未执行。'
+        '请刷新并重新登录后核对。') if authority_changed else ''
     return JsonResponse({
-        'ok': True,
+        'ok': status!=403,
+        'message': message,
         'partial': succeeded != len(results),
         'succeeded': succeeded,
         'total': len(results),
         'results': results,
-    }, status=207 if succeeded != len(results) else 200)
+    }, status=status)
 
 
 @login_required

@@ -31,6 +31,7 @@ class SalesCapability(StrEnum):
     READ = 'sales.read'
     WRITE = 'sales.write'
     ASSIGN = 'sales.assign'
+    TRASH = 'sales.trash'
     CONVERT = 'sales.convert'
     ATTRIBUTION_READ = 'sales.attribution.read'
     POOL_READ = 'sales.pool.read'
@@ -70,6 +71,7 @@ ROLE_CAPABILITY_SCOPES: Mapping[str, Mapping[SalesCapability, DataScope]] = Mapp
         SalesCapability.READ: DataScope.TEAM,
         SalesCapability.WRITE: DataScope.TEAM,
         SalesCapability.ASSIGN: DataScope.TEAM,
+        SalesCapability.TRASH: DataScope.TEAM,
         SalesCapability.CONVERT: DataScope.TEAM,
         SalesCapability.ATTRIBUTION_READ: DataScope.TEAM,
         SalesCapability.POOL_READ: DataScope.TEAM,

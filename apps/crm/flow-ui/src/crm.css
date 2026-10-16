@@ -1,0 +1,68 @@
+.flow-crm-root { min-width: 0; width: 100%; background: #fff; }
+.flow-crm-root .app-shell.crm-mode { display: block; min-height: 0; }
+.flow-crm-root .crm-mode .app-body { margin-left: 0; width: 100%; min-width: 0; }
+.flow-crm-root .global-header { position: relative; top: auto; min-height: 48px; height: auto; padding: 12px 22px; flex-wrap: wrap; gap: 10px; }
+.flow-crm-root .breadcrumb { margin: 0; }
+.flow-crm-root .crm-save-status { margin-left: auto; color: #607088; font-size: 12px; }
+.flow-crm-root #flow-content { min-width: 0; }
+.flow-crm-root .workflow-page { min-height: 0; height: auto; }
+.flow-crm-root .workflow-body { min-height: 640px; height: min(780px, calc(100vh - 240px)); }
+.flow-crm-root .configuration-page { min-height: 0; padding-bottom: 32px; }
+.flow-crm-root .flow-boot { padding: 32px; }
+.flow-crm-root .flow-boot p { margin: 16px 0; }
+.flow-crm-root .global-error { position: relative; margin: 12px 20px; align-items: flex-start; }
+.flow-crm-root .global-error .button { display: flex; margin-top: 8px; }
+.flow-crm-root .modal .global-error { margin: 12px 0; }
+.flow-crm-root dialog.modal { position: fixed; inset: 0; margin: auto; height: fit-content; overflow: auto; background: #fff; }
+.flow-crm-root dialog.modal:not([open]) { display: none; }
+.flow-crm-root dialog.modal[open] { display: block; }
+.flow-crm-root .toast { z-index: 2000; }
+.flow-crm-root .crm-step-guidance { margin: 20px 0; padding: 16px; border-left: 3px solid #8eaddb; background: #f6f9fd; }
+.flow-crm-root .crm-step-guidance h3 { margin-bottom: 8px; }
+.flow-crm-root .crm-step-guidance ol { padding-left: 20px; margin: 0 0 10px; }
+.flow-crm-root .crm-step-guidance li { margin: 5px 0; line-height: 1.6; }
+.flow-crm-root .crm-step-guidance p { font-size: 12px; color: #526781; overflow-wrap: anywhere; }
+.flow-crm-root .crm-preflight { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px; }
+.flow-crm-root .crm-preflight p { margin-top: 6px; font-size: 13px; color: #607088; }
+.flow-crm-root .crm-evidence-form { padding: 22px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 30px; }
+.flow-crm-root .crm-evidence-form > .subtle { margin: 8px 0 18px; }
+.flow-crm-root .crm-evidence-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.flow-crm-root textarea { display: block; width: 100%; padding: 10px 12px; font: inherit; color: inherit; border: 1px solid #ccd6e3; border-radius: 4px; resize: vertical; }
+.flow-crm-root .crm-records .verification-list { margin-top: 14px; }
+.flow-crm-root .verification-list article p { overflow-wrap: anywhere; white-space: pre-wrap; }
+.flow-crm-root .crm-check-list { margin: 8px 0; padding-left: 20px; font-size: 13px; line-height: 1.7; }
+.flow-crm-root .record-expired { background: #f7f8fa; }
+.flow-crm-root .record-expired strong { color: #607088; }
+.flow-crm-root .node-state.issue { color: #a43d44; }
+.flow-crm-root .crm-mobile-row-detail { display: none; }
+.flow-crm-root .field input[readonly] { background: #f2f5f9; color: #53637a; }
+.flow-crm-root .config-form-body .note { margin: 14px 0; }
+.flow-crm-root .crm-legacy-loops { margin-top: 28px; padding: 20px 0; border-top: 1px solid #e2e8f0; }
+.flow-crm-root .crm-legacy-loops > p { margin-top: 8px; }
+.flow-crm-root .crm-legacy-loops ul { padding-left: 0; list-style: none; margin: 12px 0 0; }
+.flow-crm-root .crm-legacy-loops li { padding: 8px 0; }
+.flow-crm-root .crm-legacy-loops a { display: inline-flex; align-items: center; gap: 8px; color: #2563c7; text-decoration: underline; }
+@media (max-width: 1000px) {
+  .flow-crm-root .workflow-body { height: auto; min-height: 640px; }
+  .flow-crm-root .flow-canvas { min-height: 580px; }
+}
+@media (max-width: 760px) {
+  .flow-crm-root .global-header { padding: 10px 14px; }
+  .flow-crm-root .crm-save-status { margin-left: 0; width: 100%; }
+  .flow-crm-root .workflow-body { min-height: 0; }
+  .flow-crm-root .flow-table { min-width: 0; width: 100%; }
+  .flow-crm-root .flow-table th:not(:first-child), .flow-crm-root .flow-table td:not(:first-child) { display: none; }
+  .flow-crm-root .flow-table th:first-child { width: 100%; }
+  .flow-crm-root .flow-name-cell { align-items: flex-start; }
+  .flow-crm-root .flow-name-cell > div { flex: 1; min-width: 0; }
+  .flow-crm-root .flow-name { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .flow-crm-root .crm-mobile-row-detail { display: grid; justify-items: start; gap: 8px; margin-top: 12px; color: #536780; }
+  .flow-crm-root .crm-mobile-row-detail .text-button { min-height: 36px; }
+  .flow-crm-root .crm-mobile-row-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; }
+  .flow-crm-root .table-help { display: none; }
+  .flow-crm-root .crm-preflight { align-items: flex-start; flex-direction: column; }
+  .flow-crm-root .crm-evidence-fields { grid-template-columns: 1fr; gap: 0; }
+  .flow-crm-root .crm-evidence-form { padding: 16px; }
+  .flow-crm-root .config-actions > div { flex-wrap: wrap; }
+  .flow-crm-root .config-actions button { flex: 1 1 auto; }
+}

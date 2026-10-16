@@ -1,0 +1,94 @@
+{
+  "package": "@google/model-viewer",
+  "version": "4.4.0",
+  "source": "https://registry.npmjs.org/@google/model-viewer/-/model-viewer-4.4.0.tgz",
+  "archiveIntegrity": "sha512-8z1SB5sPlzKoak5mdx/D31brBakPYm3Qi31EfAucHAUrtrHHCbabypkKvSwReYhUpPaxyJ46oT47uWE/hrs1Zw==",
+  "files": {
+    "model-viewer.min.js": "18b2e711035aa4705ee281530a55dc2338ff05eed3d70ae16d54105282a75ed5",
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "notices/three-LICENSE": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc",
+    "notices/lit-LICENSE": "45d31799d0db956cc3eb5469346abbd9b7025babc5ff29fab10d7095da992ef1",
+    "notices/lit-html-LICENSE": "2b66f9390afde29edfe4314daff93f01fb182e1178053e228120178987e5db75",
+    "notices/lit-element-LICENSE": "45d31799d0db956cc3eb5469346abbd9b7025babc5ff29fab10d7095da992ef1",
+    "notices/lit-reactive-element-LICENSE": "45d31799d0db956cc3eb5469346abbd9b7025babc5ff29fab10d7095da992ef1",
+    "notices/monogrid-gainmap-js-LICENSE": "7fb8f722609c6669a9c9a4865e2a86205c7760e7dc7a039b0fb9913c3e62c6cc",
+    "notices/meshoptimizer-LICENSE.md": "e4a26033e3551fb2722888949fbb41e77aee628e8e8f04dcffeee301aa7e5634",
+    "notices/fflate-LICENSE": "805f6cb28bb8b6d3a0badd83c93bccd9671fa01a3b4b92b7042b0743325ac243"
+  },
+  "upstreamLockSha256": "b2d6d2dca131156404459fdb6af60abfeb617535065c6788e71c16f8f6f2f062",
+  "dependencyNotices": [
+    {
+      "package": "three",
+      "version": "0.183.2",
+      "source": "https://registry.npmjs.org/three/-/three-0.183.2.tgz",
+      "archiveIntegrity": "sha512-di3BsL2FEQ1PA7Hcvn4fyJOlxRRgFYBpMTcyOgkwJIaDOdJMebEFPA+t98EvjuljDx4hNulAGwF6KIjtwI5jgQ==",
+      "noticeFiles": [
+        "notices/three-LICENSE"
+      ]
+    },
+    {
+      "package": "lit",
+      "version": "3.3.3",
+      "source": "https://registry.npmjs.org/lit/-/lit-3.3.3.tgz",
+      "archiveIntegrity": "sha512-fycuvZg/hkpozL00lm1pEJH5nN/lr9ZXd6mJI2HSN4+Bzc+LDNdEApJ6HFbPkdFNHLvOplIIuJvxkS4XUxqirw==",
+      "noticeFiles": [
+        "notices/lit-LICENSE"
+      ]
+    },
+    {
+      "package": "lit-html",
+      "version": "3.3.3",
+      "source": "https://registry.npmjs.org/lit-html/-/lit-html-3.3.3.tgz",
+      "archiveIntegrity": "sha512-el8M6jK2o3RXBnrSHX3ZKrsN8zEV63pSExTO1wYJz7QndGYZ8353e2a5PPX+qHe2aGayfnchQmkAojaWAREOIA==",
+      "noticeFiles": [
+        "notices/lit-html-LICENSE"
+      ]
+    },
+    {
+      "package": "lit-element",
+      "version": "4.2.2",
+      "source": "https://registry.npmjs.org/lit-element/-/lit-element-4.2.2.tgz",
+      "archiveIntegrity": "sha512-aFKhNToWxoyhkNDmWZwEva2SlQia+jfG0fjIWV//YeTaWrVnOxD89dPKfigCUspXFmjzOEUQpOkejH5Ly6sG0w==",
+      "noticeFiles": [
+        "notices/lit-element-LICENSE"
+      ]
+    },
+    {
+      "package": "@lit/reactive-element",
+      "version": "2.1.2",
+      "source": "https://registry.npmjs.org/@lit/reactive-element/-/reactive-element-2.1.2.tgz",
+      "archiveIntegrity": "sha512-pbCDiVMnne1lYUIaYNN5wrwQXDtHaYtg7YEFPeW+hws6U47WeFvISGUWekPGKWOP1ygrs0ef0o1VJMk1exos5A==",
+      "noticeFiles": [
+        "notices/lit-reactive-element-LICENSE"
+      ]
+    },
+    {
+      "package": "@monogrid/gainmap-js",
+      "version": "3.4.0",
+      "source": "https://registry.npmjs.org/@monogrid/gainmap-js/-/gainmap-js-3.4.0.tgz",
+      "archiveIntegrity": "sha512-2Z0FATFHaoYJ8b+Y4y4Hgfn3FRFwuU5zRrk+9dFWp4uGAdHGqVEdP7HP+gLA3X469KXHmfupJaUbKo1b/aDKIg==",
+      "noticeFiles": [
+        "notices/monogrid-gainmap-js-LICENSE"
+      ]
+    },
+    {
+      "package": "meshoptimizer",
+      "version": "1.0.1",
+      "source": "https://registry.npmjs.org/meshoptimizer/-/meshoptimizer-1.0.1.tgz",
+      "archiveIntegrity": "sha512-Vix+QlA1YYT3FwmBBZ+49cE5y/b+pRrcXKqGpS5ouh33d3lSp2PoTpCw19E0cKDFWalembrHnIaZetf27a+W2g==",
+      "noticeFiles": [
+        "notices/meshoptimizer-LICENSE.md"
+      ]
+    },
+    {
+      "package": "fflate",
+      "version": "0.8.2",
+      "source": "https://registry.npmjs.org/fflate/-/fflate-0.8.2.tgz",
+      "archiveIntegrity": "sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==",
+      "noticeFiles": [
+        "notices/fflate-LICENSE"
+      ]
+    }
+  ],
+  "scriptsExecuted": false
+}

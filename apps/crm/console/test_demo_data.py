@@ -17,7 +17,7 @@ class DemoDataContracts(SimpleTestCase):
         summary = json.loads(output.getvalue())
         self.assertEqual(summary['result'], 'PLAN ONLY')
         self.assertEqual(summary['companies'], 200)
-        self.assertEqual(summary['business_lines'], 7)
+        self.assertEqual(summary['business_lines'], 3)
         self.assertEqual(summary['states'], {'available': 150, 'review': 40, 'archived': 10})
         self.assertEqual(set(summary['sources'].values()), {40})
         self.assertEqual(customer_fixtures(), customer_fixtures())
@@ -32,6 +32,13 @@ class DemoDataContracts(SimpleTestCase):
             self.assertTrue(row['email'].endswith('@example.invalid'))
             self.assertNotIn('phone', row)
             self.assertNotIn('password', row)
+
+    def test_example_customers_do_not_import_the_legacy_industrial_taxonomy(self):
+        rows = customer_fixtures()
+        self.assertEqual({row['business_line'] for row in rows},
+                         {'general_project', 'general_support', 'partner_discussion'})
+        self.assertEqual({row['industry'] for row in rows},
+                         {'虚构项目协作示例', '虚构支持咨询示例', '虚构合作沟通示例'})
 
     def test_apply_requires_explicit_synthetic_target_acknowledgement(self):
         with self.assertRaisesRegex(CommandError, 'synthetic-only'):

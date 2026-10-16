@@ -163,7 +163,7 @@
                 syncSelection();
                 if (payload.partial) {
                     const failed = payload.total - payload.succeeded;
-                    setStatus(bulkForm, `已分配 ${payload.succeeded} 条；${failed} 条因版本、状态或团队不匹配而保留，请刷新后核对。`, 'warning');
+                    setStatus(bulkForm, payload.message || `已分配 ${payload.succeeded} 条；${failed} 条因版本、状态或团队不匹配而保留，请刷新后核对。`, 'warning');
                 } else {
                     setStatus(bulkForm, `已分配 ${payload.succeeded} 条，正在刷新。`, 'success');
                     window.location.assign(page?.dataset.ncReloadUrl || window.location.href);

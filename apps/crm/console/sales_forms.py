@@ -33,7 +33,7 @@ class LeadConversionForm(forms.Form):
         label='项目名称',
         max_length=240,
         required=False,
-        help_text='留空时，系统使用企业名称和产品范围生成项目名称。',
+        help_text='留空时，系统使用已知企业或联系信息和咨询范围生成名称，不虚构企业。',
     )
 
 
@@ -441,9 +441,9 @@ class OpportunityEditorForm(forms.Form):
         required=False,
         widget=forms.DateInput(attrs={'type': 'date'}),
     )
-    product_scope = forms.CharField(label='产品范围', required=False)
-    capacity_target = forms.CharField(label='产能目标', required=False)
-    packaging_format = forms.CharField(label='包装形式', required=False)
+    product_scope = forms.CharField(label='需求范围', required=False)
+    capacity_target = forms.CharField(label='项目参数', required=False)
+    packaging_format = forms.CharField(label='补充要求', required=False)
     next_step = forms.CharField(label='下一步', required=False)
     next_follow_up_at = forms.DateTimeField(
         label='下次跟进时间',

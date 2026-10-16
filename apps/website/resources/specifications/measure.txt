@@ -1,0 +1,12 @@
+VORNTEK
+Measure dimensional bench / Measure 尺寸测量台
+
+Concept envelope W × D × H / 设计外形 宽×深×高: 1200 × 800 × 1500 mm
+Reference surface height / 基准面高度: 900 mm
+Workholding / 工件定位: Application-specific fixture plate / 按应用配置定位板
+Measuring instrument / 测量仪器: Selected for range and tolerance / 按量程与公差选配
+
+Final configuration and acceptance are defined for the application.
+最终配置与验收根据具体应用确定。
+
+/products/measure/

@@ -1,0 +1,9 @@
+{
+  "format":"vorntek-industrial-examples-v1",
+  "pack":"industrial-v1",
+  "notice":"Optional synthetic industrial company content. No production accounts, delivery credentials or platform receipts.",
+  "content_key":"industrialInspectionGuide",
+  "slug":"inspection-station-planning",
+  "products":["inspect","measure","assemble","convey","mark","connect"],
+  "context_images":["industrial-hero.png","inspection-application.png","assembly-application.png"]
+}

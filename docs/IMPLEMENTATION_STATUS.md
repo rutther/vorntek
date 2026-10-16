@@ -1,190 +1,47 @@
 # Implementation status / 实现状态
 
-Observed 2026-09-21. **Public source pre-release; full goal acceptance remains open.**
+## v0.2.0-rc.1 source candidate — 2026-10-17
 
-## Active engineering baseline
+This branch contains the complete website/CRM integration and replaceable
+industrial company package. Its earlier demonstration deployment is separate
+from this GitHub source release. This task does not update either running site.
 
-- The working source version is `0.2.0-dev.1`; `/healthz/` now reports the
-  service and source version. This is not a release tag.
-- `release_preflight --strict` now reports version, PostgreSQL migration ledger,
-  pending suffix, storage state and outbound-writer readiness without writes;
-  container CI is configured to require it after startup. The bilingual
-  [upgrade runbook](UPGRADE.md) keeps backup, stop-writers, migration and recovery
-  steps in one sequence.
-- Migrations 0028–0032 and the generic standard 21-column customer-pool import/export
-  workflow are under active verification. The accepted list-page slice now has a
-  role-bounded query layer, dense and company views, multi-country/value/state
-  filters, numeric phone sorting and controlled standard-21 column selection,
-  without private research adapters. Controlled bulk review/publish uses the same
-  single-record gate with deterministic route choice and independent per-company
-  results. The neutral detail page exposes the same standard-21 routes and hard
-  restrictions, while private regional research evidence remains excluded. Its
-  eight service tests and the combined 39-test customer-pool view/query suite pass
-  locally.
-- The accepted article-delivery core now freezes published CMS rows into a
-  deterministic release and renders safe product-neutral article documents.
-  Its private, owner-marked artifact store now adds immutable content-addressed
-  versions, CAS activation, update/withdrawal/rollback and a pinned read-only
-  whole-build input. Authenticated, site-scoped private preview adds exact
-  three-capability gates, version-bound review records, traversal-safe referenced
-  assets, script/external-request stripping and no-store/CSP responses without
-  changing an active pointer. The whole-site candidate layer now freezes the
-  checked-in website HTML/CSS/JS/images with a live-mode article artifact, rejects
-  missing internal links and source drift, and records exact base/article/site
-  versions without selecting a pointer. Fifty-five focused delivery tests cover content/path/locale rejection,
-  Markdown and JSON-LD injection boundaries, translations, robots directives,
-  changed/extra files, stale activations, preview promotion refusal and preview
-  tamper/network boundaries. It contains no Hong Kong brand or Meta script.
-  Candidate construction now has a separate high-risk capability and an authenticated,
-  site-scoped POST action tied to an explicit reviewed preview. Candidate selection now
-  has its own high-risk capability and immutable CAS/idempotency ledger; its service core
-  verifies the artifact but cannot activate or deploy it. The operator confirmation page
-  re-verifies exact candidate evidence, requires an audit reason, handles stale forms and
-  labels the current choice as selected but not deployed. A dedicated serving
-  volume and adapter now provide immutable copy verification, stale
-  CAS and a relative-symlink atomic Nginx switch/rollback; database deployment
-  core now adds a separate capability, prepared-operation concurrency interlock,
-  crash replay and immutable receipt. An authenticated exact-permission confirmation
-  page now exposes only the current selection, makes serving impact explicit and
-  resumes only the original prepared request/operator. No worker invokes it.
-  A guarded synthetic-only command and CI step now exercise update, interrupted
-  deployment recovery, rollback, PostgreSQL trigger refusals, real Nginx serving
-  and restart persistence. A separate plan-first recovery command can reconstruct
-  a lost derived serving cache from the exact latest receipt and restored verified
-  candidate without adding database history; its stale receipt/pointer and
-  stopped-writer guards are locally tested. The PostgreSQL lifecycle now encodes
-  a separate database restore plus `crm_runtime` snapshot/restore into new roots,
-  then applies this command while requiring a byte-stable database fingerprint.
-  The gate has not yet run for this unpushed commit, so
-  Linux PostgreSQL/container acceptance remains open; see
-  [article delivery architecture](ARTICLE_DELIVERY.md).
-- Post-change local validation passes 66 repository checks, 23 JavaScript
-  contracts and 811 Django tests with eight explicit skips. The latest security
-  regressions prove that restricted standard-21 rows cannot fall back to older
-  unmapped contact evidence and that CSV formula prefixes, including after
-  leading whitespace, are neutralized while valid international phone text
-  remains stable. Content stores now use
-  crash-released POSIX advisory locks, clean failed article staging trees and
-  reject hardlinked article artifacts; the actual POSIX branch remains a Linux
-  CI/runtime gate. A separate no-local,
-  no-hardlink clone of exact commit `37f6e1f` also passed a fresh locked dependency
-  install, `pip check`, dependency audit, the same 66 + 23 checks and all 811
-  Django tests in 539.892 seconds, then remained Git-clean. This proves source
-  reconstruction on Windows, not anonymous GitHub or Linux runtime acceptance; see the
-  [clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md). The four public
-  input guards bind the 45-path private-exclusion ledger and reject tracked
-  secret/token shapes, credential URLs outside test fixtures, key/backup artifacts
-  and known production identifiers. Three command-guard
-  tests ensure the destructive lifecycle acceptance fails closed before database
-  or filesystem writes when its safety preconditions are absent. The migration-chain
-  packaging assertion now verifies all 32 canonical migrations. PostgreSQL 18,
-  Compose and anonymous remote-clone acceptance remain required because
-  Docker/PostgreSQL are unavailable on this Windows host and the candidate has
-  not yet been pushed.
-- The current source security review upgraded Django 5.2.13 to the supported
-  5.2.17 security patch, added a pinned CI dependency audit, and returned no
-  known Python vulnerabilities after the upgrade. It also unified provider-error
-  redaction across legacy/current consoles and audit snapshots, removed query and
-  client metadata from default access logs, aligned per-route Nginx upload caps
-  with application contracts, bounded Django parsing and enabled file-backed SMTP
-  passwords. Exact Nginx/Compose/image behavior still requires current-commit
-  Linux execution; see [security review](review/SECURITY_REVIEW_20260921.md).
-- Bilingual [configuration](CONFIGURATION.md),
-  [administration](ADMINISTRATION.md), [development](DEVELOPMENT.md) and
-  [troubleshooting](TROUBLESHOOTING.md) guides now join the existing install,
-  upgrade and recovery material. Repository contracts verify both README entry
-  points, referenced commands, configuration inputs and local links. The guides
-  explicitly preserve the distinction between source contracts and pending Linux
-  container acceptance.
-- An actual-browser loopback run now covers desktop and 375×812 website layout,
-  a fictional inquiry visible in the authenticated CRM, login/session handling,
-  standard-21 CSV upload/preview/commit and an actual browser download verified
-  on disk as UTF-8 BOM, one row and 21 columns. A dedicated ephemeral fixture
-  makes the path reproducible without a product default password. This is SQLite
-  UI evidence and still requires packaged Linux repetition; see the
-  [browser record](review/BROWSER_ACCEPTANCE_20260921.md).
-- Candidate history now has a repeatable fail-closed audit from the trusted RC1
-  tag. The clean `c63d8bd` run covered 43 commits, 701 introduced objects and 399
-  blob/path bindings (including later-deleted objects and reused content under
-  every changed path), found zero blocked secret/privacy or distribution inputs,
-  and is repeated by full-history CI. Pattern scanning is
-  not a substitute for final human provenance/license review; see the
-  [source-history record](review/SOURCE_HISTORY_REVIEW_20260921.md).
-- Read-only production comparison uses the Hong Kong `filline.com` stack as the
-  business reference. The [106-path parity ledger](PRODUCTION_PARITY.md)
-  classifies every post-baseline production change as generic, pending article
-  review, private/excluded, correction-required or host-specific/replaced. No
-  Hong Kong service or data was changed. See the active
-  [engineering plan](ENGINEERING_PLAN.md).
+Scope: [RELEASE_SCOPE.md](RELEASE_SCOPE.md). Install via the bilingual root README.
+Industrial content: [INDUSTRIAL_EXAMPLE.md](INDUSTRIAL_EXAMPLE.md). The source
+version is VERSION and is reported by `/healthz/`.
 
-## Current delivery
+## Observed source-candidate checks
 
-- [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1)
-  is public at commit `fe353544d6d37d5cbf01ccecbb157cf30edba6fe`.
-- Both [release CI jobs](https://github.com/rutther/vorntek/actions/runs/34712023363)
-  passed: 44 root checks, browser-script contracts, 669 application tests (two
-  skipped), 27 PostgreSQL lifecycle/HTTP checks, and actual Compose build/start/stop.
-- A fresh anonymous GitHub clone passed installation with new secrets/volumes,
-  admin login, website inquiry-to-CRM matching, optional 200-customer seed and
-  full-stack restart persistence. Host-specific build DNS fallback is documented,
-  not concealed as a normal-build success.
-- Later documentation-only commits have separate CI runs. See
-  [precise versions and delivery evidence](PUBLIC_DELIVERY.md); a successful
-  release run does not automatically certify every future commit.
+- Industrial/content examples:30 tests,1 conditional skip. Actual writers created
+  media, drafts and disabled profiles; repeat import retained later edits, conflicts
+  were refused and rollback retained durable file recovery records.
+- Final clean source tree `72b7647`: complete application1361 tests with140
+  conditional SQLite skips; root distribution112 tests. Guided-loop suite208 passed
+  and Vite build passed. Selected website script
+  contracts:51 passed. Python runtime audit reported no known vulnerabilities;
+  npm audit reported zero findings for the current lock at observation time.
+- Exact-resource guard:8 tests passed; release history accepted10 reviewed paths
+  with zero findings across116 candidate commits. Gitleaks8.30.1 scanned119
+  reachable commits and reported no leaks after exact-fingerprint review of
+  synthetic test values and public browser storage keys.
+- Isolated PostgreSQL17 lifecycle passed from actual public main (32 SQL entries)
+  to the current43-entry chain. It preserved old rows, password, vault, tasks and
+  publication data; paired database/file backup, independent restore, rollback,
+  re-entry, local HTTP inquiry/qualification flow and industrial example lifecycle
+  passed. Linux PostgreSQL18 and Compose remain GitHub CI responsibilities.
+- Real local browser acceptance passed the industrial public site and language
+  switch, authenticated workbench, customer-pool selection, two independent guided
+  loops with diagrams/ten-step tasks, content/assets navigation and the 3D workspace.
+  External delivery and scheduled tasks stayed disabled.
+- GitHub private vulnerability reporting was enabled and read back as enabled.
 
-## Verified scope and evidence
+## Remaining gates
 
-| Area | Observed result | Evidence / limit |
-| --- | --- | --- |
-| Website and brand | 15 bilingual pages, seven business lines, eight original AI images, same synthetic data for chart/CSV | [Demo pack](vorntekDemo/README.md), [website acceptance](VORNTEK_ACCEPTANCE.md); fictional concepts, not certified products |
-| Forms and CRM | Invalid input refused, successful inquiry persisted once, replay deduplicated; business context visible in authenticated CRM | [HTTP evidence](HTTP_ACCEPTANCE.md), [deployed evidence](VORNTEK_DEPLOYMENT.md); synthetic only |
-| Sales and roles | Assignment, qualification, conversion, follow-up task, handover and denied cross-user paths tested over actual HTTP | [Deployed role checks](review/DEPLOYED_ROLES_20260913.md); temporary accounts disabled |
-| Accounts | Hashed passwords, restricted admin management, one-time credential receipt, session invalidation and redaction | [Account security](ACCOUNT_SECURITY.md); no fixed default password |
-| Database lifecycle | 32 canonical SQL migrations in the working source; guarded initialization, upgrade, locks, failure rollback, independent restore | Migrations 0028–0032 are locally checked but still need PostgreSQL/Compose upgrade acceptance; prior evidence: [PostgreSQL acceptance](POSTGRES_ACCEPTANCE.md), [container acceptance](CONTAINER_ACCEPTANCE.md) |
-| Recovery | Actual prior synthetic 70-table restore, schema/sequence checks, vault decryption and independent file-volume recovery; current source adds a combined new-database/new-runtime-root receipt-bound serving-cache reconstruction gate without fake deployment rows | [Recovery guide](BACKUP_RESTORE.md), [image/recovery evidence](review/IMAGE_SECURITY_20260913.md); the new combined path still needs current-commit Linux execution and this is not original-company data migration |
-| Workers and isolation | Export worker handles actual SIGTERM; scheduler healthy but external tasks paused; browser/server measurement off | [Background tasks](BACKGROUND_TASKS.md), [external-I/O boundaries](EXTERNAL_IO_BOUNDARY.md), [CI](CI.md) |
-| Export | Authenticated XLSX bytes, hash, sheets and expected records checked; actual browser standard-21 CSV saved and independently inspected on disk | Queued XLSX browser save and equivalent packaged Linux browser path remain open |
-| Source release | MIT project code, retained third-party terms, reviewed source/history, original private assets excluded | [Release review](PUBLIC_RELEASE_REVIEW.md), [notices](../THIRD_PARTY_NOTICES.md); binary redistribution not approved |
-| Source reconstruction | Separate `--no-local --no-hardlinks` clone, fresh virtual environment, locked install, dependency audit, clean manifest, 66 repository + 23 JavaScript + 811 Django checks, clean worktree afterward | [Clean source-clone record](review/CLEAN_SOURCE_CLONE_20260921.md); Windows/Python 3.13 only, not anonymous GitHub or Linux runtime acceptance |
-| Article delivery | Deterministic snapshot, safe renderer, immutable artifacts, authenticated network-silent preview, permission-gated exact whole-site candidate, immutable selection/deployment ledgers, stale-safe operator confirmations, atomic serving store, crash-resumable deployment and receipt-bound cache reconstruction; 78 focused delivery/store/deployment/recovery/command tests and guarded Linux/PostgreSQL/Compose lifecycle acceptance encoded in CI | [Architecture](ARTICLE_DELIVERY.md); the new current-commit PostgreSQL/Nginx gate has not yet run, so end-to-end serving acceptance remains open |
+GitHub PR checks, Linux PostgreSQL18/Compose CI, merge, immutable Tag/Release and
+anonymous release download installation are recorded only after their actual
+remote runs. This file never treats a local candidate as a published release or
+as an update to either running website.
 
-The running demonstration has 200 seeded fictional companies plus one converted
-synthetic customer and eight inquiries. The independent clone has 200 companies
-and one inquiry. These observations describe different databases, not synchronized
-instances.
-
-The demonstration's application sources match RC1. Its maintenance configuration
-now selects the verified clean image; changing the three maintenance image fields
-did not restart existing containers or write business data. The historical f7
-release directory was not rewritten or relabeled as an entire RC1 image set.
-
-## Open gates and boundaries
-
-1. Original-company private-data restoration has not been performed. The user's
-   later fictional Vorntek requirement needs an explicit scope decision; do not
-   import real customer data into the public demonstration.
-2. Browser download-to-disk evidence now exists for the immediate standard-21
-   CSV path. The queued XLSX worker/download and equivalent packaged Linux path
-   remain open.
-3. No prebuilt container images or build caches have been published.
-   [Binary redistribution review](review/BINARY_REDISTRIBUTION.md) identifies
-   missing component notices/source-provenance work. Do not publish the old
-   maintenance image or donor layers.
-4. Public HTTP is a synthetic demonstration only. Real operation requires HTTPS,
-   secure cookies, access controls, retention and protected backups.
-5. Real Meta deduplication is not verified. Advertising, email and WhatsApp stay
-   disabled. Historical CMS/preview capability is not an accepted one-click
-   production publishing workflow.
-6. GitHub private vulnerability reporting was observed disabled on 2026-09-21.
-   A real private contact and supported-version policy remain release gates.
-
-中文：源码候选版、实际部署、关键业务、隔离恢复及干净克隆安装已有证据。
-真实客户迁移、浏览器文件落盘及预构建镜像交付仍未完成，不能把“软件可运行”
-写成原完整目标已结束。
-
-## Historical evidence
-
-Detailed stage reports linked above remain in the repository. The former running
-log is preserved in [Git history at 772cdd4](https://github.com/rutther/vorntek/blob/772cdd40c18d8a096488e760354150be3c6540ad/docs/IMPLEMENTATION_STATUS.md).
-Its repeated “Latest” headings and old pending states describe earlier snapshots,
-not current requirements or present deployment status.
+本页是当前发行状态入口。旧公网演示交付与本轮GitHub发行分别记账；旧“未上线”或
+“待恢复”仅属于历史时点，不据此重跑服务器维护。本地通过不等于远端CI或公开发行；
+原检查点保留在[历史状态](IMPLEMENTATION_STATUS_HISTORY.md)。

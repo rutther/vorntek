@@ -89,15 +89,22 @@ CONTENT_VIEW_NAMES = frozenset({
     'article_locale_enable', 'article_locale_disable', 'article_locale_make_default',
     'article_categories', 'category_create', 'category_edit', 'article_create',
     'article_edit', 'assets', 'assets_three_d', 'three_d_asset_detail',
-    'three_d_profile_create', 'three_d_profile_edit', 'three_d_placement_create',
+    'three_d_profile_create', 'three_d_profile_edit', 'three_d_profile_preview', 'three_d_placement_create',
     'three_d_placement_edit', 'asset_upload', 'asset_import_path', 'asset_file',
     'releases', 'release_build_preview', 'article_release_preview',
     'article_preview_file', 'website_candidate_build', 'website_candidate_select',
     'website_candidate_deploy',
 })
 MARKETING_VIEW_NAMES = frozenset({
+    'marketing_integrations', 'marketing_integration_create',
+    'marketing_guided_loop', 'marketing_plans',
+    'flow_workspace_collection', 'flow_workspace_item',
+    'flow_runtime_item', 'flow_runtime_checks',
+    'marketing_guided_loop_create', 'marketing_guided_loop_detail',
+    'marketing_guided_loop_rename', 'marketing_guided_loop_dataset',
     'marketing_attribution',
     'marketing_events', 'marketing_inbound_retry',
+    'marketing_outbox_review', 'marketing_outbox_reconcile',
     'marketing', 'marketing_integration_edit', 'marketing_forms',
     'marketing_form_create', 'marketing_form_edit', 'lead_form_create',
     'lead_form_edit', 'marketing_privacy',
@@ -106,6 +113,7 @@ MARKETING_VIEW_NAMES = frozenset({
     'privacy_request_update', 'privacy_request_register', 'privacy_request_manage',
 })
 SYSTEM_VIEW_NAMES = frozenset({
+    'notification_reconcile',
     'privacy_request_export', 'privacy_request_execute',
     'retention_policy_data', 'retention_policy_update', 'retention_policy_execute',
     'system_email', 'smtp_settings', 'system_data_governance',
@@ -115,6 +123,7 @@ SYSTEM_VIEW_NAMES = frozenset({
 SHARED_CONSOLE_VIEW_NAMES = frozenset({'home', 'workbench'})
 LEAD_ATTRIBUTION_VIEW_NAMES = frozenset()
 SALES_VIEW_NAMES = frozenset({
+    'notification_review',
     'sales_workspace', 'leads', 'lead_submission_edit', 'lead_submission_bulk_stage',
     'lead_submission_export_csv', 'lead_submission_export_xlsx',
     'workbench_data', 'pipeline_data', 'lead_convert', 'activity_create',
@@ -124,7 +133,7 @@ SALES_VIEW_NAMES = frozenset({
     'company_update', 'contact_update', 'opportunity_update', 'crm_attachments',
     'crm_attachment_download', 'crm_attachment_archive',
     'lead_workspace_v2', 'lead_workspace_detail_v2', 'lead_disposition_v2',
-    'lead_bulk_assign_v2',
+    'lead_bulk_assign_v2', 'lead_bulk_trash_v2', 'lead_bulk_restore_v2',
     'opportunity_workspace_v2', 'opportunity_workspace_detail_v2',
     'company_workspace_v2', 'company_workspace_detail_v2',
     'contact_workspace_v2', 'contact_workspace_detail_v2',
@@ -214,6 +223,20 @@ def lead_queryset_for_user(queryset: QuerySet[LeadSubmission], user) -> QuerySet
     if ROLE_SALES in roles:
         return queryset.filter(assignee=user)
     return queryset.none()
+
+
+def active_lead_queryset(queryset: QuerySet[LeadSubmission]) -> QuerySet[LeadSubmission]:
+    """Keep recoverably trashed leads out of ordinary operational surfaces."""
+    return queryset.filter(trashed_at__isnull=True)
+
+
+def active_task_queryset(queryset: QuerySet[Task]) -> QuerySet[Task]:
+    """Exclude tasks paused by lead trash without deleting historical records."""
+    return queryset.filter(Q(submission_id__isnull=True) | Q(submission__trashed_at__isnull=True))
+
+
+def trashed_lead_queryset(queryset: QuerySet[LeadSubmission]) -> QuerySet[LeadSubmission]:
+    return queryset.filter(trashed_at__isnull=False)
 
 
 def whatsapp_conversation_queryset_for_user(

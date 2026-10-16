@@ -9,6 +9,14 @@ old host's `.env`, Compose project name, secret directory or database volume.
 
 ## Generate one installation / 生成一套安装配置
 
+### Form choices / 表单选项
+
+在获客表单的字段设置中，下拉字段提供“可选项”输入框：每行填写一个选项。
+需要固定提交值与独立显示名称时，可填写数组，例如
+`[{"value":"advice","label":"个人咨询"},{"value":"team","label":"团队协作"}]`。
+启用的下拉字段必须有可用选项；保存会先校验，不会发布只有空白占位项的表单。
+前台校验失败会说明需要修改的信息并保留输入；网络结果不确定时则保留同次请求标识供核对重试。
+
 ```sh
 python3 scripts/configure.py
 docker compose config --quiet
@@ -32,6 +40,7 @@ email or place it in a public backup.
 | `NEWCROWN_HTTP_PORT` | Loopback front-door port | `8088` |
 | `NEWCROWN_SITE_URL` | Canonical browser origin used by CSRF and public-form checks | `http://localhost:8088` |
 | `NEWCROWN_ALLOWED_HOSTS` | Comma-separated Django host allowlist | `localhost,127.0.0.1,crm` |
+| `NEWCROWN_TRUSTED_PROXY_CIDRS` | Explicit append-only proxy peer IPs/CIDRs; maps to `SITEOS_TRUSTED_PROXY_CIDRS` | empty, no forwarded identity trusted |
 | `NEWCROWN_ARTICLE_PUBLIC_ORIGIN` | HTTPS origin used while rendering private article candidates | `https://vorntek.example` (non-live placeholder) |
 | `NEWCROWN_*_IMAGE` | Exact local/registry image references for CRM, website and maintenance | development tags |
 
@@ -64,6 +73,34 @@ real channel requires a separately reviewed override and platform acceptance; an
 通道必须通过单独审查的 override 和平台验收启用，不能只改 `.env`；WhatsApp 当前仍暂停。
 
 ## HTTPS and public operation / HTTPS 与公网运行
+
+Client identity is resolved from the socket peer unless that peer is in the
+explicit proxy allowlist. For a trusted peer, the resolver walks X-Forwarded-For
+right-to-left only through trusted hops. The bundled Nginx overwrites that header
+with its immediate peer; do not change it to pass arbitrary client headers.
+Configure the actual proxy peer address/range for each deployment and recheck it
+after network changes. Empty configuration is safe for direct/local use but
+collapses proxied traffic to the proxy IP, including rate limits. Do not publish
+a proxied installation before verifying this chain. Invalid/default-route ranges
+refuse startup; broad internet trust is not a workaround.
+
+When a host TLS edge precedes the website container, use the explicit
+[HTTPS proxy procedure](HTTPS_PROXY.md) and its native HTTP fixture. Only the
+verified original edge peer may provide client/protocol headers; CRM separately
+trusts the website peer. The default HTTP image remains suitable for private
+direct access and does not automatically enable that extra trust hop.
+
+客户端身份默认只取连接对端。仅对端位于明确可信代理范围时，才从转发链右侧向左
+核对可信跳点；自带Nginx用直接连接对端覆盖转发头，不透传任意客户端前缀。每次
+部署按实际代理地址配置并验证，网络变化后复核。留空适合直连/本机，但代理后的
+访问会共用代理IP及限流，公网代理部署前必须解决；不得用全网段代替验证。
+
+主机 HTTPS 入口位于网站容器之前时，按[两跳代理说明](HTTPS_PROXY.md)生成显式配置，
+并验证原始可信对端；默认镜像不会自动信任额外一跳。CRM 仍须单独核实网站容器对端。
+
+All `/admin/` and `/console/` responses, including redirects, permission errors
+and streams, are private/no-store; public static/API policies are left intact.
+This does not replace TLS, server-side permissions or a reverse-proxy review.
 
 The default is loopback HTTP for isolated acceptance. A public installation needs
 an independently tested HTTPS entrypoint plus correct allowed hosts, trusted

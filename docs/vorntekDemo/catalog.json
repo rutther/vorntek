@@ -1,37 +1,85 @@
 {
-  "schemaVersion": 1,
-  "demoOnly": true,
-  "brand": {
-    "name": "Vorntek",
-    "wordmark": "VORNTEK",
-    "nameZhDraft": "沃恩泰克",
-    "companyName": "Vorntek Industrial Technologies Co., Ltd.",
-    "companyNameZh": "沃恩泰克工业技术有限公司",
-    "country": "China",
-    "regionFictional": "Jiangsu",
-    "contactPlaceholder": "inquiries@vorntek.example",
-    "allowExternalDelivery": false,
-    "tagline": "Sense. Control. Understand.",
-    "taglineZh": "让工业设备可感知、可控制、可分析。",
-    "logoAsset": "assets/vorntekLogo.png"
+  "schemaVersion":3,"demoOnly":true,
+  "brand":{
+    "name":"Vorntek","wordmark":"VORNTEK","companyName":"Vorntek Industrial Systems","companyNameZh":"Vorntek 工业系统",
+    "contactPlaceholder":"inquiries@example.invalid","allowExternalDelivery":false,
+    "description":"Inspection equipment, modular assembly and line integration for industrial production.","descriptionZh":"面向工业生产的检测设备、模块化装配与产线集成。",
+    "tagline":"Bring every process into focus.","taglineZh":"让每一道工序，清晰可控。",
+    "intro":"From a single inspection station to a connected production cell. Vorntek brings equipment, interfaces and engineering support together around your process.","introZh":"从一台检测设备，到相互协同的生产单元。Vorntek 围绕你的工艺，将设备、接口与工程支持连接起来。",
+    "logoAsset":"assets/vorntekLogo.png"
   },
-  "businessGroups": [
-    {"id": "industrialControl", "name": "Industrial Control", "nameZh": "工业控制"},
-    {"id": "industrialSensing", "name": "Industrial Sensing", "nameZh": "工业传感"},
-    {"id": "thermalAndPropulsion", "name": "Thermal & Compact Propulsion", "nameZh": "热能与动力"},
-    {"id": "industrialData", "name": "Industrial Data", "nameZh": "工业软件"}
+  "visuals":{"hero":"industrial-hero.png","approach":"industrial-hero.png"},
+  "families":[
+    {"id":"inspection","name":["Inspection & measurement","检测与测量"],"description":["Make a defined inspection task part of the production process.","将明确的检测任务，融入实际生产流程。"],"image":"inspect.png"},
+    {"id":"assembly","name":["Assembly & material flow","装配与物料流转"],"description":["Connect people, fixtures and material movement within a working cell.","围绕工作单元，协调人员、工装与物料流动。"],"image":"assemble.png"},
+    {"id":"integration","name":["Identification & data","标识与数据集成"],"description":["Keep product identity and equipment information connected to the process.","让产品标识与设备信息，始终与工艺过程相连。"],"image":"connect.png"}
   ],
-  "productLines": [
-    {"id": "circulatingWaterControl", "groupId": "industrialControl", "name": "Circulating Water Control Systems", "nameZh": "循环水控制系统", "asset": "assets/vorntekPumpSkid.png", "inquiryTopics": ["application", "existingEquipment", "controlNeeds"], "status": "fictionalConcept"},
-    {"id": "liquidControl", "groupId": "industrialControl", "name": "Liquid Control Systems", "nameZh": "液体控制系统", "asset": "assets/vorntekControlCabinet.png", "inquiryTopics": ["liquidMedium", "processStep", "installationEnvironment"], "status": "fictionalConcept"},
-    {"id": "waterQualitySensors", "groupId": "industrialSensing", "name": "Water Quality Sensors", "nameZh": "水质传感器", "asset": "assets/vorntekSensorFamily.png", "assetRole": "sharedFamilyConcept", "inquiryTopics": ["measurementNeed", "samplingEnvironment", "integration"], "status": "fictionalConcept"},
-    {"id": "gasSensors", "groupId": "industrialSensing", "name": "Gas Sensors", "nameZh": "气体传感器", "asset": "assets/vorntekSensorFamily.png", "assetRole": "sharedFamilyConcept", "inquiryTopics": ["targetGas", "installationEnvironment", "safetyCriticalUse"], "status": "fictionalConcept"},
-    {"id": "propaneMicroHeaters", "groupId": "thermalAndPropulsion", "name": "Compact Propane Heaters", "nameZh": "丙烷微型暖气机", "asset": "assets/vorntekMicroHeater.png", "inquiryTopics": ["intendedUse", "installationEnvironment", "destinationMarket"], "status": "fictionalExteriorConcept"},
-    {"id": "smallTurbojetEngines", "groupId": "thermalAndPropulsion", "name": "Small Turbojet Engines", "nameZh": "小型涡轮喷气式发动机", "asset": "assets/vorntekMicroTurbine.png", "inquiryTopics": ["civilianUse", "testFacilities", "projectStage"], "status": "fictionalExteriorConcept"},
-    {"id": "industrialDataAnalysis", "groupId": "industrialData", "name": "Industrial Data Analysis", "nameZh": "工业数据分析", "asset": null, "assetStatus": "interactiveSyntheticDashboardPlanned", "inquiryTopics": ["dataSources", "userRoles", "analysisQuestions", "deploymentPreference"], "status": "fictionalService"}
+  "productLines":[
+    {"id":"inspect","family":"inspection","name":"Inspect vision station","nameZh":"Inspect 视觉检测工作站","headline":"See the detail that matters.","headlineZh":"看清工件细节，明确检测结果。",
+      "description":"A guarded benchtop cell for camera-based inspection of individual components. A defined fixture, adjustable camera bridge and controlled lighting provide a starting point for a repeatable inspection task.","descriptionZh":"面向单件零部件的封闭式视觉检测单元。通过定位工装、可调相机支架与受控照明，为可重复的检测任务建立清晰起点。",
+      "asset":"assets/inspect.png","model":"inspect.glb","video":"videos/inspect-overview.webm","dimensions":[1000,1800,800],"gallery":["inspect.png","inspect-side.png","inspect-detail.png"],
+      "features":[
+        {"en":"Define the inspection","zh":"先明确检测任务","body":["Review sample parts, surface variation and defect examples before selecting the camera, lens and illumination. Acceptance criteria belong to the application.","先核对样件、表面变化及缺陷样例，再选择相机、镜头与照明。验收标准应由具体应用确定。"]},
+        {"en":"A stable presentation","zh":"稳定呈现工件","body":["A fixture plate locates the part beneath the overhead inspection bridge. Tool access and changeover are considered alongside optical positioning.","定位板将工件置于上方检测支架之下，同时考虑光学位置、工具操作与换型。"]},
+        {"en":"Connect the result","zh":"让结果进入工序","body":["Agree trigger signals, result handling and the interface to the next station during integration. Throughput is confirmed with representative parts.","集成时确认触发信号、结果处理及下游接口，实际节拍结合代表性工件验证。"]}],
+      "specs":[[["Concept envelope W × D × H","设计外形 宽×深×高"],"1000 × 800 × 1800 mm"],[["Working surface height","工作面高度"],"900 mm"],[["Layout","结构布局"],["Guarded upper cell / lower control cabinet","上部防护单元 / 下部控制柜"]],[["Optics & lighting","光学与照明"],["Selected against inspection samples","依据检测样件选配"]],[["Cycle & acceptance","节拍与验收"],["Application validation required","结合应用验证"]]],
+      "relatedSolutions":["component-inspection","line-retrofit"],
+      "faq":[[["What samples are needed?","需要提供哪些样件？"],["Provide representative good parts, defect examples, surface variants and the proposed inspection criteria. Include drawings where dimensions affect the decision.","提供代表性良品、缺陷样件、表面变化及拟定检测标准。涉及尺寸判断时，同时提供相关图纸。"]]]},
+    {"id":"measure","family":"inspection","name":"Measure dimensional bench","nameZh":"Measure 尺寸测量台","headline":"Give measurement a defined position.","headlineZh":"让测量，从稳定定位开始。",
+      "description":"A fixture-based measurement bench with a granite-style reference plate and adjustable instrument column. Organise component positioning, measurement access and the operator's sequence in one station.","descriptionZh":"以定位工装、基准平台与可调仪器立柱组织测量任务，将工件放置、测量操作与人员作业顺序安排在同一工位。",
+      "asset":"assets/measure.png","model":"measure.glb","dimensions":[1200,1500,800],"gallery":["measure.png","measure-side.png"],
+      "features":[
+        {"en":"Reference the component","zh":"明确工件基准","body":["Start with the drawing datum and clamping surfaces. The fixture should locate the part without obstructing the measurement path.","从图纸基准与夹持表面出发，工装既要稳定定位，也应避让测量路径。"]},
+        {"en":"Match the instrument","zh":"按任务配置仪器","body":["Instrument range, resolution and calibration are selected for the application. The bench dimensions do not imply a measurement accuracy.","量程、分辨率与校准要求依据应用选择，工作台外形不代表测量精度。"]},
+        {"en":"Keep the sequence clear","zh":"组织清楚的作业顺序","body":["Review loading, clamping, measurement and unloading as a sequence. Record the result format and any traceability requirements.","将上料、夹紧、测量与下料作为完整顺序核对，同时确认结果格式和追溯要求。"]}],
+      "specs":[[["Concept envelope W × D × H","设计外形 宽×深×高"],"1200 × 800 × 1500 mm"],[["Reference surface height","基准面高度"],"900 mm"],[["Workholding","工件定位"],["Application-specific fixture plate","按应用配置定位板"]],[["Measuring instrument","测量仪器"],["Selected for range and tolerance","按量程与公差选配"]]],
+      "relatedSolutions":["component-inspection"],
+      "faq":[[["Does the bench specify accuracy?","工作台是否规定测量精度？"],["Accuracy depends on the instrument, fixture, environment and method. Agree these conditions and verification criteria for the project.","精度取决于仪器、工装、环境与方法，需要结合项目确认条件及验证标准。"]]]},
+    {"id":"assemble","family":"assembly","name":"Assemble modular workstation","nameZh":"Assemble 模块化装配台","headline":"Build the station around the operation.","headlineZh":"围绕作业，组织每一处细节。",
+      "description":"A steel-frame assembly bench with a tool panel, overhead rail and lower shelf. Bring fixtures, tools and material locations within a clearly organised manual work area.","descriptionZh":"钢制装配工作台结合工具板、顶部支架与底部层板，将工装、工具及物料位置组织在明确的人工操作区域内。",
+      "asset":"assets/assemble.png","model":"assemble.glb","video":"videos/assemble-overview.webm","dimensions":[1600,2000,800],"gallery":["assemble.png","assemble-side.png"],
+      "features":[
+        {"en":"Start with the work sequence","zh":"从作业顺序出发","body":["Place fixtures and component bins around the actual operation. Check reach, visibility and the movement of tools with the intended operator.","按实际工序安排工装和料盒，结合使用人员核对取放距离、视线与工具活动范围。"]},
+        {"en":"A configurable frame","zh":"便于调整的框架","body":["The upright panel and overhead rail provide mounting locations for tools, lights and instructions. Confirm loads and fixing details before use.","立面工具板与顶部支架提供工具、照明和作业说明的安装位置，使用前确认负载及连接细节。"]},
+        {"en":"Connect the cell","zh":"衔接工作单元","body":["Coordinate the bench with conveyors and adjacent stations. Buffer space and access for replenishment are part of the layout.","与输送模块及相邻工位共同规划，将缓存和补料空间纳入布局。"]}],
+      "specs":[[["Concept envelope W × D × H","设计外形 宽×深×高"],"1600 × 800 × 2000 mm"],[["Worktop height","工作台高度"],"900 mm"],[["Frame","框架"],["Coated steel sections","涂装型钢"]],[["Configuration","配置"],["Tool panel, overhead rail, lower shelf","工具板、顶部支架、底层板"]]],
+      "relatedSolutions":["assembly-cell","line-retrofit"],
+      "faq":[[["Can the station follow an existing operation?","能按现有工序配置吗？"],["Share the operation sequence, tooling, component presentation and space restrictions. Review the arrangement with the intended operator before finalising it.","提供作业顺序、工具、物料呈现方式与空间限制，定案前与使用人员共同核对布局。"]]]},
+    {"id":"convey","family":"assembly","name":"Convey roller module","nameZh":"Convey 滚筒输送模块","headline":"Make the handoff part of the process.","headlineZh":"让工位之间，顺畅衔接。",
+      "description":"A straight roller-conveyor concept for moving supported trays between workstations. Adjustable guide rails and a simple stand frame help define the transfer boundary.","descriptionZh":"用于工位间托盘流转的直线滚筒输送模块。导向边界与支撑框架共同定义转运区域，适合纳入单元布局规划。",
+      "asset":"assets/convey.png","model":"convey.glb","dimensions":[2000,950,600],"gallery":["convey.png","convey-side.png"],
+      "features":[
+        {"en":"Know the load","zh":"先了解输送对象","body":["Confirm tray dimensions, mass, centre of gravity and the underside contact surface before choosing rollers and spacing.","选择滚筒与间距之前，先确认托盘尺寸、质量、重心及底部接触面。"]},
+        {"en":"Agree the transfer","zh":"明确上下游交接","body":["Review working height, transfer gaps, stopping positions and replenishment access with adjacent stations.","与相邻工位核对工作高度、交接间隙、停止位置和补料路径。"]},
+        {"en":"Select the drive","zh":"按工艺选择驱动","body":["Drive type, speed and control are project decisions. Manual and powered arrangements require different handling and guarding reviews.","驱动形式、速度与控制方式由项目确定，人工和动力输送需分别核对操作及防护要求。"]}],
+      "specs":[[["Concept envelope L × W × H","设计外形 长×宽×高"],"2000 × 600 × 950 mm"],[["Roller layout","滚筒布置"],["Straight transfer section","直线转运段"]],[["Drive & control","驱动与控制"],["Defined during application review","应用评审时确定"]],[["Load & speed","载荷与速度"],["Validated against the actual tray","依据实际托盘验证"]]],
+      "relatedSolutions":["assembly-cell","line-retrofit"],
+      "faq":[[["What determines conveyor selection?","输送选型需要什么信息？"],["Tray dimensions and underside, maximum mass, target flow, transfer heights and operating environment.","托盘尺寸及底面、最大质量、目标流量、交接高度与运行环境。"]]]},
+    {"id":"mark","family":"integration","name":"Trace identification station","nameZh":"Trace 工业标识工作站","headline":"Keep identity with the part.","headlineZh":"让标识，跟随每一件产品。",
+      "description":"A guarded station layout for applying and checking product identification. A fixture position, overhead device mount and local operator panel organise the marking and reading task.","descriptionZh":"用于施加与核对产品标识的防护工位布局。定位位置、顶部设备安装架与本地操作面板，共同组织标识与读取任务。",
+      "asset":"assets/mark.png","model":"mark.glb","dimensions":[900,1700,750],"gallery":["mark.png","mark-side.png"],
+      "features":[
+        {"en":"Start with the code","zh":"从编码规则开始","body":["Define code content, position and the material surface. The marking method is selected against these inputs.","先定义编码内容、位置与材料表面，再据此选择标识方式。"]},
+        {"en":"Read after marking","zh":"标识之后，再核对","body":["Consider readability checks and rejected-part handling as part of the same sequence, not an unrelated downstream task.","将可读性核对及不合格品处理纳入同一作业顺序。"]},
+        {"en":"Agree the record","zh":"明确记录边界","body":["Decide which identifier, timestamp and result the station needs to exchange. Confirm ownership and retry behaviour with the line controller.","确认需要交换的标识、时间与结果，并与产线控制方约定归属及重试方式。"]}],
+      "specs":[[["Concept envelope W × D × H","设计外形 宽×深×高"],"900 × 750 × 1700 mm"],[["Workholding","工件定位"],["Single fixture position","单定位工装"]],[["Marking method","标识方式"],["Selected for code and material","按编码与材料选配"]],[["Verification","核对方式"],["Reader and criteria selected per project","按项目配置读码器及标准"]]],
+      "relatedSolutions":["component-inspection","line-retrofit"],
+      "faq":[[["Is a marking technology fixed?","是否固定采用某种打标技术？"],["No. Material, code size, permanence and safety requirements determine the method and the necessary enclosure.","不固定。材料、码尺寸、耐久性和安全要求共同决定标识方式及所需防护。"]]]},
+    {"id":"connect","family":"integration","name":"Connect data acquisition unit","nameZh":"Connect 数据采集单元","headline":"Bring equipment information into context.","headlineZh":"把设备信息，放回生产现场。",
+      "description":"A compact control-cabinet concept with an operator display, controller space and organised terminal rows. Plan the connection between machine signals and production records.","descriptionZh":"紧凑控制柜结合操作显示、控制器安装空间与有序端子排，用于规划设备信号与生产记录之间的连接。",
+      "asset":"assets/connect.png","model":"connect.glb","dimensions":[600,1200,400],"gallery":["connect.png","connect-side.png"],
+      "features":[
+        {"en":"Map the signals","zh":"先建立信号清单","body":["List available machine signals, their meaning and their update conditions. Separate measured values, derived states and manual entries.","列出设备可用信号、含义与更新条件，区分实测值、推导状态与人工录入。"]},
+        {"en":"Define the interface","zh":"明确接口约定","body":["Protocols, network access and field wiring are agreed with the existing equipment owner. No connection is implied by the display concept.","协议、网络访问与现场接线需要与原设备方共同确定，显示界面本身不代表已建立连接。"]},
+        {"en":"Plan for interruption","zh":"考虑中断与恢复","body":["Agree timestamp handling, buffering, duplicate prevention and recovery after an interrupted connection before deployment.","部署之前确认时间戳、缓存、重复处理及连接中断后的恢复方式。"]}],
+      "specs":[[["Concept cabinet W × D × H","设计柜体 宽×深×高"],"600 × 400 × 1200 mm"],[["Operator interface","操作界面"],["Front-mounted display","前置显示面板"]],[["Controller & terminals","控制与端子"],["Project-specific allocation","按项目分配"]],[["Protocols & access","协议与访问"],["Agreed with equipment and IT owners","与设备及IT负责人确认"]]],
+      "relatedSolutions":["line-retrofit"],
+      "faq":[[["Can existing machines be connected?","能连接现有设备吗？"],["First review the available interfaces, documentation, access permissions and required signals. Compatibility is confirmed through a defined integration test.","先核对现有接口、文档、访问权限及所需信号，通过明确的集成测试确认兼容性。"]]]}
   ],
-  "contentDisclosure": {
-    "zh": "Vorntek为虚构演示企业，图片由AI生成，不构成实物、性能、认证或供货承诺。",
-    "en": "Vorntek is a fictional demonstration company. AI-generated imagery does not establish product availability, performance or certification."
-  }
+  "solutions":[
+    {"id":"component-inspection","name":["Component inspection, from sample to decision.","从样件到判断，组织零部件检测。"],"intro":["Bring part presentation, inspection criteria and result handling together before selecting individual instruments.","先统一工件呈现、检测标准和结果处理，再选择具体仪器。"],"image":"inspection-application.png","products":["inspect","measure","mark"],"steps":[[["Review representative samples","核对代表性样件"],["Collect good parts, defect examples, material variations and the relevant drawing requirements.","收集良品、缺陷样件、材料变化及相关图纸要求。"]],[["Arrange the inspection sequence","安排检测顺序"],["Define fixture access, lighting, measurement points and the decisions required at each stage.","明确工装操作、照明、测量点及各阶段需要作出的判断。"]],[["Agree the result boundary","确认结果处理边界"],["Specify accepted and rejected-part routes, identifier handling and the evidence required for acceptance.","约定合格品与不合格品去向、标识处理及验收需要的记录。"]]]},
+    {"id":"assembly-cell","name":["A work cell built around the operation.","围绕作业，构建装配单元。"],"intro":["Coordinate the operator, tools and material flow in a clearly defined work area.","在明确的工作区域内，协调人员、工具与物料流动。"],"image":"assembly-application.png","products":["assemble","convey","inspect"],"steps":[[["Map the operation","梳理作业步骤"],["List the sequence, tools and component presentation with the people who perform the work.","与实际使用人员一起列出工序、工具及物料呈现方式。"]],[["Connect the handoffs","衔接工位交接"],["Review transfer heights, buffer positions and clear access for replenishment and maintenance.","核对交接高度、缓存位置，以及补料和维护的通行空间。"]],[["Validate the complete cycle","验证完整作业周期"],["Trial the sequence with representative components and record any reach, fixture or timing issues.","使用代表性工件试运行完整顺序，记录取放、定位与时间方面的问题。"]]]},
+    {"id":"line-retrofit","name":["Integrate the next step into an existing line.","让下一道工序，融入现有产线。"],"intro":["Upgrade a defined section while respecting the equipment, interfaces and operating constraints already in place.","在尊重现有设备、接口与运行约束的前提下，改造明确的生产环节。"],"image":"industrial-hero.png","products":["convey","connect","mark"],"steps":[[["Survey the existing line","先核对现有产线"],["Record the layout, transfer points, controls, utilities and available maintenance window.","记录布局、交接点、控制、能源条件及可用维护窗口。"]],[["Agree the interfaces","确认接口与责任"],["Define mechanical, electrical and information boundaries with the existing equipment owner.","与原设备方明确机械、电气和信息接口的边界及责任。"]],[["Prepare the cutover","准备切换与恢复"],["Plan installation, commissioning, acceptance and the route back to the previous operating arrangement.","规划安装、调试、验收以及恢复原运行方式的路径。"]]]}
+  ],
+  "contentDisclosure":{"en":"Demonstration website","zh":"演示站点"}
 }

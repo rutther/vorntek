@@ -9,19 +9,28 @@ download matched database rows and the stored file hash. See deployment evidence
 | Service / 服务 | Work / 工作 | Interval / 周期 | Default / 默认 |
 | --- | --- | --- | --- |
 | `exports` | Process explicitly queued customer exports / 处理已排队导出 | Poll every 2 seconds / 每2秒轮询 | Active in fresh-install candidate / 空库安装候选启动 |
+| `scheduler` | Published page/form catalogue / 已发布页面和表单目录 | At startup, then every minute / 启动时及每分钟 | Local-only, active even in silent mode / 静默模式也更新，不外发 |
 | `scheduler` | Meta inbound retries / Meta入站重试 | 5 minutes / 5分钟 | Paused / 暂停 |
-| `scheduler` | Marketing outbox dispatch / 营销事件派发 | 5 minutes / 5分钟 | Paused / 暂停 |
-| `scheduler` | Email retry/reminder / 邮件重试和提醒 | 15 minutes / 15分钟 | Paused / 暂停 |
+| `scheduler` | Marketing outbox dispatch / 营销事件派发 | 1 minute; known failures keep the 5-minute retry delay / 每分钟，已知失败仍延迟5分钟 | Paused / 暂停 |
+| `scheduler` | Queued email, retry/reminder / 首封邮件、重试与提醒 | 1 minute; failed SMTP retries retain 15-minute cadence; reminder windows unchanged / 每分钟，失败重试仍间隔15分钟、提醒业务窗口不变 | Paused / 暂停 |
 
 ## Safety and operation / 安全与运行
 
-- Scheduled work requires **both** `NEWCROWN_RUN_SCHEDULED_TASKS` and
+- External scheduled work requires **both** `NEWCROWN_RUN_SCHEDULED_TASKS` and
   `NEWCROWN_ALLOW_EXTERNAL_IO`. Base Compose sets both to `0`; setting a database
   integration to enabled does not override these environment gates. The base
   network also remains internally isolated. Enabling a real channel requires a
   separately reviewed, authorized deployment configuration, not merely an `.env`
   edit to a variable hard-coded off in base Compose.
 - 调度任务需要两个环境开关同时打开；默认均关闭。数据库接入开关不能绕过环境限制。实际启用需经过单独审查和授权，基础Compose仍阻断应用外网。
+- The local catalogue command reads the same `website_runtime/current` serving
+  release as Nginx through a read-only scheduler mount. It inventories explicit
+  `data-form-code` metadata on public directory pages, never guesses a form from
+  a DOM id, and does not replace missing published evidence with source files.
+  Atomic refresh uses no network or business writes. A missing/stale catalogue
+  is unavailable, not a successful validation. The fixed single-site code remains
+  `siteos_demo`; an explicit `--site-code` is available for controlled invocations.
+- 本地目录更新不需要外发开关，不会发送邮件或平台事件。它读取实际发布版本；失败保留旧文件，超过三分钟即失效，不冒充当前页面证据。
 - The scheduler calls inbound retries with `provider=meta`. Both stale-claim
   recovery and pending/failed selection are provider-filtered. It does not
   schedule WhatsApp dispatch, media, templates or inbound processing.

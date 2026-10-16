@@ -111,21 +111,35 @@ def guard_non_loopback_sockets() -> None:
 
 
 def unmanaged_models():
-    from console.models import AuditLog
+    from console.models import AuditLog, ContentAccessGrant
     from leads.models import (
         Activity, Company, CompanyContactPoint, CompanyPoolState, ConsentRecord,
         Contact, CrmMutationReceipt, CustomerExportJob, CustomerImportBatch,
         CustomerImportRow, CustomerPoolRow, CustomerSource, LeadConversion,
-        LeadEventOutbox, LeadFormDefinition, LeadSubmission, Opportunity,
-        SalesTeam, SalesTeamMember, SavedView, Task,
+        LeadEventOutbox, LeadFormDefinition, LeadInboundEvent, LeadSubmission,
+        Opportunity, PrivacyRequest, SalesTeam, SalesTeamMember, SavedView, Task,
     )
-    from marketing.models import CanonicalEvent, MarketingIntegration, MarketingProvider
-    from sitecore.models import Cta, PageRoute, Site, SiteLocale
+    from marketing.models import (
+        CanonicalEvent, MarketingIntegration, MarketingLoop,
+        MarketingLoopAssetBinding, MarketingLoopEdge, MarketingLoopNode,
+        MarketingLoopTask, MarketingProvider, MarketingRuntimeBinding,
+        MarketingRuntimeCommand, MarketingRuntimeRevision,
+    )
+    from sitecore.models import (
+        Article, Category, Cta, MediaAsset, PageRoute, Release, ReleaseBuild,
+        Site, SiteLocale, ThreeDPlacement, ThreeDViewProfile,
+    )
     return (
-        Site, SiteLocale, PageRoute, Cta, CanonicalEvent, MarketingProvider,
+        Site, SiteLocale, PageRoute, Category, Article, MediaAsset,
+        ThreeDViewProfile, ThreeDPlacement, Cta,
+        CanonicalEvent, MarketingProvider,
         MarketingIntegration, LeadFormDefinition, SalesTeam, SalesTeamMember,
         SavedView, LeadSubmission, ConsentRecord, Company, Contact, Opportunity,
         LeadConversion, Activity, Task, LeadEventOutbox, AuditLog,
+        LeadInboundEvent, PrivacyRequest, Release, ReleaseBuild, ContentAccessGrant,
+        MarketingLoop, MarketingRuntimeBinding, MarketingRuntimeRevision,
+        MarketingRuntimeCommand, MarketingLoopNode, MarketingLoopEdge,
+        MarketingLoopTask, MarketingLoopAssetBinding,
         CrmMutationReceipt, CompanyPoolState, CompanyContactPoint, CustomerSource,
         CustomerImportBatch, CustomerImportRow, CustomerPoolRow, CustomerExportJob,
     )
@@ -147,6 +161,7 @@ def seed_fixture(port: int, password: str) -> None:
     from console.access import GROUP_BY_ROLE, ROLE_SALES, ROLE_SYSTEM_ADMIN
     from leads.customer_pool_services import create_manual_customer, publish_reviewed_customer
     from leads.models import LeadFormDefinition, SalesTeam, SalesTeamMember
+    from marketing.models import MarketingProvider
     from sitecore.models import Site, SiteLocale
 
     admin_group = Group.objects.create(name=GROUP_BY_ROLE[ROLE_SYSTEM_ADMIN])
@@ -171,6 +186,9 @@ def seed_fixture(port: int, password: str) -> None:
     SiteLocale.objects.create(
         site=site, locale_code='en', label='English', direction='ltr',
         is_default=True, enabled=True, sort_order=10,
+    )
+    MarketingProvider.objects.get_or_create(
+        code='meta', defaults={'name': 'Meta', 'enabled': True},
     )
     team = SalesTeam.objects.create(site=site, code='default', name='Default Sales', enabled=True)
     SalesTeamMember.objects.create(team=team, user=sales, membership_role='member')

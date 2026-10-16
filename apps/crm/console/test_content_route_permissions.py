@@ -76,6 +76,7 @@ EXPECTED_CONTENT_ROUTE_CAPABILITIES = {
     'three_d_asset_detail': frozenset({ASSETS_READ}),
     'three_d_profile_create': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'three_d_profile_edit': frozenset({ASSETS_READ, ASSETS_WRITE}),
+    'three_d_profile_preview': frozenset({ASSETS_READ}),
     'three_d_placement_create': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'three_d_placement_edit': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'asset_upload': frozenset({ASSETS_READ, ASSETS_WRITE}),
@@ -120,6 +121,7 @@ CONTENT_ROUTE_CASES = (
     ('three_d_asset_detail', (999_996,), 'get'),
     ('three_d_profile_create', (), 'get'),
     ('three_d_profile_edit', (999_997,), 'get'),
+    ('three_d_profile_preview', (999_997,), 'get'),
     ('three_d_placement_create', (), 'get'),
     ('three_d_placement_edit', (999_998,), 'get'),
     ('asset_upload', (), 'get'),
@@ -149,7 +151,7 @@ class ContentRoutePolicyContractTests(SimpleTestCase):
         }
         self.assertEqual(normalized, EXPECTED_CONTENT_ROUTE_CAPABILITIES)
         self.assertEqual(set(normalized), set(CONTENT_VIEW_NAMES))
-        self.assertEqual(len(normalized), 30)
+        self.assertEqual(len(normalized), 31)
 
     def test_every_policy_entry_resolves_to_the_named_console_route(self):
         route_cases = {name: args for name, args, _method in CONTENT_ROUTE_CASES}
@@ -541,6 +543,7 @@ class ContentRouteCapabilityTests(TestCase):
         data = {
             'title': 'Published article',
             'slug': 'published-article',
+            'content_key': 'publishedArticle',
             'status': 'published',
             'reading_minutes': '3',
             'robots': 'index,follow',
@@ -570,7 +573,7 @@ class ContentRouteCapabilityTests(TestCase):
         self.assertEqual(allowed.status_code, 302)
         self.assertIn('/admin/articles/', allowed.url)
         self.assertTrue(Article.objects.exists(), allowed.url)
-        article = Article.objects.select_related('route').get(slug='published_article')
+        article = Article.objects.select_related('route').get(slug='published-article')
         self.assertEqual(article.status, 'published')
         self.assertEqual(article.route.status, 'published')
 
@@ -746,6 +749,7 @@ class ContentRouteCapabilityTests(TestCase):
                 '---\n'
                 'title: Authorized replacement\n'
                 'slug: authorized_published\n'
+                'content_key: authorizedPublished\n'
                 'status: published\n'
                 '---\n'
                 'Authorized replacement body',
@@ -758,7 +762,7 @@ class ContentRouteCapabilityTests(TestCase):
 
         response = self.client.post(
             f'{reverse("console:article_import")}?locale=en',
-            {'default_status': 'draft', 'import_file': upload},
+            {'default_status': 'draft', 'import_file': upload, 'overwrite_existing': 'on'},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -949,7 +953,7 @@ class ContentRouteCapabilityTests(TestCase):
         ):
             response = self.client.get(file_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0')
+        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0, no-cache, must-revalidate')
         self.assertIn("script-src 'none'", response['Content-Security-Policy'])
         self.assertNotIn('private', response.get('Access-Control-Allow-Origin', ''))
 
@@ -970,7 +974,7 @@ class ContentRouteCapabilityTests(TestCase):
         ):
             unavailable = self.client.get(file_url)
         self.assertEqual(unavailable.status_code, 503)
-        self.assertEqual(unavailable['Cache-Control'], 'private, no-store, max-age=0')
+        self.assertEqual(unavailable['Cache-Control'], 'private, no-store, max-age=0, no-cache, must-revalidate')
         self.assertIn("connect-src 'none'", unavailable['Content-Security-Policy'])
         self.assertNotContains(unavailable, 'artifact_file_changed', status_code=503)
 
@@ -1305,7 +1309,6 @@ class ContentRouteCapabilityTests(TestCase):
 
         with (
             patch('console.views.article_workspace_bundle', return_value=({}, workspace)),
-            patch('console.views.ArticleEditorForm', return_value=inert_form),
             patch('console.views.category_tree_data', return_value=[]),
             patch('console.views.assets_payload', return_value={}),
             patch('console.views.AssetImportPathForm', return_value=inert_form),
@@ -1369,7 +1372,9 @@ class ContentRouteCapabilityTests(TestCase):
 
         self.assertEqual(alias_post.status_code, 405)
         self.assertEqual(preview_get.status_code, 405)
-        self.assertEqual(article_preview_get.status_code, 405)
+        # The restored preview workspace GET reads history only; building still
+        # requires POST+CSRF and must not run as a side effect of opening it.
+        self.assertEqual(article_preview_get.status_code, 200)
         self.assertEqual(candidate_get.status_code, 405)
         self.assertEqual(candidate_select_put.status_code, 405)
         self.assertEqual(candidate_deploy_put.status_code, 405)

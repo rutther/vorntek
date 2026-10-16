@@ -1,0 +1,21 @@
+name: Bug report
+description: Report a failure using synthetic data. Report vulnerabilities privately.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version and commit
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result and actual result
+      description: Remove credentials, customer information and private logs.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Relevant OS, browser, Docker/Compose and PostgreSQL versions.

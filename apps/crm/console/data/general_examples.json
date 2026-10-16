@@ -1,0 +1,80 @@
+{
+  "format": "vorntek-example-bundle-v1",
+  "pack": "vorntek-general-v1",
+  "notice": "SYNTHETIC EXAMPLES / 虚构示例，不代表真实客户、成交或平台接收结果。",
+  "forms": [
+    {"key":"personal", "code":"demo-personal", "name":"示例 · 个人咨询", "fields":[
+      {"name":"email", "type":"email", "label":"回复邮箱", "required":true},
+      {"name":"topic", "type":"select", "label":"咨询主题", "required":true, "options":[{"value":"general","label":"一般咨询"},{"value":"support","label":"使用支持"},{"value":"cooperation","label":"合作沟通"}]},
+      {"name":"quantity", "type":"number", "label":"参考数量"},
+      {"name":"message", "type":"textarea", "label":"咨询内容"}
+    ]},
+    {"key":"organization", "code":"demo-project", "name":"示例 · 企业项目", "fields":[
+      {"name":"full_name", "type":"text", "label":"联系称呼", "required":true},
+      {"name":"company", "type":"text", "label":"组织名称", "required":true},
+      {"name":"email", "type":"email", "label":"回复邮箱", "required":true},
+      {"name":"country", "type":"text", "label":"国家或地区"},
+      {"name":"request_type", "type":"select", "label":"需求方向", "required":true, "options":[{"value":"evaluation","label":"方案评估"},{"value":"service","label":"服务协作"},{"value":"partner","label":"合作沟通"}]},
+      {"name":"reference", "type":"text", "label":"参考编号"},
+      {"name":"message", "type":"textarea", "label":"需求说明", "required":true}
+    ]},
+    {"key":"optional", "code":"demo-follow-up", "name":"示例 · 后续支持", "fields":[
+      {"name":"full_name", "type":"text", "label":"称呼"},
+      {"name":"email", "type":"email", "label":"联系邮箱", "required":true},
+      {"name":"capacity", "type":"text", "label":"支持单号"},
+      {"name":"message", "type":"textarea", "label":"补充说明"}
+    ]}
+  ],
+  "organizations": [
+    {"key":"morning", "name":"Vorntek 示例 · 晨桥协作", "country":"China", "website":"https://morning.example.invalid"},
+    {"key":"sail", "name":"Vorntek 示例 · 远帆工作室", "country":"Singapore", "website":"https://sail.example.invalid"},
+    {"key":"bay", "name":"Vorntek 示例 · 西湾伙伴", "country":"Germany", "website":"https://bay.example.invalid"}
+  ],
+  "contacts": [
+    {"key":"personal", "organization":null, "name":"", "email":"personal-demo@example.invalid"},
+    {"key":"support", "organization":null, "name":"示例访客禾青", "email":"support-demo@example.invalid"},
+    {"key":"morning", "organization":"morning", "name":"示例联系人林安", "email":"morning-demo@example.invalid"},
+    {"key":"sail", "organization":"sail", "name":"示例联系人周宁", "email":"sail-demo@example.invalid"},
+    {"key":"bay", "organization":"bay", "name":"示例联系人陈知", "email":"bay-demo@example.invalid"}
+  ],
+  "inquiries": [
+    {"key":"new_personal", "form":"personal", "contact":"personal", "stage":"new", "age_days":0, "message":"虚构示例：希望了解咨询流程。", "payload":{"topic":"general","quantity":0}},
+    {"key":"contacted_support", "form":"optional", "contact":"support", "stage":"contacted", "age_days":2, "message":"虚构示例：需要补充支持说明。", "payload":{"capacity":"DEMO-SUPPORT-02"}},
+    {"key":"personal_project", "form":"personal", "contact":"personal", "stage":"qualified", "age_days":3, "message":"虚构示例：个人咨询进入协作项目，不需要编造企业或姓名。", "payload":{"topic":"support","quantity":2}},
+    {"key":"active_project", "form":"organization", "contact":"morning", "stage":"qualified", "age_days":5, "message":"虚构示例：讨论项目范围和下一步。", "payload":{"request_type":"evaluation","reference":"DEMO-PROJECT-01"}},
+    {"key":"won_project", "form":"organization", "contact":"sail", "stage":"won", "age_days":10, "message":"虚构示例：展示已成交记录，不代表真实收入。", "payload":{"request_type":"service","reference":"DEMO-WON-01"}},
+    {"key":"lost_project", "form":"organization", "contact":"bay", "stage":"lost", "age_days":8, "message":"虚构示例：展示已流失的原始咨询。", "payload":{"request_type":"partner","reference":"DEMO-LOST-01"}},
+    {"key":"spam", "form":"personal", "contact":"support", "stage":"spam", "age_days":4, "message":"虚构示例：用于查看垃圾线索状态。", "payload":{"topic":"general"}},
+    {"key":"trash", "form":"optional", "contact":"support", "stage":"new", "age_days":6, "trashed":true, "message":"虚构示例：回收站恢复练习。", "payload":{"capacity":"DEMO-TRASH-01"}},
+    {"key":"closed_opportunity", "form":"organization", "contact":"bay", "stage":"qualified", "age_days":7, "message":"虚构示例：已关闭商机的来源。", "payload":{"request_type":"partner","reference":"DEMO-CLOSED-02"}}
+  ],
+  "opportunities": [
+    {"key":"individual", "inquiry":"personal_project", "name":"示例 · 个人支持协作", "stage":"discovery", "amount":"0.00"},
+    {"key":"active", "inquiry":"active_project", "name":"示例 · 晨桥方案评估", "stage":"quotation", "amount":"1200.00"},
+    {"key":"won", "inquiry":"won_project", "name":"示例 · 远帆已完成协作", "stage":"won", "amount":"800.00"},
+    {"key":"lost", "inquiry":"closed_opportunity", "name":"示例 · 西湾暂不继续", "stage":"lost", "amount":"450.00"}
+  ],
+  "tasks": [
+    {"key":"due", "inquiry":"active_project", "opportunity":"active", "title":"示例 · 核对项目范围", "type":"follow_up", "days":-1, "status":"open"},
+    {"key":"upcoming", "inquiry":"personal_project", "opportunity":"individual", "title":"示例 · 准备支持说明", "type":"review", "days":2, "status":"open"},
+    {"key":"progress", "inquiry":"active_project", "opportunity":"active", "title":"示例 · 整理沟通提纲", "type":"meeting", "days":1, "status":"in_progress"},
+    {"key":"completed", "inquiry":"won_project", "opportunity":"won", "title":"示例 · 归档处理结果", "type":"review", "days":-3, "status":"completed", "outcome":"虚构示例：结果已记录，不代表真实客户交付。"},
+    {"key":"canceled", "inquiry":"closed_opportunity", "opportunity":"lost", "title":"示例 · 不再继续的后续动作", "type":"follow_up", "days":3, "status":"canceled", "outcome":"虚构示例：该项目不再继续。"},
+    {"key":"standalone", "inquiry":"contacted_support", "title":"示例 · 核对咨询回复（不发送）", "type":"email", "days":0, "status":"open"}
+  ],
+  "flows": [
+    {"key":"personal", "name":"示例 · 个人咨询闭环", "environment":"test"},
+    {"key":"organization", "name":"示例 · 企业项目闭环", "environment":"test"},
+    {"key":"production_draft", "name":"示例 · 正式环境未接入草稿", "environment":"production"}
+  ],
+  "articles": [
+    {"key":"start_en", "locale":"en", "slug":"demo-getting-started", "title":"Fictional example: starting a conversation", "body":"This is synthetic example content. Define the request, keep its source, and record the next step. It is not a customer case study."},
+    {"key":"start_zh", "locale":"zh", "slug":"demo-getting-started", "title":"虚构示例：从一次咨询开始", "body":"这是虚构示例内容。说明需求、保留来源、记录下一步，不代表真实客户案例。"},
+    {"key":"review_en", "locale":"en", "slug":"demo-review-checklist", "title":"Fictional example: reviewing a request", "body":"Synthetic example: confirm contact details and the request. Saved configuration does not prove external platform delivery."},
+    {"key":"review_zh", "locale":"zh", "slug":"demo-review-checklist", "title":"虚构示例：核对咨询资料", "body":"合成示例：核对联系方式与需求，保留观察依据。保存配置不代表外部平台接收成功。"}
+  ],
+  "pages": [
+    {"key":"about_en", "locale":"en", "path":"/examples/about/", "title":"Vorntek fictional example organization", "summary":"Synthetic content for editing and preview, not a real company or customer claim."},
+    {"key":"about_zh", "locale":"zh", "path":"/examples/about/", "title":"Vorntek 虚构示例组织", "summary":"用于编辑和预览的合成内容，不代表真实企业或客户业绩。"}
+  ]
+}

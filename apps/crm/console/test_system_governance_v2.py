@@ -260,7 +260,7 @@ class SystemGovernanceViewTests(TestCase):
             f'action="{reverse("console:system_user_edit", args=[created.pk])}"',
             response.content.decode('utf-8'),
         )
-        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0')
+        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0, no-cache, must-revalidate')
         self.assertEqual(response['Pragma'], 'no-cache')
 
         refreshed = self.client.get(reverse('console:system_user_create'))
@@ -398,7 +398,7 @@ class SystemGovernanceViewTests(TestCase):
             f'action="{reverse("console:system_user_edit", args=[self.content_user.pk])}"',
             response.content.decode('utf-8'),
         )
-        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0')
+        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0, no-cache, must-revalidate')
 
     def test_non_admin_cannot_post_user_changes(self):
         token = system_user_version_token(self.content_user)

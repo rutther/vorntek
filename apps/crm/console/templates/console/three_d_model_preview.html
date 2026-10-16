@@ -1,0 +1,17 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D 编辑预览 · {{ profile.name }}</title>
+<link rel="stylesheet" href="{% static 'console/three-d-preview.css' %}">
+{% if is_splat %}<link rel="stylesheet" href="{% static 'console/vendor/supersplat/1.37.0/index.css' %}">{% endif %}</head>
+<body>
+{% if preview_error %}
+<main class="preview-error"><h1>暂时无法预览</h1><p role="status">{{ preview_error }}</p><p>原文件和配置未修改，也没有公开发布。</p></main>
+{% else %}
+{% if is_splat %}<div id="splat-viewer"></div>{% else %}<model-viewer id="model" alt="{{ profile.asset.title|default:profile.asset.original_name }}" loading="eager" interaction-prompt="none"></model-viewer>{% endif %}
+<p id="model-status" role="status" aria-live="polite">正在加载 3D 模型…</p>
+<div id="model-controls" hidden><button id="reset-view" type="button">恢复初始视角</button></div>
+{{ preview_config|json_script:"model-config" }}
+{% if is_splat %}<script type="module" src="{% static 'console/public-viewer.js' %}"></script>{% else %}<script type="module" src="{% static 'console/three-d-preview.js' %}"></script>{% endif %}
+{% endif %}
+</body></html>

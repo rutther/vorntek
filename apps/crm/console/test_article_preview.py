@@ -64,7 +64,7 @@ class ArticlePreviewBuildTests(TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='vorntek-preview-build-')
         self.root = Path(self.temporary.name) / 'previews'
         self.site = Site.objects.create(
-            code='previewTest',
+            code='preview_test',
             name='Preview Test',
             base_url='https://example.invalid',
             default_locale='en',
@@ -168,7 +168,7 @@ class ArticlePreviewBuildTests(TestCase):
         with self.settings():
             result = build_private_article_preview(site=self.site)
         other = Site.objects.create(
-            code='otherPreview',
+            code='other_preview',
             name='Other',
             base_url='https://other.example.invalid',
             default_locale='en',

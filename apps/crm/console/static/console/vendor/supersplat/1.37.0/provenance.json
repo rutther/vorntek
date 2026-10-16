@@ -1,0 +1,30 @@
+{
+  "sources": [
+    {
+      "package": "@playcanvas/supersplat-viewer",
+      "version": "1.37.0",
+      "url": "https://registry.npmjs.org/@playcanvas/supersplat-viewer/-/supersplat-viewer-1.37.0.tgz",
+      "integrity": "sha512-8dy9mn9lFFL04PhWbwlHchzE/ky55FwuIVcz65Mf1+BN2UFMNGtGDV/BYPirI92ijJofUCUZS8eDT5OVGy/a1g=="
+    },
+    {
+      "package": "playcanvas",
+      "version": "2.23.0",
+      "url": "https://registry.npmjs.org/playcanvas/-/playcanvas-2.23.0.tgz",
+      "integrity": "sha512-DNV4AUMqSDkm74P0CdGEi0NJkmDzKzKEtHNW753LPVF0Xd+2YQeNxAprEcPqEpXTo6/o8LXXqpgspYXWYlhDTg=="
+    }
+  ],
+  "scriptsExecuted": false,
+  "localExtension": {
+    "file": "siteos-viewer.js",
+    "upstreamSha256": "818a439821fbd9a3e36c885318cba164452db023b6187c676cd5d8b6cd73b30b",
+    "generator": "scripts/vendor_splat_viewer.py",
+    "purpose": "getCamera: exact current position, focus target and FOV"
+  },
+  "files": {
+    "index.js": "818a439821fbd9a3e36c885318cba164452db023b6187c676cd5d8b6cd73b30b",
+    "index.css": "92e50eab13d86bb6bd32ee62e0b60a42d25cd2047e49cc67d53d49e20d71c1da",
+    "LICENSE": "44716a2a1040df078772702d677d46f7d97f40c2375bf8221d4b3b741143f823",
+    "notices/playcanvas-LICENSE": "42fa51ddd556be151a29f381fb97ee975825dcc454e805ea3ea9c079cca04d34",
+    "siteos-viewer.js": "04be61a00654634a8827e1baea2e199f42f7954598311091091359e798b8ce5c"
+  }
+}

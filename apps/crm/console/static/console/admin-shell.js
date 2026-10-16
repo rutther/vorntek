@@ -116,7 +116,8 @@
     const requestedTabKey = window.location.hash.replace(/^#/, '');
     const initialTabKey = payload.tabs?.some((tab) => tab.key === requestedTabKey)
         ? requestedTabKey
-        : payload.tabs?.[0]?.key || 'all';
+        : payload.tabs?.some((tab) => tab.key === payload.initialTab)
+            ? payload.initialTab : payload.tabs?.[0]?.key || 'all';
 
     const state = {
         tabKey: initialTabKey,

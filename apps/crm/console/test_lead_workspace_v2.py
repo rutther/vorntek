@@ -79,7 +79,10 @@ class LeadWorkspaceV2FilterTests(SimpleTestCase):
         self.assertEqual(filters.sort, 'updated')
         self.assertEqual(filters.page, 3)
         self.assertEqual(filters.page_size, 50)
-        self.assertEqual(set(filters.query_params()), QUERY_KEYS)
+        self.assertEqual(filters.query_params(), {
+            'q': 'Amina Hassan', 'stage': 'qualified', 'language': 'en', 'source': 'meta_ads',
+            'owner': '17', 'sla': 'overdue', 'sort': 'updated', 'page': 3, 'page_size': 50,
+        })
         self.assertNotIn('debug', filters.query_params())
         self.assertNotIn('next', filters.query_params())
 

@@ -9,7 +9,7 @@ import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import timedelta, timezone as datetime_timezone
+from datetime import date, timedelta, timezone as datetime_timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -21,6 +21,8 @@ from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+
+from leads.form_schema import CORE_FIELDS, FormSchemaError, effective_form_fields
 
 from leads.models import ConsentRecord, LeadEventOutbox, LeadFormDefinition, LeadSubmission, SalesTeam
 from leads.google_data_manager import (
@@ -374,7 +376,24 @@ def _strip_marketing_query(url: str) -> str:
         return ''
 
 
-def _derive_source(payload: dict[str, Any], utm: dict[str, Any], referrer_url: str) -> tuple[str, str]:
+def _http_origin(value: str):
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:
+            return None
+        port = parsed.port
+        if port is not None and not 1 <= port <= 65535:
+            return None
+        return parsed.scheme, parsed.hostname, port if port is not None else (443 if parsed.scheme == 'https' else 80)
+    except ValueError:
+        return None
+
+
+def _derive_source(payload: dict[str, Any], utm: dict[str, Any], referrer_url: str, *, source_url: str = '') -> tuple[str, str]:
+    # Browser source/referrer metadata is advisory, never authentication evidence.
+    # Match full HTTP(S) origins, not hostname substrings or arbitrary suffixes.
+    origin = _http_origin(source_url)
+    internal_referrer = origin is not None and origin == _http_origin(referrer_url)
     requested = str(payload.get('source_channel') or '').strip().lower()
     source = str(utm.get('utm_source') or '').strip().lower()
     medium = str(utm.get('utm_medium') or '').strip().lower()
@@ -388,6 +407,8 @@ def _derive_source(payload: dict[str, Any], utm: dict[str, Any], referrer_url: s
         channel = 'whatsapp'
     elif source in {'google', 'bing', 'baidu'} and medium in {'organic', ''}:
         channel = 'organic'
+    elif internal_referrer:
+        channel = 'website'
     elif referrer_url:
         channel = 'referral'
     else:
@@ -398,7 +419,7 @@ def _derive_source(payload: dict[str, Any], utm: dict[str, Any], referrer_url: s
         parts = [
             str(utm.get('utm_campaign') or '').strip(),
             str(utm.get('utm_content') or '').strip(),
-            (urlsplit(referrer_url).hostname or '') if referrer_url else '',
+            (urlsplit(referrer_url).hostname or '') if referrer_url and not internal_referrer else '',
         ]
         detail = ' / '.join(item for item in parts if item)[:500]
     return channel, detail
@@ -408,17 +429,27 @@ def clean_submission_input(payload: dict[str, Any], *, form_definition: LeadForm
     if str(payload.get('website') or '').strip():
         raise LeadCaptureError('提交未通过安全检查。', code='spam_detected')
 
-    full_name = _bounded_text(payload, 'full_name', 120, fallback=str(payload.get('name') or ''))
-    company = _bounded_text(payload, 'company', 200)
-    country = _bounded_text(payload, 'country', 120)
-    email = canonicalize_email(_bounded_text(payload, 'email', 254))
-    phone = canonicalize_phone(_bounded_text(payload, 'phone', 40))
-    message = _bounded_text(payload, 'message', 4000)
-    if len(full_name) < 2:
+    try:
+        field_rules = effective_form_fields(form_definition)
+    except FormSchemaError as exc:
+        raise LeadCaptureError(str(exc)) from exc
+
+    def input_field(name, limit, *, fallback=''):
+        if field_rules is not None and not field_rules.get(name, {}).get('enabled'):
+            return ''
+        return _bounded_text(payload, name, limit, fallback=fallback)
+
+    full_name = input_field('full_name', 120, fallback=str(payload.get('name') or ''))
+    company = input_field('company', 200)
+    country = input_field('country', 120)
+    email = canonicalize_email(input_field('email', 254))
+    phone = canonicalize_phone(input_field('phone', 40))
+    message = input_field('message', 4000)
+    if field_rules is None and len(full_name) < 2:
         raise LeadCaptureError('请填写姓名。')
-    if len(company) < 2:
+    if field_rules is None and len(company) < 2:
         raise LeadCaptureError('请填写公司名称。')
-    if len(country) < 2:
+    if field_rules is None and len(country) < 2:
         raise LeadCaptureError('请填写国家或地区。')
     if email and not EMAIL_RE.match(email):
         raise LeadCaptureError('邮箱格式无效。')
@@ -431,9 +462,46 @@ def clean_submission_input(payload: dict[str, Any], *, form_definition: LeadForm
     extra_fields = _json_object(payload, 'extra_fields')
     product_category = str(extra_fields.get('product_category') or '').strip()
     capacity = str(extra_fields.get('capacity') or '').strip()
-    if not product_category:
+    if field_rules is None and not product_category:
         raise LeadCaptureError('请选择产品类别。')
-    if getattr(form_definition, 'category', 'project') == 'industrial':
+    if field_rules is not None:
+        extra_fields = {
+            key: value for key, value in extra_fields.items()
+            if key not in CORE_FIELDS and field_rules.get(key, {}).get('enabled')
+        }
+        core_values = dict(full_name=full_name, company=company, country=country,
+                           email=email, phone=phone, message=message)
+        for name, rule in field_rules.items():
+            if not rule['enabled']:
+                continue
+            value = core_values[name] if name in CORE_FIELDS else extra_fields.get(name, '')
+            if value is None:
+                value = ''
+            if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+                raise LeadCaptureError(f"{rule['label']}格式无效。")
+            text = str(value).strip()
+            if rule['required'] and not text:
+                raise LeadCaptureError(f"请填写{rule['label']}。")
+            if text and rule['option_values'] and text not in rule['option_values']:
+                raise LeadCaptureError(f"请选择有效的{rule['label']}。")
+            if text and rule['type'] == 'number':
+                try:
+                    if not Decimal(text).is_finite():
+                        raise InvalidOperation
+                except InvalidOperation as exc:
+                    raise LeadCaptureError(f"{rule['label']}必须为有效数字。") from exc
+            if text and rule['type'] == 'date':
+                try:
+                    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', text):
+                        raise ValueError
+                    date.fromisoformat(text)
+                except ValueError as exc:
+                    raise LeadCaptureError(f"{rule['label']}必须为有效日期。") from exc
+            if text and rule['type'] == 'email' and not EMAIL_RE.match(text):
+                raise LeadCaptureError(f"{rule['label']}邮箱格式无效。")
+            if name not in CORE_FIELDS and name in extra_fields:
+                extra_fields[name] = text
+    elif getattr(form_definition, 'category', 'project') == 'industrial':
         from leads.industrial import BUSINESS_LINES
         business_line = extra_fields.get('business_line')
         if not isinstance(business_line, str) or business_line not in BUSINESS_LINES:
@@ -493,7 +561,7 @@ def clean_submission_input(payload: dict[str, Any], *, form_definition: LeadForm
             source_payload[key] = ''
         source_payload['source_channel'] = ''
         source_payload['source_detail'] = ''
-    source_channel, source_detail = _derive_source(source_payload, utm, referrer_url)
+    source_channel, source_detail = _derive_source(source_payload, utm, referrer_url, source_url=source_url)
     google_session_attributes = _clean_google_session_attributes(
         payload.get('google_session_attributes') or payload.get('session_attributes'),
         marketing_consent=marketing_consent,
@@ -739,18 +807,23 @@ def queue_submission_event(
         else 'system_generated'
     )
     skip_external_initial = stage_key == 'submitted' and is_external_submission and not include_external_meta
-    meta_integrations = [] if skip_external_initial else enabled_meta_integrations(submission.site)
+    from .measurement_routing import select_meta_integrations
+    meta_integrations = [] if skip_external_initial else select_meta_integrations(submission, stage_key)
     if identifiers.get('ctwa_clid') and stage_key not in BUSINESS_MESSAGING_STAGE_EVENTS:
         meta_integrations = []
     for integration in meta_integrations:
         delivery_mode = integration_delivery_mode(integration)
         event_id = f'{submission.submission_key}:{stage_key}:{integration.id}'
         platform_event_name = event_name
+        from .models import LeadMeasurementRoute
+        route_snapshot = (LeadMeasurementRoute.objects.filter(submission=submission, integration=integration).first()
+            if (submission.config_json or {}).get('measurement_routing_version') == 2 else None)
+        contract_name = route_snapshot.event_contract.get(stage_key, event_name) if route_snapshot else event_name
         try:
             platform_event_name = meta_platform_event_name(
                 submission,
                 stage_key=stage_key,
-                crm_event_name=event_name,
+                crm_event_name=contract_name,
             )
             payload = build_meta_payload(
                 submission,
@@ -759,6 +832,8 @@ def queue_submission_event(
                 event_name=platform_event_name,
                 crm_event_name=event_name,
             )
+            if route_snapshot and stage_key == 'submitted':
+                payload['event_id'] = route_snapshot.event_id
         except MetaPayloadError as exc:
             LeadEventOutbox.objects.get_or_create(
                 submission=submission,
@@ -833,105 +908,45 @@ def queue_submission_event(
 def dispatch_meta_outbox_event(outbox: LeadEventOutbox) -> bool:
     if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
         return False
-    integration = outbox.integration
-    attempted_at = timezone.now()
-    outbox.delivery_mode = integration_delivery_mode(integration)
-    outbox.last_attempt_at = attempted_at
-
-    def fail(message: str, response: dict[str, Any] | None = None) -> bool:
-        attempt_number = outbox.attempts + 1
-        delay_minutes = min(60, 2 ** min(max(attempt_number - 1, 0), 6))
-        outbox.status = 'failed'
-        outbox.attempts = attempt_number
-        outbox.last_error = message[:1000]
-        if response is not None:
-            outbox.response_json = response
-        outbox.next_attempt_at = attempted_at + timedelta(minutes=delay_minutes)
-        outbox.updated_at = attempted_at
-        outbox.save(
-            update_fields=[
-                'status', 'delivery_mode', 'attempts', 'last_error', 'response_json',
-                'last_attempt_at', 'next_attempt_at', 'updated_at',
-            ]
-        )
-        return False
-
-    access_token = resolve_meta_access_token(integration)
-    if not access_token:
-        return fail('Meta access token 未配置。')
-
-    api_version = meta_api_version(integration)
-    endpoint = f'https://graph.facebook.com/{api_version}/{integration.public_id}/events'
-    request_payload = {
-        'data': [outbox.payload_json],
-        'partner_agent': 'siteos-leads-v1',
-        'test_event_code': str((integration.config_json or {}).get('test_event_code') or '').strip() or None,
-    }
-    if not request_payload['test_event_code']:
-        request_payload.pop('test_event_code')
-
-    body = json.dumps(request_payload).encode('utf-8')
-    request = urllib.request.Request(
-        endpoint,
-        data=body,
-        headers={
-            'Authorization': f'Bearer {access_token}',
-            'Content-Type': 'application/json',
-        },
-        method='POST',
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            raw = response.read().decode('utf-8', errors='replace')
-            parsed = json.loads(raw or '{}')
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode('utf-8', errors='replace')
-        return fail(
-            f'HTTP {exc.code}: {raw[:800]}',
-            {'http_status': exc.code, 'body': raw[:4000]},
-        )
-    except Exception as exc:  # pragma: no cover
-        return fail(str(exc)[:800])
-
-    if not isinstance(parsed, dict) or parsed.get('error'):
-        return fail('Meta CAPI 返回了错误响应。', parsed if isinstance(parsed, dict) else {'body': raw[:4000]})
-    try:
-        events_received = int(parsed.get('events_received', 0))
-    except (TypeError, ValueError):
-        events_received = 0
-    if events_received < 1:
-        return fail('Meta CAPI 未确认接收到事件。', parsed)
-
-    outbox.status = 'sent'
-    outbox.attempts += 1
-    outbox.last_error = ''
-    outbox.response_json = parsed
-    outbox.provider_request_id = str(parsed.get('fbtrace_id') or '').strip()
-    outbox.provider_received_at = attempted_at
-    outbox.match_status = 'unknown'
-    outbox.next_attempt_at = None
-    outbox.dispatched_at = attempted_at
-    outbox.updated_at = attempted_at
-    outbox.save(
-        update_fields=[
-            'status', 'delivery_mode', 'attempts', 'last_error', 'response_json',
-            'provider_request_id', 'provider_received_at', 'match_status',
-            'last_attempt_at', 'next_attempt_at', 'dispatched_at', 'updated_at',
-        ]
-    )
-    return True
+    from .marketing_delivery import dispatch_meta
+    return dispatch_meta(outbox)
 
 
 def dispatch_claimed_outbox_event(outbox: LeadEventOutbox) -> bool:
     """Send one event after a caller has exclusively claimed its row."""
-
     if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
         return False
+
+    if outbox.integration.provider.code == 'meta' and outbox.integration.integration_type == 'pixel':
+        from .marketing_delivery import dispatch_meta, meta_entry_eligible
+        if not meta_entry_eligible(outbox, claimed=True):
+            return False
+        return dispatch_meta(outbox, claimed=True)
+    if outbox.integration.provider.code == 'google' and outbox.integration.integration_type == 'data_manager':
+        return dispatch_google_outbox_event(outbox, claimed=True)
+    outbox.refresh_from_db()
     if outbox.status not in {'sending', 'processing'}:
+        return False
+    outbox.submission.refresh_from_db()
+    if outbox.submission.trashed_at is not None:
+        # Pausing is not a delivery failure or a permanent consent rejection.
+        # Keep the original target/payload/attempt history for normal recovery.
+        LeadEventOutbox.objects.filter(pk=outbox.pk, status__in=['sending', 'processing']).update(
+            status='pending', updated_at=timezone.now(),
+        )
+        outbox.status = 'pending'
         return False
     provider_code = outbox.integration.provider.code
     if provider_code == 'meta' and outbox.integration.integration_type == 'pixel':
+        from .measurement_routing import integration_sendable
+        outbox.submission.refresh_from_db()
+        outbox.integration.refresh_from_db()
+        if not integration_sendable(outbox.submission, outbox.integration, outbox.stage_key):
+            outbox.status = 'skipped'
+            outbox.last_error = '当前同意、接入状态或原始路由已不允许发送；恢复不会自动重放。'
+            outbox.next_attempt_at = None
+            outbox.save(update_fields=['status','last_error','next_attempt_at','updated_at'])
+            return False
         return dispatch_meta_outbox_event(outbox)
     if provider_code == 'google' and outbox.integration.integration_type == 'data_manager':
         return dispatch_google_outbox_event(outbox)
@@ -953,20 +968,29 @@ def dispatch_claimed_outbox_event(outbox: LeadEventOutbox) -> bool:
 def dispatch_outbox_event(outbox: LeadEventOutbox) -> bool:
     if not settings.NEWCROWN_ALLOW_EXTERNAL_IO:
         return False
-    if outbox.status in {'pending', 'failed'}:
-        claimed_at = timezone.now()
-        claimed = LeadEventOutbox.objects.filter(
-            id=outbox.id,
-            status=outbox.status,
-        ).update(status='sending', updated_at=claimed_at)
-        if claimed != 1:
+    if outbox.integration.provider.code == 'meta' and outbox.integration.integration_type == 'pixel':
+        from .marketing_delivery import meta_entry_eligible
+        if not meta_entry_eligible(outbox):
             return False
-        outbox.status = 'sending'
-        outbox.updated_at = claimed_at
-    elif outbox.status != 'processing':
-        return False
+        return dispatch_meta_outbox_event(outbox)
+    if outbox.integration.provider.code == 'google' and outbox.integration.integration_type == 'data_manager':
+        return dispatch_google_outbox_event(outbox)
+    # Lead -> outbox lock order also serializes the claim with trash/restore.
+    # Release locks before external I/O; delivery rechecks current eligibility.
+    with transaction.atomic():
+        submission_id = LeadEventOutbox.objects.values_list('submission_id', flat=True).get(pk=outbox.pk)
+        submission = LeadSubmission.objects.select_for_update(of=('self',)).get(pk=submission_id)
+        current = LeadEventOutbox.objects.select_for_update(of=('self',)).get(pk=outbox.pk)
+        if submission.trashed_at is not None or current.submission_id != submission.pk:
+            return False
+        if current.status in {'pending', 'failed'}:
+            current.status = 'sending'
+            current.updated_at = timezone.now()
+            current.save(update_fields=['status', 'updated_at'])
+        elif current.status != 'processing':
+            return False
 
-    return dispatch_claimed_outbox_event(outbox)
+    return dispatch_claimed_outbox_event(current)
 
 
 def dispatch_pending_outbox(
@@ -982,10 +1006,13 @@ def dispatch_pending_outbox(
     now = timezone.now()
     claim_timeout = max(int(getattr(settings, 'SITEOS_OUTBOX_CLAIM_TIMEOUT_MINUTES', 5)), 1)
     stale_sending_before = now - timedelta(minutes=claim_timeout)
+    from .marketing_delivery import recover_legacy_meta_handoffs
+    recover_legacy_meta_handoffs(now)
     LeadEventOutbox.objects.filter(
         status='sending',
         updated_at__lte=stale_sending_before,
-    ).update(
+    ).exclude(integration__provider__code='meta', integration__integration_type='pixel') \
+     .exclude(integration__provider__code='google', integration__integration_type='data_manager').update(
         status='failed',
         last_error='发送认领超时，已重新进入安全重试队列。',
         next_attempt_at=now,
@@ -997,7 +1024,8 @@ def dispatch_pending_outbox(
     if failed_before is not None:
         retry_filter &= Q(status__in=['pending', 'processing']) | Q(status='failed', updated_at__lte=failed_before)
     retry_filter &= Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now)
-    queryset = LeadEventOutbox.objects.select_related('integration__provider').filter(retry_filter).order_by('created_at', 'id')
+    queryset = (LeadEventOutbox.objects.select_related('integration__provider')
+                .filter(retry_filter, submission__trashed_at__isnull=True).order_by('created_at', 'id'))
     if submission is not None:
         queryset = queryset.filter(submission=submission)
     if site is not None:
@@ -1020,25 +1048,35 @@ def create_submission(
     user_agent: str,
 ) -> LeadCaptureResult:
     cleaned = clean_submission_input(payload, form_definition=form_definition)
+    from uuid import UUID
+    attempt_id = ''
+    try:
+        candidate = UUID(str(cleaned['identifiers_json'].get('client_event_id', '')))
+        if candidate.version == 4:
+            attempt_id = str(candidate)
+            cleaned['identifiers_json']['client_event_id'] = attempt_id
+    except (ValueError, TypeError, AttributeError):
+        pass
+
+    def prior_attempt():
+        if not attempt_id:
+            return None
+        previous = LeadSubmission.objects.filter(site=form_definition.site, form=form_definition,
+            identifiers_json__client_event_id=attempt_id).first()
+        if previous and previous.dedupe_key != cleaned['dedupe_key']:
+            raise LeadCaptureError('提交编号已用于其他内容，请重新发起提交。', code='attempt_conflict', status=409)
+        return (LeadCaptureResult(submission=previous, queued_events=0, dispatch_attempted=0,
+            dispatch_succeeded=0, duplicate=True, notification_sent=previous.notification_status == 'sent')
+            if previous else None)
+
+    retry = prior_attempt()
+    if retry:
+        return retry
     route = None
     cta = None
     route_path = cleaned.pop('route_path')
     cta_code = cleaned.pop('cta_code')
     now = timezone.now()
-
-    if client_ip:
-        rate_cutoff = now - timedelta(minutes=settings.SITEOS_LEAD_RATE_LIMIT_MINUTES)
-        recent_count = LeadSubmission.objects.filter(
-            site=form_definition.site,
-            client_ip=client_ip,
-            submitted_at__gte=rate_cutoff,
-        ).count()
-        if recent_count >= settings.SITEOS_LEAD_RATE_LIMIT_COUNT:
-            raise LeadCaptureError(
-                '提交过于频繁，请稍后重试或通过 WhatsApp 联系我们。',
-                code='rate_limited',
-                status=429,
-            )
 
     if route_path:
         route = PageRoute.objects.filter(site=form_definition.site, path=route_path).first()
@@ -1077,6 +1115,16 @@ def create_submission(
     )
 
     with transaction.atomic():
+        if client_ip:
+            # Shared across forms, distinct from attempt/content dedupe keys.
+            # Lock order is quota -> attempt -> content. PostgreSQL releases
+            # this transaction-scoped lock on both commit and rollback.
+            _acquire_dedupe_lock(sha256_text(f'lead-rate:{form_definition.site_id}:{client_ip}'))
+        if attempt_id:
+            _acquire_dedupe_lock(sha256_text(f'{form_definition.site_id}:{form_definition.pk}:{attempt_id}'))
+            retry = prior_attempt()
+            if retry:
+                return retry
         _acquire_dedupe_lock(cleaned['dedupe_key'])
         locked_duplicate = (
             LeadSubmission.objects.select_for_update()
@@ -1098,6 +1146,17 @@ def create_submission(
                 duplicate=True,
                 notification_sent=locked_duplicate.notification_status == 'sent',
             )
+
+        if client_ip:
+            rate_cutoff = timezone.now() - timedelta(minutes=settings.SITEOS_LEAD_RATE_LIMIT_MINUTES)
+            recent_count = LeadSubmission.objects.filter(
+                site=form_definition.site, client_ip=client_ip, submitted_at__gte=rate_cutoff,
+            ).count()
+            if recent_count >= settings.SITEOS_LEAD_RATE_LIMIT_COUNT:
+                raise LeadCaptureError(
+                    '提交过于频繁，请稍后重试。',
+                    code='rate_limited', status=429,
+                )
 
         submission = LeadSubmission.objects.create(
             submission_key=uuid4(),
@@ -1126,7 +1185,7 @@ def create_submission(
             identifiers_json=cleaned['identifiers_json'],
             utm_json=cleaned['utm_json'],
             consent_json=cleaned['consent_json'],
-            config_json=cleaned['config_json'],
+            config_json={**cleaned['config_json'], 'capture_delivery': 'queued'},
             contact_key=cleaned['contact_key'],
             dedupe_key=cleaned['dedupe_key'],
             duplicate_of=previous_contact,
@@ -1135,6 +1194,10 @@ def create_submission(
             stage_updated_at=now,
         )
         record_initial_consent_snapshot(submission, source='website_form')
+        from marketing.flow_runtime import runtime_enabled
+        if runtime_enabled():
+            from .measurement_routing import capture_submission_routes
+            capture_submission_routes(submission, payload.get('measurement_context', ''))
         queued_outbox: list[LeadEventOutbox] = []
         if form_definition.capi_enabled and bool(cleaned['consent_json'].get('marketing')):
             queued_outbox = queue_submission_event(
@@ -1143,21 +1206,15 @@ def create_submission(
                 event_name=form_definition.submission_event_name or 'Lead',
             )
 
-    from leads.notifications import send_submission_notification
-
-    notification_sent = send_submission_notification(submission)
-    attempted = 0
-    succeeded = 0
-    for outbox in queued_outbox:
-        attempted += 1
-        if dispatch_outbox_event(outbox):
-            succeeded += 1
+    # Durable notification state and outbox rows are already committed.
+    # Existing scheduled commands own delivery; no external I/O or on_commit
+    # transport callback belongs to a public capture response.
     return LeadCaptureResult(
         submission=submission,
         queued_events=len(queued_outbox),
-        dispatch_attempted=attempted,
-        dispatch_succeeded=succeeded,
-        notification_sent=notification_sent,
+        dispatch_attempted=0,
+        dispatch_succeeded=0,
+        notification_sent=False,
     )
 
 
@@ -1168,6 +1225,36 @@ def update_submission_stage(
     buyer_value: Decimal | None,
     buyer_currency: str,
 ) -> tuple[LeadSubmission, int, int, int]:
+    # Resolve the current row under the same lock as the write. A stale editor
+    # object must not mutate a lead after another operator has trashed it.
+    with transaction.atomic():
+        submission = (
+            LeadSubmission.objects.select_for_update(of=('self',))
+            .select_related('form', 'site', 'locale')
+            .get(pk=submission.pk)
+        )
+        if submission.trashed_at is not None:
+            raise LeadCaptureError('线索已移入回收站，请先恢复后再操作。', code='lead_trashed')
+        queued_outbox = _prepare_submission_stage(
+            submission=submission, stage=stage, buyer_value=buyer_value, buyer_currency=buyer_currency,
+        )
+    # Keep platform I/O outside this command's transaction and lead row lock.
+    attempted = 0
+    succeeded = 0
+    for outbox in queued_outbox:
+        attempted += 1
+        if dispatch_outbox_event(outbox):
+            succeeded += 1
+    return submission, len(queued_outbox), attempted, succeeded
+
+
+def _prepare_submission_stage(
+    *,
+    submission: LeadSubmission,
+    stage: str,
+    buyer_value: Decimal | None,
+    buyer_currency: str,
+) -> list[LeadEventOutbox]:
     qualification_score = int(getattr(submission, 'qualification_score', 0) or 0)
     qualification_overridden = bool(getattr(submission, 'qualification_overridden', False))
     if stage in {'qualified', 'won'} and qualification_score < 80 and not qualification_overridden:
@@ -1210,8 +1297,6 @@ def update_submission_stage(
     )
 
     queued_outbox: list[LeadEventOutbox] = []
-    attempted = 0
-    succeeded = 0
     event_specs: list[tuple[str, str]] = []
     if stage_changed and stage in {'contacted', 'qualified', 'won'}:
         if stage == 'contacted' or contacted_was_missing:
@@ -1229,8 +1314,4 @@ def update_submission_stage(
                     event_name=event_name,
                 )
             )
-        for outbox in queued_outbox:
-            attempted += 1
-            if dispatch_outbox_event(outbox):
-                succeeded += 1
-    return submission, len(queued_outbox), attempted, succeeded
+    return queued_outbox

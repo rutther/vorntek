@@ -19,6 +19,8 @@
                     </div>
                 </div>
                 <div class="field-grid cols-2">
+                    <label class="field field-block">{{ import_form.dry_run }} {{ import_form.dry_run.label }}</label>
+                    <label class="field field-block">{{ import_form.overwrite_existing }} {{ import_form.overwrite_existing.label }}</label>
                     <label class="field field-block">
                         <span class="field-label">{{ import_form.import_file.label }}</span>
                         {{ import_form.import_file }}
@@ -48,8 +50,10 @@
                     </div>
                 </div>
                 <pre class="code-block">---
-title: Bottled Water Line Planning
-slug: bottled_water_line_planning
+title: Preparing a Project Brief
+slug: preparing-a-project-brief
+content_key: projectBriefGuide
+locale: en
 category_code: news
 status: draft
 published_at: 2026-04-25T10:00
@@ -61,14 +65,15 @@ og_title: Social title here.
 og_description: Social description here.
 robots: index,follow,max-image-preview:large
 ---
-# Bottled Water Line Planning
+# Preparing a Project Brief
 
 Markdown body starts here.</pre>
                 <ul class="hint-list">
                     <li>支持键：<code>title</code>、<code>slug</code>、<code>category_code</code>、<code>status</code>、<code>published_at</code>、<code>excerpt</code>、<code>author_name</code>、<code>reading_minutes</code>、<code>meta_description</code>、<code>og_title</code>、<code>og_description</code>、<code>og_image_url</code>、<code>robots</code>。</li>
                     <li>如果文件里没有 <code>title</code>，系统会优先读取正文里的一级标题。</li>
                     <li>如果文件里没有 <code>category_code</code>，就使用右侧选择的默认分类。</li>
-                    <li>同一语言下如果 <code>slug</code> 已存在，本次导入会更新原文章，而不是再建一篇。</li>
+                    <li>同一语言下已有文章默认保留，不覆盖编辑。仅明确勾选允许更新时才更新；建议先预演并核对差异。</li>
+                    <li>支持 <code>locale</code>、<code>content_key</code>、<code>cover_image_url</code>；语言不符或关联标识冲突会拒绝导入。</li>
                 </ul>
             </section>
 
@@ -77,6 +82,7 @@ Markdown body starts here.</pre>
                     <div class="editor-card-head">
                         <div>
                             <h2>导入结果</h2>
+                            {% if import_result.dry_run %}<p>本次仅预演，未写入数据库；拟变更 {{ import_result.planned }} 篇。</p>{% endif %}
                             <p>共处理 {{ import_result.total }} 个文件。新增 {{ import_result.created }}，更新 {{ import_result.updated }}，失败 {{ import_result.failed }}，跳过 {{ import_result.skipped }}。</p>
                         </div>
                     </div>
@@ -113,11 +119,11 @@ Markdown body starts here.</pre>
                 <div class="editor-card-head">
                     <div>
                         <h2>操作</h2>
-                        <p>导入会直接写入数据库；前台仍然通过发布快照和构建产物读取文章。</p>
+                        <p>默认仅预演，不写入数据库。取消“仅预演”后才执行；覆盖已有文章还需单独勾选允许更新。官网仍通过发布快照和构建产物读取。</p>
                     </div>
                 </div>
                 <div class="side-actions">
-                    <button type="submit" class="button primary">开始导入</button>
+                    <button type="submit" class="button primary">校验并执行所选模式</button>
                     <a href="{% url 'console:articles' %}?locale={{ editor_locale.locale_code }}" class="button neutral">返回文章列表</a>
                     <a href="{% url 'console:article_export' %}?locale={{ editor_locale.locale_code }}" class="button neutral">批量导出当前语言</a>
                     <a href="{% url 'console:article_create' %}?locale={{ editor_locale.locale_code }}" class="button neutral">新建文章</a>

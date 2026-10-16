@@ -1,0 +1,19 @@
+# Reviewed false positive: literal UUID used by a React renderer test to verify
+# applied-version labels. Not an integration credential; exact historical line.
+16d0681f382ed339aac6a133d7aa28b959afbbab:apps/crm/flow-ui/tests/runtime.test.mjs:generic-api-key:96
+
+# Reviewed false positives: explicit synthetic test identities and public
+# browser storage keys. Each exemption is bound to one historical commit,
+# path, rule and line; none is an external credential.
+51b88c33b8446dbe5f3d2df5ccc91771fa5dcaa7:apps/crm/console/test_industrial_examples.py:generic-api-key:100
+51b88c33b8446dbe5f3d2df5ccc91771fa5dcaa7:apps/crm/console/test_industrial_examples.py:generic-api-key:115
+51b88c33b8446dbe5f3d2df5ccc91771fa5dcaa7:apps/crm/console/test_industrial_examples.py:generic-api-key:119
+a13278a9b55189735415bd60e2ab726b6b864015:apps/crm/console/test_whatsapp_workspace_v2.py:generic-api-key:219
+a13278a9b55189735415bd60e2ab726b6b864015:apps/crm/console/test_whatsapp_workspace_v2.py:generic-api-key:306
+a13278a9b55189735415bd60e2ab726b6b864015:apps/website/assets/meta-pixel.js:generic-api-key:9
+a13278a9b55189735415bd60e2ab726b6b864015:apps/website/assets/meta-pixel.js:generic-api-key:12
+a13278a9b55189735415bd60e2ab726b6b864015:apps/crm/leads/test_customer_pool_services.py:generic-api-key:609
+a13278a9b55189735415bd60e2ab726b6b864015:apps/crm/leads/tests.py:generic-api-key:225
+a13278a9b55189735415bd60e2ab726b6b864015:apps/crm/leads/tests.py:generic-api-key:569
+a13278a9b55189735415bd60e2ab726b6b864015:apps/crm/leads/tests.py:generic-api-key:762
+a13278a9b55189735415bd60e2ab726b6b864015:apps/crm/leads/tests.py:generic-api-key:824

@@ -19,6 +19,49 @@ def load_script(name):
 
 
 class CIContractTests(unittest.TestCase):
+    def test_stopped_scheduler_keeps_local_inventory_work_but_pauses_all_delivery(self):
+        runner = load_script('test_postgres_install')
+        jobs = {name:{'job':name,'status':'paused'} for name in
+                ('retry_inbound_leads','dispatch_lead_outbox','send_lead_reminders')}
+        jobs['refresh_pixel_page_catalog'] = {'job':'refresh_pixel_page_catalog','status':'completed'}
+        runner.require_stopped_delivery_schedule({'state':'stopped','jobs':jobs})
+        for name in jobs:
+            broken = {**jobs,name:{**jobs[name],'status':'failed'}}
+            with self.subTest(name=name),self.assertRaises(RuntimeError):
+                runner.require_stopped_delivery_schedule({'state':'stopped','jobs':broken})
+
+    def test_standalone_schema_gate_accepts_current_counts_but_not_missing_or_zero_contract(self):
+        runner = load_script('test_postgres_install')
+        self.assertEqual(runner.require_schema_contract(
+            'Applied next.sql\nUnmanaged schema contract passed: 75 models, 1040 fields.\n'),(75,1040))
+        self.assertEqual(runner.require_schema_contract(
+            'Applied next.sql\r\nUnmanaged schema contract passed: 75 models, 1040 fields.\r\n'),(75,1040))
+        for output in ('', '75 models, 1040 fields',
+                       'Unmanaged schema contract passed: 0 models, 0 fields.',
+                       'Unmanaged schema drift detected: missing column'):
+            with self.subTest(output=output),self.assertRaises(RuntimeError):
+                runner.require_schema_contract(output)
+
+    def test_standalone_restore_admits_only_literal_varchar_array_reparse(self):
+        runner = load_script('test_postgres_install')
+        source = {'constraints': [('receipt','status','c',
+            "CHECK (status::text = ANY ((ARRAY['queued'::character varying, 'sent'::character varying])::text[])))")],
+            'indexes': [('receipt','active',"CREATE UNIQUE INDEX active ON receipt (id) WHERE (status::text = ANY ((ARRAY['queued'::character varying])::text[])))")],
+            'triggers': [('receipt','guard','unchanged SQL')], 'sequences': {'receipt_id_seq':(8,True)}}
+        restored = {'constraints': [('receipt','status','c',
+            "CHECK (status::text = ANY (ARRAY[('queued'::character varying)::text, ('sent'::character varying)::text])))")],
+            'indexes': [('receipt','active',"CREATE UNIQUE INDEX active ON receipt (id) WHERE (status::text = ANY (ARRAY[('queued'::character varying)::text])))")],
+            'triggers': [('receipt','guard','unchanged SQL')], 'sequences': {'receipt_id_seq':(8,True)}}
+        self.assertEqual(runner.schema_identity(source),runner.schema_identity(restored))
+        for key,value in (('sequences',{'receipt_id_seq':(9,True)}),
+                          ('triggers',[('receipt','guard','changed SQL')]),
+                          ('indexes',[('receipt','active',restored['indexes'][0][2].replace('UNIQUE ',''))]),
+                          ('constraints',[('receipt','status','c',restored['constraints'][0][3].replace("'sent'","'lost'"))])):
+            self.assertNotEqual(runner.schema_identity(source),runner.schema_identity({**restored,key:value}))
+        quoted = "CHECK (note <> '(ARRAY[''queued''::character varying])::text[]')"
+        self.assertEqual(runner.schema_identity({'constraints':[('t','note','c',quoted)]}),
+                         {'constraints':[('t','note','c',quoted)]})
+
     def test_standalone_postgres_uses_its_own_posix_socket_directory(self):
         runner = load_script('test_postgres_install')
         directory = Path('/tmp/vorntek test/socket')
@@ -67,10 +110,11 @@ class CIContractTests(unittest.TestCase):
         )
         self.assertEqual(application_checkout['with']['fetch-depth'], 0)
         commands = '\n'.join(step.get('run', '') for job in workflow['jobs'].values() for step in job['steps'])
-        for required in ('scripts/run_application_tests.py', 'scripts/test_postgres_install.py', '--http',
+        for required in ('scripts/run_application_tests.py', 'scripts/test_release_upgrade.py', '--baseline-checkout',
                          'docker compose build', 'scripts/check_local_stack.py',
                          'python -m pip_audit -r apps/crm/requirements.lock',
                          'scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean',
+                         '--asset-allowlist docs/review/release-asset-allowlist.json',
                          'scripts/release_manifest.py --require-clean',
                          'release_preflight --strict', 'maintenance --help',
                          'run_synthetic_website_deployment_acceptance',

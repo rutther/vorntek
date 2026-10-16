@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 
 from .article_delivery import ArticleDeliveryError, content_digest
 from .article_release_store import _no_links, _process_lock
+from .article_assets import IMAGE_TYPES
 
 
 _ID = re.compile(r'^[a-f0-9]{64}$')
@@ -27,6 +28,8 @@ _ALLOWED_SUFFIXES = frozenset({
     '.html', '.css', '.js', '.json', '.xml', '.txt', '.ico',
     '.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.svg',
     '.woff', '.woff2',
+    '.glb', '.sog', '.ply',
+    '.webm',
 })
 _DYNAMIC_PREFIXES = ('/admin/', '/api/', '/console/', '/static/', '/healthz/')
 _CSS_URL = re.compile(
@@ -36,6 +39,10 @@ _CSS_URL = re.compile(
 _MAX_FILES = 10_000
 _MAX_FILE_BYTES = 32 * 1024 * 1024
 _MAX_TOTAL_BYTES = 512 * 1024 * 1024
+
+
+def _file_limit(name):
+    return 128*1024*1024 if Path(name).suffix.lower() in {'.glb','.sog','.ply'} else _MAX_FILE_BYTES
 
 
 def _sha(raw: bytes) -> str:
@@ -106,7 +113,7 @@ def _scan_base_source(root: Path) -> tuple[dict[str, bytes], str]:
         if info.st_nlink != 1:
             raise ArticleDeliveryError('unsafe_website_source_link')
         size = info.st_size
-        if size > _MAX_FILE_BYTES:
+        if size > _file_limit(name):
             raise ArticleDeliveryError('website_source_file_too_large')
         total += size
         if total > _MAX_TOTAL_BYTES or len(files) >= _MAX_FILES:
@@ -330,13 +337,36 @@ class WebsiteReleaseStore:
         _no_links(path)
         return path
 
-    def stage(self, *, base_root: Path, article_input: dict) -> str:
+    def stage(self, *, base_root: Path, article_input: dict, asset_files=None, home_slots=None) -> str:
         base_files, base_digest = _scan_base_source(base_root)
         article_files, article_version = _article_files(
             article_input,
             site_code=self.site_code,
         )
         files = {**base_files, **article_files}
+        if home_slots:
+            from .three_d_publication import inject_site_slots
+            files=inject_site_slots(files,home_slots)
+        uploads = {} if asset_files is None else asset_files
+        if not isinstance(uploads,dict):
+            raise ArticleDeliveryError('website_upload_input_invalid')
+        folded = {name.casefold() for name in files}
+        for name, raw in uploads.items():
+            suffix=Path(name).suffix.lower() if isinstance(name,str) else ''
+            allowed=(suffix in IMAGE_TYPES
+                     or isinstance(name,str) and name.startswith('assets/models/') and suffix in {'.glb','.sog','.ply'}
+                     or isinstance(name,str) and name.startswith('assets/3d/') and suffix in {'.html','.css','.js','.json','.txt'})
+            if (not _valid_public_name(name) or not name.startswith('assets/')
+                    or not allowed or not isinstance(raw,bytes) or len(raw)>_file_limit(name)):
+                raise ArticleDeliveryError('website_upload_input_invalid')
+            if name.casefold() in folded:
+                # A packaged product view and a configured profile can share
+                # the exact same pinned viewer runtime. Never replace bytes.
+                if name.startswith('assets/3d/vendor/') and files.get(name)==raw:
+                    continue
+                raise ArticleDeliveryError('website_upload_conflict')
+            folded.add(name.casefold())
+            files[name] = raw
         if (
             len(files) > _MAX_FILES
             or sum(len(raw) for raw in files.values()) > _MAX_TOTAL_BYTES
@@ -405,7 +435,7 @@ class WebsiteReleaseStore:
         for name, expected in payload['files'].items():
             raw = root.joinpath(*PurePosixPath(name).parts).read_bytes()
             total += len(raw)
-            if len(raw) > _MAX_FILE_BYTES or total > _MAX_TOTAL_BYTES or _sha(raw) != expected:
+            if len(raw) > _file_limit(name) or total > _MAX_TOTAL_BYTES or _sha(raw) != expected:
                 raise ArticleDeliveryError('website_file_changed')
             files[name] = raw
         _validate_internal_references(files)

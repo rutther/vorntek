@@ -24,19 +24,24 @@ class SchedulerTests(SimpleTestCase):
                     cursor = db.cursor.return_value.__enter__.return_value
                     cursor.fetchone.side_effect = [(True, 123)] + [(123,)] * 10
                     call_command('run_scheduled_tasks', once=True, heartbeat=Path(directory)/'heartbeat.json', stdout=io.StringIO())
-                    self.assertEqual(execute.call_count, 3 if scheduled and outbound else 0)
+                    names = [item.args[0] for item in execute.call_args_list]
+                    self.assertEqual(names, ['refresh_pixel_page_catalog', 'retry_inbound_leads',
+                        'dispatch_lead_outbox', 'send_lead_reminders'] if scheduled and outbound
+                        else ['refresh_pixel_page_catalog'])
                     db.close.assert_called_once()
 
     def test_job_list_intervals_and_meta_only_inbound(self):
         schedule = jobs(10)
-        self.assertEqual([job.interval for job in schedule], [300, 300, 900])
-        self.assertEqual(schedule[0].kwargs, {'provider': 'meta'})
+        self.assertEqual([job.interval for job in schedule], [60, 300, 60, 60])
+        self.assertEqual(schedule[1].kwargs, {'provider': 'meta'})
         self.assertFalse(any('whatsapp' in job.name for job in schedule))
-        self.assertEqual([job.due_at for job in schedule], [310, 310, 910])
+        self.assertEqual([job.due_at for job in schedule], [10, 310, 70, 70])
 
     def test_not_due_jobs_do_not_run(self):
         execute = Mock()
-        self.assertEqual(tick(jobs(0), now=299, enabled=True, execute=execute, clock=lambda: 299), [])
+        # Local evidence is due at startup; external jobs are not due yet.
+        external = [job for job in jobs(0) if job.requires_external_io]
+        self.assertEqual(tick(external, now=59, enabled=True, execute=execute, clock=lambda: 59), [])
         execute.assert_not_called()
 
     def test_shutdown_stops_before_starting_next_job(self):
@@ -52,16 +57,16 @@ class SchedulerTests(SimpleTestCase):
 
     def test_paused_jobs_never_execute_or_catch_up(self):
         execute = Mock()
-        schedule = jobs(0)
+        schedule = [job for job in jobs(0) if job.requires_external_io]
         results = tick(schedule, now=9000, enabled=False, execute=execute, clock=lambda: 9000)
         self.assertEqual([r['status'] for r in results], ['paused'] * 3)
-        self.assertEqual([j.due_at for j in schedule], [9300, 9300, 9900])
+        self.assertEqual([j.due_at for j in schedule], [9300, 9060, 9060])
         execute.assert_not_called()
 
     def test_failures_are_redacted_and_other_jobs_continue(self):
-        execute = Mock(side_effect=[ValueError('SYNTHETIC_PRIVATE_DETAIL'), None, None])
+        execute = Mock(side_effect=[ValueError('SYNTHETIC_PRIVATE_DETAIL'), None, None, None])
         results = tick(jobs(0), now=900, enabled=True, execute=execute, clock=lambda: 1000)
-        self.assertEqual([r['status'] for r in results], ['failed', 'completed', 'completed'])
+        self.assertEqual([r['status'] for r in results], ['failed', 'completed', 'completed', 'completed'])
         self.assertEqual(results[0]['error_type'], 'ValueError')
         self.assertNotIn('SYNTHETIC_PRIVATE_DETAIL', json.dumps(results))
 

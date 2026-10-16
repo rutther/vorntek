@@ -47,6 +47,7 @@ META_GRAPH_API_DEFAULT = 'v26.0'
 class MarketingIntegrationEditorForm(forms.Form):
     name = forms.CharField(label='接入名称', max_length=200)
     enabled = forms.BooleanField(label='启用接入', required=False)
+    confirm_global_change = forms.BooleanField(label='我确认本次全局启停会影响此 Pixel 的全部关联流程', required=False)
     public_id = forms.CharField(label='公开 ID', max_length=255)
     consent_category = forms.CharField(label='同意分类', max_length=64, initial='marketing')
     secret_ref = forms.CharField(
@@ -134,13 +135,13 @@ class MarketingIntegrationEditorForm(forms.Form):
             ('meta', 'Meta Cloud API 直连'),
             ('ycloud', 'YCloud 官方 Coexistence'),
         ),
-        help_text='8155 优先采用可验证的官方 Coexistence；切换不会自动迁移或发送消息。',
+        help_text='使用目标账号支持且已核验的官方接入方式；切换不会自动迁移或发送消息。',
     )
     business_phone_e164 = forms.CharField(
         label='业务号码（E.164）',
         max_length=32,
         required=False,
-        help_text='例如 +15592028155。Phone Number ID 仍填写在上方公开 ID 中。',
+        help_text='填写你自己的完整国际号码（含 + 和国家代码）。Phone Number ID 仍填写在上方公开 ID 中。',
     )
     ycloud_webhook_endpoint_id = forms.CharField(
         label='YCloud Webhook Endpoint ID',
@@ -215,6 +216,9 @@ class MarketingIntegrationEditorForm(forms.Form):
             raw_leadgen_form_ids = re.split(r'[\s,;]+', raw_leadgen_form_ids)
         if self.is_meta_pixel:
             self.fields['public_id'].label = 'Meta Pixel ID'
+            self.fields['public_id'].widget.attrs['readonly'] = True
+            self.fields['public_id'].help_text = '已保存的 Pixel ID 不可覆盖；新数据集请从引导式准备独立接入。'
+            self.fields['enabled'].help_text = '全局开关，会影响所有引用此 Pixel 的流程；只暂停一个流程请回到引导式操作。'
             self.fields['primary_secret'].label = 'Meta CAPI Access Token'
         elif self.is_meta_leadgen:
             self.fields['public_id'].label = 'Meta Page ID'
@@ -323,6 +327,14 @@ class MarketingIntegrationEditorForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        if self.is_meta_pixel and getattr(self.integration, 'pk', None) and cleaned.get('public_id') != self.integration.public_id:
+            self.add_error('public_id', '已保存的 Pixel ID 不可覆盖，请建立新的接入记录。')
+        if self.is_meta_pixel and getattr(self.integration, 'pk', None):
+            from marketing.flow_runtime import runtime_enabled
+            if runtime_enabled() and bool(cleaned.get('enabled')) != self.integration.enabled and not cleaned.get('confirm_global_change'):
+                self.add_error('confirm_global_change', '请先核对关联流程并确认全局启停；只暂停一个流程请回到引导式。')
+            if getattr(self.integration, 'routing_mode', '') == 'flow_scoped' and cleaned.get('consent_category') != 'marketing':
+                self.add_error('consent_category', '流程接入必须使用 marketing 营销同意，不能改为必要事件。')
         if self.is_whatsapp:
             cleaned['ctwa_identity_mode'] = str(
                 cleaned.get('ctwa_identity_mode') or 'waba'

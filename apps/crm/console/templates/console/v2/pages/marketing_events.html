@@ -13,18 +13,17 @@
     <header class="page-header mb-3">
         <div class="row align-items-start g-3">
             <div class="col min-w-0">
-                <div class="page-pretitle">{{ workspace.site.name }}</div>
                 <h1 class="page-title">{{ workspace.title }}</h1>
                 <p class="text-secondary mt-1 mb-0">{{ workspace.description }}</p>
             </div>
-            <div class="col-auto ms-auto d-flex flex-wrap gap-2">
+            <div class="col-auto ms-auto d-flex flex-wrap gap-2 nc-event-header-actions">
                 <a class="btn btn-outline-secondary" href="{{ workspace.attribution_url }}">
                     <i data-lucide="chart-no-axes-combined" aria-hidden="true"></i>
                     来源分析
                 </a>
                 <a class="btn btn-outline-secondary" href="{{ workspace.platforms_url }}">
                     <i data-lucide="plug-zap" aria-hidden="true"></i>
-                    平台接入
+                    {% if workspace.selected_integration %}维护此接入{% else %}平台接入{% endif %}
                 </a>
             </div>
         </div>
@@ -87,6 +86,12 @@
                         </select>
                     </div>
                     <div>
+                        <label class="form-label" for="event-integration">接入</label>
+                        <select class="form-select" id="event-integration" name="integration">
+                            {% for option in workspace.options.integrations %}<option value="{{ option.value }}" {% if workspace.filters.integration == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
                         <label class="form-label" for="event-status">状态</label>
                         <select class="form-select" id="event-status" name="status">
                             {% for option in workspace.options.statuses %}
@@ -117,10 +122,10 @@
         </section>
 
         <section class="card" aria-labelledby="event-queue-title">
-            <div class="card-header">
+            <div class="card-header nc-event-queue-header">
                 <div>
                     <h2 class="card-title" id="event-queue-title">处理队列</h2>
-                    <p class="card-subtitle mt-1">只显示当前站点；重试操作始终绑定一个精确事件 ID。</p>
+                    <p class="card-subtitle mt-1">只显示当前站点；重试操作始终绑定一个精确事件 ID。平台接收不代表匹配或去重成功；仅验证不等于已投递。</p>
                 </div>
                 <div class="card-actions text-secondary small">
                     {% if workspace.total %}第 {{ workspace.pagination.start }}–{{ workspace.pagination.end }} 条，共 {{ workspace.total }} 条{% else %}共 0 条{% endif %}
@@ -145,7 +150,7 @@
                         <tbody>
                             {% for row in workspace.rows %}
                                 <tr>
-                                    <td>
+                                    <td data-label="事件">
                                         <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
                                             <span class="badge bg-{{ row.direction_tone }}-lt text-{{ row.direction_tone }}"><i data-lucide="{{ row.direction_icon }}" aria-hidden="true"></i> {{ row.direction_label }}</span>
                                             {% if row.demo %}<span class="badge bg-purple-lt text-purple">演示数据</span>{% endif %}
@@ -153,25 +158,25 @@
                                         <div class="fw-semibold text-break">{{ row.event_name }}</div>
                                         <div class="text-secondary small text-break" title="{{ row.external_id }}">{{ row.record_label }} · {{ row.external_id|truncatechars:42 }}</div>
                                     </td>
-                                    <td>
+                                    <td data-label="平台接入">
                                         <div class="fw-semibold text-break">{{ row.provider_name }}</div>
-                                        <div class="text-secondary small text-break">{{ row.integration_name }}</div>
+                                        <a class="small text-break" href="{{ row.integration_url }}">{{ row.integration_name }}</a>
                                         <div class="small mt-1">
                                             {% if row.integration_enabled %}<span class="text-success">已启用</span>{% else %}<span class="text-danger">已停用</span>{% endif %}
                                             <span class="text-secondary"> · {{ row.credential_label }}</span>
                                         </div>
                                     </td>
-                                    <td><span class="text-break">{{ row.business_object }}</span></td>
-                                    <td>
-                                        <span class="badge bg-{{ row.status_tone }}-lt text-{{ row.status_tone }}">{{ row.status_label }}</span>
+                                    <td data-label="业务对象"><span class="text-break">{{ row.business_object }}</span></td>
+                                    <td data-label="状态">
+                                        <span class="badge bg-{{ row.status_tone }}-lt {% if row.status == 'unknown' %}text-dark{% else %}text-{{ row.status_tone }}{% endif %}">{{ row.status_label }}</span>
                                     </td>
-                                    <td>
+                                    <td data-label="尝试">
                                         <div>{{ row.attempts }} 次</div>
                                         {% if row.last_activity_at %}<time class="text-secondary small d-block" datetime="{{ row.last_activity_at|date:'c' }}">{{ row.last_activity_at|date:'m-d H:i' }}</time>{% endif %}
                                         {% if row.next_retry_at %}<span class="text-secondary small d-block">下次 {{ row.next_retry_at|date:'m-d H:i' }}</span>{% elif row.action.kind == 'retry' %}<span class="text-warning small d-block">现在可重试</span>{% endif %}
                                     </td>
-                                    <td><p class="nc-event-error mb-0" title="{{ row.error_summary }}">{{ row.error_summary }}</p></td>
-                                    <td class="text-end">
+                                    <td data-label="最近错误"><p class="nc-event-error mb-0" title="{{ row.error_summary }}">{{ row.error_summary }}</p></td>
+                                    <td class="text-end" data-label="操作">
                                         {% if row.action.kind == 'retry' %}
                                             <form action="{{ row.action.url }}" method="post" class="d-inline">
                                                 {% csrf_token %}
@@ -179,7 +184,8 @@
                                                 <button class="btn btn-outline-primary btn-sm" type="submit" aria-label="精确重试 {{ row.record_label }}">{{ row.action.label }}</button>
                                             </form>
                                         {% elif row.action %}
-                                            <span class="badge bg-warning-lt text-warning" title="{{ row.action.reason }}">{{ row.action.label }}</span>
+                                            {% if row.action.url %}<a class="btn btn-outline-primary btn-sm" href="{{ row.action.url }}?return_to={{ workspace.current_url|urlencode }}">{{ row.action.label }}</a>{% else %}<span class="badge bg-warning-lt {% if row.status == 'unknown' %}text-dark{% else %}text-warning{% endif %}" title="{{ row.action.reason }}">{{ row.action.label }}</span>{% endif %}
+                                            {% if row.status == 'unknown' %}<p class="small text-secondary text-start mt-2 mb-0">{{ row.action.reason }}</p>{% endif %}
                                         {% else %}
                                             <span class="text-secondary small">无需操作</span>
                                         {% endif %}
@@ -199,7 +205,7 @@
                     {% elif workspace.filters.status == 'needs_attention' and not workspace.active_filter_labels %}
                         <div class="empty-icon"><span class="avatar avatar-lg bg-success-lt text-success"><i data-lucide="circle-check-big" aria-hidden="true"></i></span></div>
                         <h3 class="empty-title">当前没有需要处理的事件</h3>
-                        <p class="empty-subtitle text-secondary">当前站点没有失败、部分成功或超出等待窗口的事件。</p>
+                        <p class="empty-subtitle text-secondary">当前站点没有失败、部分成功、结果待核对或超出等待窗口的事件。</p>
                         <div class="empty-action"><a class="btn btn-outline-secondary" href="{{ workspace.view_all_url }}">查看全部事件</a></div>
                     {% else %}
                         <div class="empty-icon"><span class="avatar avatar-lg bg-secondary-lt text-secondary"><i data-lucide="search-x" aria-hidden="true"></i></span></div>

@@ -1,5 +1,16 @@
 # Source provenance
 
+## Current productization candidate
+
+The website now uses a neutral, optional fictional service catalogue, not the
+original seven industrial categories. The existing Vorntek logo is retained;
+three newly authored neutral SVG illustrations replace the retired concept
+photos. Original logo generation metadata remains unchanged as provenance.
+Catalogue IDs no longer constrain the backend form schema. EN/ZH navigation,
+catalogue/detail pages, configured inquiries, chart/CSV and content release
+capabilities remain. The September evidence below is historical, not a claim
+that the current candidate has been deployed or fully accepted.
+
 ## Current Vorntek scope — 2026-09-13
 
 The original website snapshot described below is historical provenance, not the

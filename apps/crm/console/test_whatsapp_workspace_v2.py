@@ -282,6 +282,7 @@ class WhatsAppWorkspaceV2Tests(TestCase):
             site=self.site,
             provider=meta_provider,
             name='Meta dataset mock',
+            routing_mode='legacy_site',  # Existing pre-upgrade integration.
             integration_type='pixel',
             public_id='dataset-123',
             consent_category='analytics',
@@ -430,7 +431,7 @@ class WhatsAppWorkspaceV2Tests(TestCase):
         )
         response = self.client.get(correct)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Cache-Control'], 'private, no-store')
+        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0, no-cache, must-revalidate')
         self.assertEqual(self.client.get(wrong).status_code, 404)
         self.assertTrue(AuditLog.objects.filter(
             action='whatsapp_media_downloaded', entity_id=media.id,

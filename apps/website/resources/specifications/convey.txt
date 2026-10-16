@@ -1,0 +1,12 @@
+VORNTEK
+Convey roller module / Convey 滚筒输送模块
+
+Concept envelope L × W × H / 设计外形 长×宽×高: 2000 × 600 × 950 mm
+Roller layout / 滚筒布置: Straight transfer section / 直线转运段
+Drive & control / 驱动与控制: Defined during application review / 应用评审时确定
+Load & speed / 载荷与速度: Validated against the actual tray / 依据实际托盘验证
+
+Final configuration and acceptance are defined for the application.
+最终配置与验收根据具体应用确定。
+
+/products/convey/

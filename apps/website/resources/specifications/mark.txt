@@ -1,0 +1,12 @@
+VORNTEK
+Trace identification station / Trace 工业标识工作站
+
+Concept envelope W × D × H / 设计外形 宽×深×高: 900 × 750 × 1700 mm
+Workholding / 工件定位: Single fixture position / 单定位工装
+Marking method / 标识方式: Selected for code and material / 按编码与材料选配
+Verification / 核对方式: Reader and criteria selected per project / 按项目配置读码器及标准
+
+Final configuration and acceptance are defined for the application.
+最终配置与验收根据具体应用确定。
+
+/products/mark/

@@ -1,11 +1,17 @@
 from django.urls import path
 from . import views
 from . import marketing_views
+from . import marketing_integration_views
+from . import flow_workspace_views
+from . import flow_runtime_views
+from . import marketing_guided_loop_views
 from . import sales_views
 from . import lead_views_v2
 from . import opportunity_views_v2
 from . import account_views_v2
 from . import marketing_event_views
+from . import marketing_review_views
+from . import notification_views
 from . import task_views_v2
 from . import workbench_views
 from . import whatsapp_views_v2
@@ -17,7 +23,23 @@ app_name = 'console'
 urlpatterns = [
     path('', views.home, name='home'),
     path('workbench/', workbench_views.workbench, name='workbench'),
+    path('marketing/guided-loop/', flow_workspace_views.flow_workspace, name='marketing_guided_loop'),
+    path('marketing/plans/', flow_workspace_views.marketing_plans, name='marketing_plans'),
+    path('marketing/integrations/', marketing_integration_views.marketing_integrations, name='marketing_integrations'),
+    path('marketing/integrations/new/', marketing_integration_views.marketing_integration_create, name='marketing_integration_create'),
+    path('marketing/guided-loop/meta/website-form/new/', marketing_guided_loop_views.marketing_guided_loop_create, name='marketing_guided_loop_create'),
+    path('marketing/guided-loop/meta/website-form/<uuid:loop_key>/', marketing_guided_loop_views.marketing_guided_loop_detail, name='marketing_guided_loop_detail'),
+    path('marketing/guided-loop/meta/website-form/<uuid:loop_key>/rename/', marketing_guided_loop_views.marketing_guided_loop_rename, name='marketing_guided_loop_rename'),
+    path('marketing/guided-loop/meta/website-form/<uuid:loop_key>/dataset/', marketing_guided_loop_views.marketing_guided_loop_dataset, name='marketing_guided_loop_dataset'),
+    path('api/marketing/flows/', flow_workspace_views.flow_workspace_collection, name='flow_workspace_collection'),
+    path('api/marketing/flows/<uuid:loop_key>/', flow_workspace_views.flow_workspace_item, name='flow_workspace_item'),
+    path('api/marketing/flows/<uuid:loop_key>/runtime/', flow_runtime_views.flow_runtime_item, name='flow_runtime_item'),
+    path('api/marketing/flows/<uuid:loop_key>/runtime/checks/', flow_runtime_views.flow_runtime_checks, name='flow_runtime_checks'),
     path('marketing/events/', marketing_event_views.marketing_events, name='marketing_events'),
+    path('marketing/events/outbound/<int:outbox_id>/review/', marketing_review_views.marketing_outbox_review, name='marketing_outbox_review'),
+    path('marketing/events/outbound/<int:outbox_id>/reconcile/', marketing_review_views.marketing_outbox_reconcile, name='marketing_outbox_reconcile'),
+    path('sales/leads/<int:submission_id>/notifications/', notification_views.notification_review, name='notification_review'),
+    path('sales/leads/<int:submission_id>/notifications/<uuid:attempt_id>/reconcile/', notification_views.notification_reconcile, name='notification_reconcile'),
     path('marketing/forms/', views.marketing_forms, name='marketing_forms'),
     path('marketing/forms/new/', views.lead_form_create, name='marketing_form_create'),
     path('marketing/forms/<int:form_id>/', views.lead_form_edit, name='marketing_form_edit'),
@@ -57,6 +79,8 @@ urlpatterns = [
     path('sales/leads/<int:submission_id>/', lead_views_v2.lead_workspace_detail_v2, name='lead_workspace_detail_v2'),
     path('api/sales/leads/<int:submission_id>/disposition/', lead_views_v2.lead_disposition_v2, name='lead_disposition_v2'),
     path('api/sales/leads/bulk-assign/', lead_views_v2.lead_bulk_assign_v2, name='lead_bulk_assign_v2'),
+    path('api/sales/leads/bulk-trash/', lead_views_v2.lead_bulk_trash_v2, name='lead_bulk_trash_v2'),
+    path('api/sales/leads/bulk-restore/', lead_views_v2.lead_bulk_restore_v2, name='lead_bulk_restore_v2'),
     path('sales/whatsapp/', whatsapp_views_v2.whatsapp_workspace_v2, name='whatsapp_workspace_v2'),
     path('sales/whatsapp/<int:conversation_id>/', whatsapp_views_v2.whatsapp_workspace_detail_v2, name='whatsapp_workspace_detail_v2'),
     path('api/sales/whatsapp/<int:conversation_id>/send/', whatsapp_views_v2.whatsapp_send_v2, name='whatsapp_send_v2'),
@@ -121,6 +145,7 @@ urlpatterns = [
     path('assets/3d/assets/<int:asset_id>/', views.three_d_asset_detail, name='three_d_asset_detail'),
     path('assets/3d/profiles/new/', views.three_d_profile_create, name='three_d_profile_create'),
     path('assets/3d/profiles/<int:profile_id>/', views.three_d_profile_edit, name='three_d_profile_edit'),
+    path('assets/3d/profiles/<int:profile_id>/preview/', views.three_d_profile_preview, name='three_d_profile_preview'),
     path('assets/3d/placements/new/', views.three_d_placement_create, name='three_d_placement_create'),
     path('assets/3d/placements/<int:placement_id>/', views.three_d_placement_edit, name='three_d_placement_edit'),
     path('assets/upload/', views.asset_upload, name='asset_upload'),

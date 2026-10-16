@@ -160,10 +160,27 @@ class ArticleRenderingTests(unittest.TestCase):
             base_route_mode='shared',
         )
         text = render_article_documents(release)['zh/articles/guide/index.html']
-        self.assertIn('href="/company/"', text)
-        self.assertIn('href="/products/">Product', text)
+        self.assertIn('href="/company/?lang=zh"', text)
+        self.assertIn('href="/products/?lang=zh">Product', text)
+        self.assertIn('href="/contact/?lang=zh"', text)
+        self.assertIn('href="/?lang=zh"', text)
         self.assertIn('href="/zh/articles/"', text)
         self.assertNotIn('href="/zh/company/"', text)
+
+    def test_shared_body_links_preserve_their_query_fragment_and_current_language(self):
+        text = render_markdown('[Drawing](/products/inspect/?ref=guide#dimensions)',
+                               locale='zh', default_locale='en', base_route_mode='shared')
+        self.assertIn('href="/products/inspect/?ref=guide&amp;lang=zh#dimensions"', text)
+
+    def test_default_article_language_is_explicit_when_returning_to_shared_pages(self):
+        release=build_article_release([ArticleVersion(content_key='guide',locale='en',slug='guide',
+            title='Guide',markdown='[Contact](/contact/?ref=guide#form)',status='published',route_status='published')],
+            locales=self.locales,site_code='testSite',site_name='Vorntek',
+            public_origin='https://example.invalid',base_route_mode='shared')
+        page=render_article_documents(release)['articles/guide/index.html']
+        for href in ('/products/?lang=en','/company/?lang=en','/?lang=en','/contact/?lang=en'):
+            self.assertIn('href="'+href+'"',page)
+        self.assertIn('href="/contact/?ref=guide&amp;lang=en#form"',page)
 
     def test_title_and_schema_json_cannot_break_out_of_script(self):
         release = build_article_release(
@@ -186,6 +203,22 @@ class ArticleRenderingTests(unittest.TestCase):
         text = render_article_documents(release)['articles/guide/index.html']
         self.assertEqual(text.count('<script'), 1)
         self.assertIn('\\u003c/script\\u003e', text)
+
+    def test_shared_article_navigation_keeps_the_current_article_language(self):
+        locales = [ArticleLocale('en', 'English', is_default=True),
+                   ArticleLocale('zh', '中文'), ArticleLocale('ar', 'العربية', direction='rtl')]
+        release = build_article_release(
+            [ArticleVersion(content_key='guide', locale=code, slug='guide', title='Guide',
+                            markdown='Synthetic content', status='published', route_status='published')
+             for code in ('en', 'zh', 'ar')],
+            locales=locales, site_code='testSite', site_name='Vorntek',
+            public_origin='https://example.invalid', base_route_mode='shared')
+        documents = render_article_documents(release, preview=False)
+        for code, label in (('zh', '文章'), ('ar', 'المقالات')):
+            with self.subTest(language=code):
+                html = documents[f'{code}/articles/guide/index.html']
+                self.assertNotIn(f'href="/articles/">{label}</a>', html)
+                self.assertIn(f'href="/{code}/articles/">{label}</a>', html)
 
     def test_tampered_release_is_refused(self):
         release = self.manifest()

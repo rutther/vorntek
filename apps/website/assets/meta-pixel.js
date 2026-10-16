@@ -1,9 +1,11 @@
 (function () {
   "use strict";
 
-  // No production asset is embedded in distributed code. Same-origin configuration
-  // must explicitly enable measurement; consent remains independently required.
-  var pixelId = "";
+  var pixelIds = {};
+  var measurementConfig = null;
+  var configPromise = null;
+  var configFetchedAt = 0;
+  var trackedLeads = {};
   var googleTagId = "";
   var measurementConfigUrl = "/api/marketing/measurement-config/";
   var consentKey = "nc_privacy_consent_v1";
@@ -19,7 +21,6 @@
   var pixelInitialized = false;
   var googleConsentInitialized = false;
   var googleTagInitialized = false;
-  var measurementConfigLoaded = false;
   var lastTrackedLocation = "";
 
   var copy = {
@@ -36,6 +37,11 @@
       details: "Privacy Notice",
       settings: "Privacy choices"
     },
+    fr: {
+      title: "Choix de confidentialité",
+      body: "Avec votre accord, nous utilisons Meta Pixel, la mesure publicitaire Google, l’attribution des campagnes et la personnalisation publicitaire pour mesurer les résultats et améliorer la pertinence des annonces. Lors d’une demande, les identifiants de contact sont hachés avant transmission côté serveur lorsque nécessaire ; les données du navigateur, de l’appareil et de la campagne peuvent aussi être incluses.",
+      accept: "Accepter", reject: "Refuser", details: "Confidentialité", settings: "Choix de confidentialité"
+    },
     ar: {
       title: "خيارات الخصوصية",
       body: "بعد موافقتك، نستخدم Meta Pixel وقياس إعلانات Google وإسناد الحملات وتخصيص الإعلانات لقياس الأداء وتحسين ملاءمة الإعلانات. عند إرسال استفسار، تُشفّر معرّفات التواصل تجزئياً قبل الإرسال من الخادم عند الحاجة، وقد تُضمّن بيانات المتصفح والجهاز والحملة.",
@@ -47,9 +53,12 @@
   };
 
   function getLanguage() {
+    var prefix = window.location.pathname.match(/^\/(fr|ar)(?=\/|$)/);
+    if (prefix) return prefix[1];
     var requested = new URLSearchParams(window.location.search).get("lang");
-    if (requested === "ar" || requested === "en" || requested === "zh") return requested;
+    if (["ar", "en", "zh", "fr"].includes(requested)) return requested;
     if (document.documentElement.lang.indexOf("zh") === 0) return "zh";
+    if (document.documentElement.lang.indexOf("fr") === 0) return "fr";
     return document.documentElement.lang === "ar" ? "ar" : "en";
   }
 
@@ -109,35 +118,49 @@
   }
 
   function loadMeasurementConfig() {
-    if (measurementConfigLoaded || typeof window.fetch !== "function") return;
-    measurementConfigLoaded = true;
-    window.fetch(measurementConfigUrl, {
+    var path = window.location.pathname.replace(/\/$/, '') + '/';
+    if (measurementConfig && measurementConfig.path === path && Date.now() - configFetchedAt < 60000) return Promise.resolve(measurementConfig);
+    if (configPromise) return configPromise.then(function () {
+      return measurementConfig && measurementConfig.path === path ? measurementConfig : null;
+    });
+    if (typeof window.fetch !== "function") return Promise.resolve(null);
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var timeout;
+    var expired = false;
+    var deadline = new Promise(function (resolve) {
+      timeout = window.setTimeout(function () { expired = true; if (controller) controller.abort(); resolve(null); }, 3000);
+    });
+    var request = window.fetch(measurementConfigUrl + '?path=' + encodeURIComponent(path), {
       method: "GET",
       credentials: "same-origin",
       cache: "no-store",
+      signal: controller ? controller.signal : undefined,
       headers: { Accept: "application/json" }
     }).then(function (response) {
       return response.ok ? response.json() : null;
-    }).then(function (payload) {
-      if (!payload || !payload.ok) return;
-      var configuredPixelId = String(payload.meta_pixel_id || "").trim();
-      if (payload.meta_pixel_enabled && /^\d{5,25}$/.test(configuredPixelId)) {
-        pixelId = configuredPixelId;
-        if (getConsent() === consentGranted) loadPixel();
-      }
+    }).catch(function () { return null; });
+    configPromise = Promise.race([request, deadline]).then(function (payload) {
+      measurementConfig = null;
+      if (expired || !payload || !payload.ok) return null;
       var configuredTagId = String(payload.google_tag_id || "").trim().toUpperCase();
       if (payload.google_tag_enabled && /^(AW-\d+|GT-[A-Z0-9]+)$/.test(configuredTagId)) {
         googleTagId = configuredTagId;
         initializeGoogleConsent();
         if (getConsent() === consentGranted) loadGoogleTag();
       }
-      if (pixelId || hasGoogleTag()) {
-        ensurePrivacyControls();
-        if (!getConsent()) showConsent();
-      }
-    }).catch(function () {
-      // Measurement remains disabled when the same-origin config is unavailable.
+      if (payload.schemaVersion !== 2 || payload.path !== path || !Array.isArray(payload.metaPixels)) return null;
+      payload.metaPixels = payload.metaPixels.filter(function (target) {
+        return target && typeof target.pixelId === 'string' && /^\d{1,32}$/.test(target.pixelId) &&
+          Array.isArray(target.events) && target.events.every(function (name) { return typeof name === 'string'; });
+      });
+      measurementConfig = payload;
+      configFetchedAt = Date.now();
+      return payload;
+    }).finally(function () {
+      window.clearTimeout(timeout);
+      configPromise = null;
     });
+    return configPromise;
   }
 
   function setConsent(value) {
@@ -153,6 +176,7 @@
     } else {
       clearAdAttribution();
       updateGoogleConsent(false);
+      if (window.fbq) window.fbq('consent', 'revoke');
     }
     document.dispatchEvent(new CustomEvent("nc:privacy-consent", {
       detail: { status: value }
@@ -294,11 +318,16 @@
   }
 
   function readCookie(name) {
-    var prefix = name + "=";
-    var cookies = document.cookie ? document.cookie.split(";") : [];
-    for (var index = 0; index < cookies.length; index += 1) {
-      var item = cookies[index].trim();
-      if (item.indexOf(prefix) === 0) return decodeURIComponent(item.slice(prefix.length));
+    try {
+      var prefix = name + "=";
+      var cookies = document.cookie ? document.cookie.split(";") : [];
+      for (var index = 0; index < cookies.length; index += 1) {
+        var item = cookies[index].trim();
+        if (item.indexOf(prefix) === 0) return decodeURIComponent(item.slice(prefix.length));
+      }
+    } catch (_error) {
+      // Invalid or unavailable optional identifiers must not block an inquiry.
+      return "";
     }
     return "";
   }
@@ -324,7 +353,8 @@
     var pageType = "home";
 
     if (dataset.productItem) pageType = "product_detail";
-    else if (dataset.productPage) pageType = "product_family";
+    else if (dataset.productPage || dataset.productFamily) pageType = "product_family";
+    else if (dataset.productBookCenter !== undefined) pageType = "product_center";
     else if (dataset.articlePage) pageType = "technical_article";
     else if (dataset.sitePage) pageType = dataset.sitePage;
 
@@ -337,6 +367,7 @@
 
     if (dataset.productSystem) context.product_family = dataset.productSystem;
     if (dataset.productPage) context.product_family = dataset.productPage;
+    if (dataset.productFamily) context.product_family = dataset.productFamily;
     if (dataset.productItem) context.product_item = dataset.productItem;
     if (dataset.articlePage) context.article_slug = dataset.articlePage;
 
@@ -349,22 +380,42 @@
   }
 
   function send(eventName, params, options) {
-    if (!pixelInitialized || getConsent() !== consentGranted || typeof window.fbq !== "function") return;
-    if (options) window.fbq("track", eventName, params || {}, options);
-    else window.fbq("track", eventName, params || {});
+    // Lead is allowed only by the canonical successful submission receipt below.
+    if (eventName === 'Lead') return;
+    return sendToTargets(eventName, params, options, false);
   }
 
   function sendCustom(eventName, params) {
-    if (!pixelInitialized || getConsent() !== consentGranted || typeof window.fbq !== "function") return;
-    window.fbq("trackCustom", eventName, params || {});
+    return sendToTargets(eventName, params, null, true);
+  }
+
+  function sendToTargets(eventName, params, options, custom, receipt) {
+    if (getConsent() !== consentGranted) return Promise.resolve();
+    return loadMeasurementConfig().then(function (config) {
+      if (!config || getConsent() !== consentGranted) return;
+      initializePixels(config);
+      config.metaPixels.forEach(function (target) {
+        if (!pixelIds[target.pixelId] || !target.events.includes(eventName)) return;
+        if (eventName === 'Lead') {
+          if (!receipt || !receipt.shouldTrack || !receipt.eventId || !Array.isArray(receipt.pixelIds) || !receipt.pixelIds.includes(target.pixelId)) return;
+          var key = target.pixelId + ':' + receipt.eventId;
+          if (trackedLeads[key]) return;
+          try { if (window.sessionStorage.getItem('nc_lead_' + key)) return; } catch (_error) { /* Memory fallback. */ }
+          trackedLeads[key] = true;
+          try { window.sessionStorage.setItem('nc_lead_' + key, '1'); } catch (_error) { /* Memory fallback. */ }
+        }
+        window.fbq(custom ? 'trackSingleCustom' : 'trackSingle', target.pixelId, eventName, params || {}, options || {});
+      });
+    });
   }
 
   function trackLocation(force) {
-    if (!pixelInitialized || getConsent() !== consentGranted) return;
+    if (getConsent() !== consentGranted) return;
     var marker = window.location.pathname + window.location.search + "|" + getLanguage();
     if (!force && marker === lastTrackedLocation) return;
+    return loadMeasurementConfig().then(function (config) {
+    if (!config || getConsent() !== consentGranted || (!force && marker === lastTrackedLocation)) return;
     lastTrackedLocation = marker;
-
     var context = getPageContext();
     send("PageView", context);
 
@@ -376,14 +427,15 @@
     } else if (context.content_category === "technical_article") {
       send("ViewContent", context);
     }
+    });
   }
 
   function loadPixel() {
-    if (!pixelId || getConsent() !== consentGranted) return;
-    if (pixelInitialized) {
-      trackLocation(false);
-      return;
-    }
+    return trackLocation(false);
+  }
+
+  function initializePixels(config) {
+    if (getConsent() !== consentGranted || !config.metaPixels.length) return;
 
     if (!window.fbq) {
       (function (f, b, e, v, n, t, s) {
@@ -404,9 +456,15 @@
       })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
     }
 
-    window.fbq("init", pixelId);
+    window.fbq('consent', 'grant');
+    config.metaPixels.forEach(function (target) {
+      if (!/^\d+$/.test(target.pixelId) || pixelIds[target.pixelId]) return;
+      // Explicit event routing is the only source for newly scoped Pixels.
+      if (!target.legacy) window.fbq('set', 'autoConfig', false, target.pixelId);
+      window.fbq('init', target.pixelId);
+      pixelIds[target.pixelId] = true;
+    });
     pixelInitialized = true;
-    trackLocation(true);
   }
 
   function injectConsentStyles() {
@@ -431,15 +489,17 @@
   }
 
   function privacyUrl() {
+    var language = getLanguage();
+    if (language === "ar" || language === "fr") return "/" + language + "/privacy/";
     return "/privacy/?lang=" + getLanguage();
   }
 
   function ensurePrivacyControls() {
-    if (!pixelId && !hasGoogleTag()) return;
     injectConsentStyles();
     var language = getLanguage();
     var text = copy[language] || copy.en;
-    var footerLinks = document.querySelector(".site-footer .footer-links, .footer-main");
+    var footerLinks = document.querySelector(".site-footer .footer-links, .locale-footer nav") ||
+      document.querySelector(".footer-main");
 
     if (footerLinks && !footerLinks.querySelector("[data-privacy-settings]")) {
       var button = document.createElement("button");
@@ -457,8 +517,12 @@
     });
   }
 
+  document.addEventListener('nc:language-changed', function () {
+    ensurePrivacyControls();
+    if (document.getElementById('nc-consent')) showConsent();
+  });
+
   function showConsent() {
-    if (!pixelId && !hasGoogleTag()) return;
     injectConsentStyles();
     var current = document.getElementById("nc-consent");
     if (current) current.remove();
@@ -536,8 +600,8 @@
   document.addEventListener("nc:form-started", function (event) {
     var detail = event.detail || {};
     sendCustom("FormStart", Object.assign({}, getPageContext(), {
-      content_category: "project_inquiry",
-      form_code: detail.formCode || "project-inquiry",
+      content_category: detail.category || "inquiry",
+      form_code: detail.formCode || "",
       inquiry_type: detail.inquiryType || "",
       product_category: detail.productCategory || ""
     }));
@@ -545,17 +609,26 @@
 
   document.addEventListener("nc:lead-accepted", function (event) {
     var detail = event.detail || {};
-    var eventId = detail.eventId || "";
+    var receipt = detail.measurement;
+    if (!receipt || !receipt.shouldTrack) return;
+    var eventId = receipt.eventId || "";
     var params = Object.assign({}, getPageContext(), {
-      content_category: "project_inquiry",
-      form_code: detail.formCode || "project-inquiry",
+      content_category: detail.category || "inquiry",
+      form_code: detail.formCode || "",
       inquiry_type: detail.inquiryType || "",
       product_category: detail.productCategory || ""
     });
-    send("Lead", params, eventId ? { eventID: eventId } : null);
+    sendToTargets("Lead", params, { eventID: eventId }, false, receipt);
   });
 
   window.ncMetaTrack = send;
+  window.ncMetaRuntimeVersion = 2;
+  window.ncMeasurementContext = function () {
+    if (getConsent() !== consentGranted) return Promise.resolve('');
+    return loadMeasurementConfig().then(function (config) {
+      return config && getConsent() === consentGranted ? config.measurementContext || '' : '';
+    });
+  };
   window.ncPrivacyChoices = showConsent;
   window.ncMetaIdentifiers = metaIdentifiers;
   window.ncAdAttribution = captureAdAttribution;
@@ -582,7 +655,12 @@
       loadPixel();
       loadGoogleTag();
     }
-    else if (consent !== consentDenied) showConsent();
+    else if (consent !== consentDenied) {
+      loadMeasurementConfig().then(function (config) {
+        if (getConsent() !== consentGranted && getConsent() !== consentDenied &&
+            ((config && config.metaPixels.length) || hasGoogleTag())) showConsent();
+      });
+    }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });

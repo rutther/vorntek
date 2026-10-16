@@ -953,6 +953,7 @@
 }
 
 .nc-bulk-owner {
+    grid-column: 1 / -1;
     margin: 0;
 }
 
@@ -2985,7 +2986,7 @@
 
 .nc-event-filters {
     display: grid;
-    grid-template-columns: minmax(260px, 2fr) repeat(4, minmax(120px, 1fr)) auto;
+    grid-template-columns: minmax(220px, 2fr) repeat(5, minmax(100px, 1fr)) auto;
     gap: 12px;
     align-items: end;
 }
@@ -3042,6 +3043,21 @@
     -webkit-line-clamp: 2;
 }
 
+.nc-event-queue-header {
+    flex-wrap: wrap;
+    gap: 12px 24px;
+}
+
+.nc-event-queue-header > :first-child {
+    flex: 1 1 420px;
+    min-width: 0;
+}
+
+.nc-event-queue-header .card-actions {
+    flex: 0 0 auto;
+    margin-left: 0;
+}
+
 @media (max-width: 1399px) {
     .nc-event-filters {
         grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(130px, 1fr));
@@ -3066,6 +3082,85 @@
 @media (max-width: 820px) {
     .nc-event-table {
         min-width: 880px;
+    }
+}
+
+@media (max-width: 767px) {
+    .nc-event-workspace .page-header .row > .col {
+        flex-basis: 100%;
+    }
+
+    .nc-event-header-actions {
+        margin-left: 0 !important;
+    }
+
+    .nc-event-table {
+        display: block;
+        min-width: 0;
+    }
+
+    .nc-event-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .nc-event-table tbody {
+        display: block;
+    }
+
+    .nc-event-table tbody tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas: "event event" "state attempts" "integration integration" "business business" "error error" "action action";
+        gap: 12px 20px;
+        padding: 20px;
+        border-bottom: 1px solid var(--nc-border);
+    }
+
+    .nc-event-table tbody tr:last-child {
+        border-bottom: 0;
+    }
+
+    .nc-event-table tbody tr > td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        text-align: left !important;
+    }
+
+    .nc-event-table td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 4px;
+        color: var(--nc-text-secondary);
+        font-size: 12px;
+    }
+
+    .nc-event-table td:nth-child(1) { grid-area: event; }
+    .nc-event-table td:nth-child(2) { grid-area: integration; }
+    .nc-event-table td:nth-child(3) { grid-area: business; }
+    .nc-event-table td:nth-child(4) { grid-area: state; }
+    .nc-event-table td:nth-child(5) { grid-area: attempts; }
+    .nc-event-table td:nth-child(6) { grid-area: error; }
+    .nc-event-table td:nth-child(7) { grid-area: action; }
+
+    .nc-event-table td:first-child::before {
+        display: none;
+    }
+
+    .nc-event-table .nc-event-error {
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+    }
+
+    .nc-event-table .btn {
+        min-height: 40px;
     }
 }
 

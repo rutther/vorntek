@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from sitecore.models import Release, ReleaseBuild
 
-from .article_delivery import ArticleDeliveryError, snapshot_cms_articles
+from .article_delivery import ArticleDeliveryError, ArticleLocale, ArticleVersion, build_article_release, snapshot_cms_articles
 from .article_release_store import ArticleReleaseStore
 
 
@@ -35,10 +35,36 @@ def article_preview_store(site, *, initialize: bool) -> ArticleReleaseStore:
     return ArticleReleaseStore(root, site_code=site.code, preview=True)
 
 
-def _build_private_article_preview(*, site) -> dict:
+def _build_private_article_preview(*, site, article=None) -> dict:
     root, public_origin = article_preview_target(site)
     # Validate the complete database snapshot before creating local directories.
-    snapshot = snapshot_cms_articles(site=site, public_origin=public_origin)
+    if article is None:
+        snapshot = snapshot_cms_articles(site=site, public_origin=public_origin)
+    else:
+        locale = article.route.locale
+        if not site.enabled or article.route.site_id != site.pk or locale.site_id != site.pk or not locale.enabled:
+            raise ArticleDeliveryError('preview_article_scope_mismatch')
+        if article.category_id and (article.category.site_id != site.pk or article.category.locale_id != locale.pk):
+            raise ArticleDeliveryError('category_locale_mismatch')
+        config = article.config_json if isinstance(article.config_json, dict) else {}
+        locales = [ArticleLocale(code=row.locale_code, label=row.label, direction=row.direction,
+            is_default=row.locale_code == site.default_locale)
+            for row in site.locales.filter(enabled=True).order_by('sort_order','locale_code')]
+        site_config = site.config_json if isinstance(site.config_json, dict) else {}
+        delivery = site_config.get('articleDelivery', {})
+        delivery = delivery if isinstance(delivery, dict) else {}
+        # Private projection only: a draft never changes its persisted status.
+        snapshot = build_article_release([ArticleVersion(
+            content_key=config.get('contentKey') or f'previewArticle{article.pk}', locale=locale.locale_code,
+            slug=article.slug, public_slug=config.get('publicSlug',''), source_path=article.route.path,
+            title=article.title, markdown=article.body_markdown, excerpt=article.excerpt,
+            description=article.route.meta_description, author=article.author_name,
+            og_title=article.route.og_title, og_description=article.route.og_description,
+            og_image_url=article.route.og_image_url, robots=article.route.robots,
+            cover_url=article.cover_image_url, status='published', route_status='published',
+        )], locales=locales, site_code=site.code, site_name=site.name, public_origin=public_origin,
+            brand_logo_url=str(delivery.get('brandLogoUrl') or ''),
+            base_route_mode=str(delivery.get('baseRouteMode') or 'localized'))
     store = ArticleReleaseStore.initialize(root, site_code=site.code, preview=True)
     version = store.stage(snapshot)
     manifest = store.verify(version)
@@ -47,17 +73,17 @@ def _build_private_article_preview(*, site) -> dict:
         'sourceVersion': snapshot['releaseSha256'],
         'articleCount': len(snapshot['articles']),
         'files': sorted(manifest['files']),
-        'scope': 'sitePublished',
-        'missingTranslations': snapshot['missingTranslations'],
+        'scope': 'singleArticle' if article is not None else 'sitePublished',
+        'missingTranslations': [] if article is not None else snapshot['missingTranslations'],
     }
 
 
-def build_private_article_preview(*, site, actor='local-preview') -> dict:
+def build_private_article_preview(*, site, article=None, actor='local-preview') -> dict:
     """Build and record a private preview without changing an active pointer."""
 
     started = timezone.now()
     try:
-        result = _build_private_article_preview(site=site)
+        result = _build_private_article_preview(site=site, article=article)
     except (ArticleDeliveryError, OSError) as exc:
         code = exc.code if isinstance(exc, ArticleDeliveryError) else 'preview_storage_unavailable'
         with transaction.atomic():
@@ -81,7 +107,8 @@ def build_private_article_preview(*, site, actor='local-preview') -> dict:
         raise
 
     finished = timezone.now()
-    release_key = f'article-preview:{site.pk}:{result["version"]}'
+    release_key = (f'article-preview-single:{site.pk}:{article.pk}:{result["version"]}'
+        if article is not None else f'article-preview:{site.pk}:{result["version"]}')
     with transaction.atomic():
         release, _created = Release.objects.get_or_create(
             release_key=release_key,
@@ -123,7 +150,11 @@ def reviewed_article_preview(*, site, version: str) -> Release | None:
         status='built',
     ).first()
     if release is None or not isinstance(release.snapshot_manifest, dict):
-        return None
+        release = Release.objects.filter(site=site, status='built',
+            snapshot_manifest__kind='articlePreview', snapshot_manifest__scope='singleArticle',
+            snapshot_manifest__version=version).order_by('-pk').first()
+        if release is None or not isinstance(release.snapshot_manifest, dict):
+            return None
     manifest = release.snapshot_manifest
     if manifest.get('kind') != 'articlePreview' or manifest.get('version') != version:
         return None

@@ -1,19 +1,28 @@
 from __future__ import annotations
 
-import os
+import hmac
 
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import connection
 from siteos_admin.runtime_config import secret_value
 
 
+class SecretVaultConfigurationError(ValueError):
+    """The vault needs its own key; plaintext and file-backed inputs are supported."""
+
+
 def secret_vault_master_key() -> str:
-    key = secret_value('SITEOS_SECRET_VAULT_KEY').strip()
-    if key:
-        return key
-    fallback = secret_value('SITEOS_ADMIN_SECRET_KEY').strip()
-    if fallback:
-        return fallback
-    raise ValueError('未配置密钥库主密钥。请设置 SITEOS_SECRET_VAULT_KEY 或 SITEOS_ADMIN_SECRET_KEY。')
+    try:
+        key = secret_value('SITEOS_SECRET_VAULT_KEY').strip()
+    except ImproperlyConfigured as exc:
+        raise SecretVaultConfigurationError('无法读取独立密钥库主密钥，请核对 SITEOS_SECRET_VAULT_KEY 配置。') from exc
+    if not key:
+        raise SecretVaultConfigurationError('未配置独立密钥库主密钥。请设置 SITEOS_SECRET_VAULT_KEY。')
+    signing = str(settings.SECRET_KEY).strip() if settings.configured else secret_value('SITEOS_ADMIN_SECRET_KEY').strip()
+    if hmac.compare_digest(key.encode('utf-8'), signing.encode('utf-8')):
+        raise SecretVaultConfigurationError('SITEOS_SECRET_VAULT_KEY 必须独立于网站签名密钥，不能复用。')
+    return key
 
 
 def store_secret(*, secret_key: str, plaintext: str, updated_by: str) -> None:

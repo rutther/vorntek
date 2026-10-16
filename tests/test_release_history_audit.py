@@ -1,3 +1,5 @@
+import hashlib
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -67,6 +69,64 @@ class ReleaseHistoryAuditTests(unittest.TestCase):
             'scripts/shared.py',
             {item['path'] for item in report['findings'] if item['kind'] == 'production domain'},
         )
+
+    def allowlist(self, entries):
+        path = self.root/'reviewed-assets.json'
+        path.write_text(json.dumps({'format':'vorntek-reviewed-assets-v1','assets':entries}))
+        return path
+
+    def asset_entry(self, path, content):
+        return {'path':path,'sha256':hashlib.sha256(content.encode()).hexdigest(),
+                'bytes':len(content.encode()),'source':'authored synthetic fixture',
+                'license_or_provenance':'MIT fixture','reason':'test large-resource policy'}
+
+    def test_reviewed_asset_requires_exact_path_bytes_and_digest(self):
+        content = 'safe synthetic resource\n'*10
+        self.commit_file('apps/asset.txt',content)
+        entry = self.asset_entry('apps/asset.txt',content)
+        manifest = self.allowlist([entry])
+        report = audit_range(self.root,self.base,max_blob_bytes=64,asset_allowlist=manifest)
+        self.assertEqual(report['finding_count'],0)
+        for key,value in [('sha256','0'*64),('bytes',len(content)+1),('path','apps/other.txt')]:
+            with self.subTest(key=key):
+                manifest = self.allowlist([{**entry,key:value}])
+                report = audit_range(self.root,self.base,max_blob_bytes=64,asset_allowlist=manifest)
+                self.assertIn('oversized blob',{r['kind'] for r in report['findings']})
+                self.assertIn('unused asset approval',{r['kind'] for r in report['findings']})
+
+    def test_approved_content_under_unreviewed_path_is_rejected(self):
+        content = 'safe shared fixture\n'*10
+        self.commit_file('apps/approved.txt',content)
+        self.commit_file('apps/unreviewed.txt',content)
+        manifest = self.allowlist([self.asset_entry('apps/approved.txt',content)])
+        report = audit_range(self.root,self.base,max_blob_bytes=64,asset_allowlist=manifest)
+        self.assertEqual([(r['kind'],r['path']) for r in report['findings']],
+                         [('oversized blob','apps/unreviewed.txt')])
+
+    def test_approved_large_text_still_scans_secrets_and_deleted_history(self):
+        content = 'AKIA'+'1234567890ABCDEF'+'\n'+'x'*100
+        self.commit_file('apps/approved.txt',content)
+        manifest = self.allowlist([self.asset_entry('apps/approved.txt',content)])
+        (self.root/'apps/approved.txt').unlink()
+        self.git('add','-u'); self.git('commit','-m','remove fixture')
+        report = audit_range(self.root,self.base,max_blob_bytes=64,asset_allowlist=manifest)
+        self.assertIn('AWS access key',{r['kind'] for r in report['findings']})
+        self.assertNotIn('oversized blob',{r['kind'] for r in report['findings']})
+
+    def test_asset_approval_already_in_base_is_not_stale(self):
+        content = 'safe base asset\n'*10
+        self.commit_file('apps/approved.txt',content)
+        base = self.git('rev-parse','HEAD').strip()
+        self.commit_file('apps/new.txt','small')
+        manifest = self.allowlist([self.asset_entry('apps/approved.txt',content)])
+        self.assertEqual(audit_range(self.root,base,max_blob_bytes=64,
+                         asset_allowlist=manifest)['finding_count'],0)
+
+    def test_invalid_approval_schema_refuses(self):
+        for entry in [self.asset_entry('../escape','safe'),
+                      {**self.asset_entry('apps/x','safe'),'reason':''}]:
+            with self.subTest(entry=entry),self.assertRaises(ValueError):
+                audit_range(self.root,self.base,asset_allowlist=self.allowlist([entry]))
 
 
 if __name__ == '__main__':

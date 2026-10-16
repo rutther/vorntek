@@ -3,7 +3,7 @@
         {% csrf_token %}
 
         <div class="editor-mobile-actions">
-            <a href="{% url 'console:marketing' %}" class="button neutral">返回</a>
+            <a class="button neutral" href="{% url 'console:marketing_integrations' %}">返回接入列表</a>
             <button type="submit" class="button primary">保存设置</button>
         </div>
 
@@ -30,6 +30,7 @@
                     <label class="field field-block">
                         <span class="field-label">{{ marketing_integration_editor.public_id.label }}</span>
                         {{ marketing_integration_editor.public_id }}
+                        {% if marketing_integration_editor.public_id.help_text %}<small class="field-help">{{ marketing_integration_editor.public_id.help_text }}</small>{% endif %}
                         {% for error in marketing_integration_editor.public_id.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
                     </label>
                 </div>
@@ -42,10 +43,31 @@
                     <label class="field field-block checkbox-field">
                         <span class="field-label">{{ marketing_integration_editor.enabled.label }}</span>
                         <span class="checkbox-inline">{{ marketing_integration_editor.enabled }} 接入生效</span>
+                        {% if marketing_integration_editor.enabled.help_text %}<small class="field-help">{{ marketing_integration_editor.enabled.help_text }}</small>{% endif %}
                         {% for error in marketing_integration_editor.enabled.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
                     </label>
                 </div>
+                {% if runtime_management %}
+                    <label class="field field-block checkbox-field">
+                        <span class="checkbox-inline">{{ marketing_integration_editor.confirm_global_change }} {{ marketing_integration_editor.confirm_global_change.label }}</span>
+                        <small class="field-help">仅更换凭据、名称时无需勾选。新流程请返回引导式预览并应用范围；全局开关不能代替应用。</small>
+                        {% for error in marketing_integration_editor.confirm_global_change.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </label>
+                {% endif %}
             </section>
+
+            {% if runtime_management %}
+            <section class="editor-card">
+                <div class="editor-card-head"><div><h2>关联流程与影响范围</h2><p>环境：{{ runtime_management.environment }} · {% if runtime_management.mode == 'legacy_site' %}旧站点接入，原事件范围保留{% else %}按流程限定页面和表单{% endif %} · {{ runtime_management.count }} 个关联流程</p></div></div>
+                <p>这里的启停和凭据修改是全局操作。仅暂停一个流程，请打开该流程的“暂停本流程”。事件接收和去重须在该流程测试步骤核对。</p>
+                {% for item in runtime_management.flows %}
+                <div class="field-block">
+                    <p><a href="{{ item.url }}">{{ item.name }} · 打开运行管理</a> · 版本 {{ item.version }} · {% if item.state == 'applied' %}已应用，外部待核验{% elif item.state == 'paused' %}已暂停{% elif item.state == 'inactive' %}已停用{% else %}尚未应用{% endif %}</p>
+                    <p>浏览页面：{{ item.scope.landingPaths|join:'、'|default:'未配置' }}；询盘页面：{{ item.scope.leadPaths|join:'、'|default:'未配置' }}；表单 ID：{{ item.scope.formId|default:'未选择' }}。</p>
+                </div>
+                {% empty %}<p>尚无流程引用此接入。{% if runtime_management.mode == 'legacy_site' %}旧站点事件仍按原有规则运行。{% else %}仅全局启用不会开始发送，需要回到引导式保存范围并应用。{% endif %}</p>{% endfor %}
+            </section>
+            {% endif %}
 
             <details class="editor-card editor-disclosure">
                 <summary>
@@ -284,7 +306,7 @@
                 <div class="editor-card-head"><div><h2>保存设置</h2><p>保存前会检查当前接入所需的 ID、密钥和同意状态。</p></div></div>
                 <div class="side-actions">
                     <button type="submit" class="button primary">保存接入</button>
-                    <a href="{% url 'console:marketing' %}" class="button neutral">取消并返回</a>
+                    <a class="button neutral" href="{% url 'console:marketing_integrations' %}">取消并返回接入列表</a>
                 </div>
             </section>
 

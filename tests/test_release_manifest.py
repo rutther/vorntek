@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import tempfile
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -20,12 +21,17 @@ class ReleaseManifestTests(unittest.TestCase):
         self.assertEqual(manifest['format'], 'vorntek-source-release-v1')
         self.assertEqual(manifest['version'], (ROOT / 'VERSION').read_text().strip())
         self.assertRegex(manifest['git_commit'], r'^[a-f0-9]{40}$')
-        self.assertEqual(manifest['migrations']['count'], 32)
+        self.assertEqual(manifest['migrations']['count'], 43)
         self.assertEqual(
             manifest['migrations']['tip'],
-            '0032_website_deployment_ledger.sql',
+            '0043_site_example_bundle.sql',
         )
-        self.assertEqual(manifest['website_tree']['tracked_files'], 27)
+        # Bind the actual committed company package, not the retired24-file demo.
+        # Read names independently of the manifest's mode/blob-hash tree parser.
+        website_files=subprocess.check_output(['git','ls-tree','-r','--name-only','HEAD','--','apps/website'],cwd=ROOT).splitlines()
+        self.assertEqual(manifest['website_tree']['tracked_files'],len(website_files))
+        self.assertIn(b'apps/website/products/inspect/index.html',website_files)
+        self.assertIn(b'apps/website/assets/vorntek/models/inspect.glb',website_files)
         for key in (
             manifest['source_tree']['git_tree_sha256'],
             manifest['website_tree']['git_tree_sha256'],

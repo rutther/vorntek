@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import nullcontext
 import json
 
 from django.conf import settings
 from django.core.mail import get_connection
+from django.db import connection, transaction
 
 from console.secret_store import load_secret, secret_exists, secret_last4
 
@@ -105,7 +107,10 @@ def load_runtime_email_config() -> EmailDeliveryConfig:
     if settings_config.backend != SMTP_BACKEND or settings_config.ready:
         return settings_config
     try:
-        stored = _stored_config()
+        # Autocommit already isolates each failed read. An ambient transaction
+        # needs a savepoint before a pgcrypto error becomes a config result.
+        with transaction.atomic() if connection.in_atomic_block else nullcontext():
+            stored = _stored_config()
         if stored is not None:
             return stored
         return settings_config

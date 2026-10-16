@@ -1,4 +1,4 @@
-# New Crown development rules
+# Vorntek development rules
 
 - Read README.md and docs/IMPLEMENTATION_STATUS.md before changing the project. Do not infer deployment or acceptance from file presence.
 - Preserve the existing UI, business contracts, permission checks, audit history and caller-owned modifications.

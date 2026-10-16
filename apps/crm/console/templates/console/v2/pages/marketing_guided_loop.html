@@ -1,0 +1,297 @@
+{% extends 'console/v2/base.html' %}
+
+{% block title %}引导式闭环 · {{ brand_name }}{% endblock %}
+{% block breadcrumb %}
+    <a href="{% url 'console:marketing_events' %}">营销</a>
+    <i data-lucide="chevron-right" aria-hidden="true"></i>
+    <strong>引导式闭环</strong>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .nc-loop-workspace { --loop-border: var(--tblr-border-color); }
+    .nc-loop-page-head { display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
+    .nc-loop-page-head .page-title { margin:0; }
+    .nc-loop-page-head p { margin:.3rem 0 0; color:var(--tblr-secondary); font-size:.875rem; }
+    .nc-loop-workspace-grid { display:grid; grid-template-columns:minmax(0, 1fr); gap:1rem; align-items:start; }
+    .nc-loop-directory, .nc-loop-inspector { min-width:0; border:1px solid var(--loop-border); border-radius:.5rem; background:var(--tblr-bg-surface); }
+    .nc-loop-directory { position:relative; z-index:2; }
+    .nc-loop-directory-head { display:flex; align-items:center; justify-content:space-between; min-height:3rem; padding:.65rem 1rem; border-bottom:1px solid var(--loop-border); }
+    .nc-loop-directory-head h2, .nc-loop-inspector-head h2 { margin:0; font-size:.95rem; font-weight:600; }
+    .nc-loop-directory-content { display:block; }
+    .nc-loop-platforms { display:flex; flex-wrap:wrap; gap:0; border-bottom:1px solid var(--loop-border); }
+    .nc-loop-platform { position:relative; display:flex; align-items:center; gap:.55rem; min-height:3rem; padding:.45rem 1rem; color:var(--tblr-secondary); font-size:.8rem; font-weight:550; }
+    .nc-loop-platform[data-provider="meta"] { --loop-accent:#1365c9; --loop-tint:#edf4ff; }
+    .nc-loop-platform[data-provider="google"] { --loop-accent:#c5221f; --loop-tint:#fff1ef; }
+    .nc-loop-platform[data-provider="tiktok"] { --loop-accent:#bc3269; --loop-tint:#fff0f6; }
+    .nc-loop-platform + .nc-loop-platform { border-left:1px solid var(--loop-border); }
+    .nc-loop-platform.is-current { color:var(--loop-accent); background:var(--loop-tint); }
+    .nc-loop-platform.is-current::after { position:absolute; right:1rem; bottom:-1px; left:1rem; height:2px; background:var(--loop-accent); content:""; }
+    .nc-loop-platform-mark { display:grid; place-items:center; width:1.5rem; height:1.5rem; border:1px solid var(--loop-border); border-radius:.35rem; color:var(--tblr-secondary); font-size:.72rem; font-weight:700; }
+    .nc-loop-platform.is-current .nc-loop-platform-mark { border-color:var(--loop-accent); background:var(--tblr-bg-surface); color:var(--loop-accent); }
+    .nc-loop-platform-meta { color:var(--tblr-secondary); font-size:.75rem; font-weight:400; }
+    .nc-loop-platform small { padding:.1rem .35rem; border-radius:.25rem; background:var(--tblr-bg-surface-secondary); font-size:.75rem; }
+    .nc-loop-routes { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; padding:.6rem 1rem; border-bottom:1px solid var(--loop-border); }
+    .nc-loop-route-option { display:inline-flex; align-items:center; gap:.45rem; min-height:2rem; padding:.3rem .65rem; border:1px solid var(--loop-border); border-radius:.35rem; color:var(--tblr-secondary); font-size:.78rem; }
+    .nc-loop-route-option[data-route="website_leads"] { --loop-accent:#2563eb; --loop-tint:#eff5ff; }
+    .nc-loop-route-option[data-route="instant_form"] { --loop-accent:#7c3aed; --loop-tint:#f5f0ff; }
+    .nc-loop-route-option[data-route="whatsapp_click"] { --loop-accent:#0f7769; --loop-tint:#ebf8f5; }
+    .nc-loop-route-option.is-current { border-color:var(--loop-accent); background:var(--loop-tint); color:var(--loop-accent); }
+    .nc-loop-route-option strong { font-weight:600; }
+    .nc-loop-route-option svg { flex:none; width:1rem; height:1rem; stroke-width:2; }
+    .nc-loop-route-count { min-width:1.2rem; padding:0 .3rem; border-radius:1rem; background:var(--tblr-bg-surface); text-align:center; font-size:.75rem; }
+    .nc-loop-route-option small { padding-left:.3rem; border-left:1px solid var(--loop-border); font-size:.75rem; }
+    .nc-loop-instances { padding:.85rem 1rem 1rem; }
+    .nc-loop-instances-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.6rem; }
+    .nc-loop-picker-group { display:flex; align-items:center; gap:.7rem; min-width:0; }
+    .nc-loop-picker-label { flex:none; font-size:.82rem; font-weight:600; }
+    .nc-loop-process-picker { width:min(25rem, 52vw); min-width:13rem; }
+    .nc-loop-process-toggle { display:flex; align-items:center; gap:.5rem; width:100%; min-width:0; text-align:left; }
+    .nc-loop-process-toggle:hover, .nc-loop-process-toggle:focus, .nc-loop-process-toggle.show { border-color:var(--tblr-primary); background:var(--tblr-bg-surface); color:var(--tblr-body-color); }
+    .nc-loop-process-toggle::after { margin-left:.35rem; }
+    .nc-loop-process-name { flex:1; min-width:0; overflow:hidden; font-size:.82rem; font-weight:550; text-overflow:ellipsis; white-space:nowrap; }
+    .nc-loop-process-menu { width:100%; min-width:15rem; max-height:18rem; overflow-y:auto; }
+    .nc-loop-process-option { display:flex; align-items:center; gap:.55rem; padding:.55rem .75rem; color:var(--tblr-body-color); font-size:.82rem; text-decoration:none; }
+    .nc-loop-process-option:hover, .nc-loop-process-option:focus { background:var(--tblr-bg-surface-secondary); color:var(--tblr-body-color); }
+    .nc-loop-process-option.is-selected { background:var(--tblr-primary-lt); color:var(--tblr-primary); }
+    .nc-loop-picker-rename svg { width:1rem; height:1rem; }
+    .nc-loop-process-meta { color:var(--tblr-secondary); font-size:.75rem; white-space:nowrap; }
+    .nc-loop-status-dot { flex:none; width:.5rem; height:.5rem; border-radius:50%; background:var(--tblr-secondary); }
+    .nc-loop-status-dot[data-health="healthy"] { background:var(--tblr-green); }
+    .nc-loop-status-dot[data-health="configuring"] { background:var(--tblr-blue); }
+    .nc-loop-status-dot[data-health="checking"] { background:var(--tblr-yellow); }
+    .nc-loop-status-dot[data-health="attention"] { background:var(--tblr-red); }
+    .nc-loop-inspector { display:flex; flex-direction:column; }
+    .nc-loop-inspector-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1.1rem 1.25rem; border-bottom:1px solid var(--loop-border); }
+    .nc-loop-context { margin-bottom:.45rem; color:var(--tblr-secondary); font-size:.75rem; }
+    .nc-loop-title-row { display:flex; align-items:center; flex-wrap:wrap; gap:.55rem; }
+    .nc-loop-title-row h2 { font-size:1.15rem; }
+    .nc-loop-subline { display:flex; align-items:center; flex-wrap:wrap; gap:.45rem; margin-top:.45rem; color:var(--tblr-secondary); font-size:.78rem; }
+    .nc-loop-subline .nc-loop-separator { color:var(--loop-border); }
+    .nc-loop-inspector-body { display:grid; gap:1rem; padding:1.1rem 1.25rem; }
+    .nc-loop-next-action { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem; border:1px solid rgba(var(--tblr-primary-rgb),.35); border-radius:.4rem; background:var(--tblr-bg-surface); }
+    .nc-loop-next-action-copy { min-width:0; }
+    .nc-loop-eyebrow { margin-bottom:.25rem; color:var(--tblr-secondary); font-size:.75rem; }
+    .nc-loop-next-action h3 { margin:0; font-size:.95rem; font-weight:600; }
+    .nc-loop-next-action p { margin:.25rem 0 0; color:var(--tblr-secondary); font-size:.78rem; }
+    .nc-loop-overview-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(13rem,.58fr); gap:1rem; }
+    .nc-loop-section { min-width:0; padding:.9rem 1rem; border:1px solid var(--loop-border); border-radius:.4rem; }
+    .nc-loop-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.8rem; }
+    .nc-loop-section-head h3 { margin:0; font-size:.83rem; font-weight:600; }
+    .nc-loop-section-head span { color:var(--tblr-secondary); font-size:.75rem; }
+    .nc-loop-progress-track { height:.35rem; overflow:hidden; border-radius:1rem; background:var(--tblr-bg-surface-secondary); }
+    .nc-loop-progress-value { height:100%; border-radius:inherit; background:var(--tblr-primary); }
+    .nc-loop-progress-foot { display:flex; justify-content:space-between; gap:.5rem; margin-top:.55rem; color:var(--tblr-secondary); font-size:.75rem; }
+    .nc-loop-asset-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.75rem; }
+    .nc-loop-asset-name { font-size:.8rem; font-weight:550; }
+    .nc-loop-asset-value { margin-top:.2rem; color:var(--tblr-secondary); font-size:.75rem; overflow-wrap:anywhere; }
+    .nc-loop-chain { padding:.9rem 1rem 1rem; border:1px solid var(--loop-border); border-radius:.4rem; }
+    .nc-loop-chain-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.8rem; }
+    .nc-loop-chain-head h3 { margin:0; font-size:.83rem; font-weight:600; }
+    .nc-loop-chain-head a { font-size:.75rem; }
+    .nc-loop-chain-items { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }
+    .nc-loop-chain-item { position:relative; min-width:0; padding:0 .35rem; text-align:center; }
+    .nc-loop-chain-item:not(:last-child)::after { position:absolute; top:.85rem; left:calc(50% + 1rem); width:calc(100% - 2rem); height:1px; background:var(--loop-border); content:""; }
+    .nc-loop-chain-node { position:relative; z-index:1; display:grid; place-items:center; width:1.75rem; height:1.75rem; margin:0 auto .4rem; border:1px solid var(--loop-border); border-radius:50%; background:var(--tblr-bg-surface); color:var(--tblr-secondary); }
+    .nc-loop-chain-node[data-status="configured"], .nc-loop-chain-node[data-status="waiting_user"] { border-color:rgba(var(--tblr-primary-rgb),.35); background:var(--tblr-primary-lt); color:var(--tblr-primary); }
+    .nc-loop-chain-node[data-status="healthy"] { border-color:rgba(var(--tblr-green-rgb),.4); background:var(--tblr-green-lt); color:var(--tblr-green); }
+    .nc-loop-chain-node[data-status="failed"] { border-color:rgba(var(--tblr-red-rgb),.4); background:var(--tblr-red-lt); color:var(--tblr-red); }
+    .nc-loop-chain-node i { width:.9rem; height:.9rem; }
+    .nc-loop-chain-label { display:block; overflow:hidden; font-size:.75rem; font-weight:550; text-overflow:ellipsis; white-space:nowrap; }
+    .nc-loop-chain-state { display:block; margin-top:.12rem; color:var(--tblr-secondary); font-size:.75rem; }
+    .nc-loop-inspector-foot { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-top:auto; padding:.75rem 1.25rem; border-top:1px solid var(--loop-border); color:var(--tblr-secondary); font-size:.75rem; }
+    .nc-loop-empty { display:grid; place-items:center; min-height:27rem; padding:2rem; text-align:center; }
+    .nc-loop-empty h2 { margin:.75rem 0 .35rem; font-size:1.05rem; }
+    .nc-loop-empty p { max-width:26rem; margin:0 0 1rem; color:var(--tblr-secondary); font-size:.82rem; }
+    .nc-loop-empty-icon { display:grid; place-items:center; width:3rem; height:3rem; border:1px solid var(--loop-border); border-radius:.65rem; color:var(--tblr-primary); }
+    .nc-loop-empty-icon i { width:1.4rem; height:1.4rem; }
+    .nc-loop-error { margin-bottom:1rem; }
+    @media (max-width: 991.98px) {
+        .nc-loop-overview-grid { grid-template-columns:1fr; }
+    }
+    @media (max-width: 767.98px) {
+        .nc-loop-page-head { align-items:flex-start; flex-direction:column; }
+        .nc-loop-platforms { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .nc-loop-platform + .nc-loop-platform { border-left:0; }
+        .nc-loop-platform { padding:.45rem .7rem; }
+        .nc-loop-platform-meta { display:none; }
+        .nc-loop-routes, .nc-loop-instances { padding-right:.7rem; padding-left:.7rem; }
+        .nc-loop-picker-group { flex:1 1 100%; }
+        .nc-loop-process-picker { flex:1; min-width:0; width:auto; }
+        .nc-loop-chain-items { grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:.9rem; }
+        .nc-loop-chain-item:nth-child(3)::after { display:none; }
+        .nc-loop-next-action { align-items:flex-start; flex-direction:column; }
+        .nc-loop-inspector-head { padding:.9rem 1rem; }
+        .nc-loop-inspector-body { padding:.9rem 1rem; }
+        .nc-loop-inspector-foot { padding:.7rem 1rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 nc-loop-workspace">
+    <header class="nc-loop-page-head">
+        <div>
+            <h1 class="page-title">引导式闭环</h1>
+            <p>每条闭环独立保存配置、验证证据和运行状态。</p>
+        </div>
+    </header>
+
+    {% if load_error %}
+        <div class="alert alert-danger nc-loop-error" role="alert">闭环列表暂时无法读取。请稍后重试；当前不会影响已创建的闭环。</div>
+    {% endif %}
+
+    <div class="nc-loop-workspace-grid">
+        <section class="nc-loop-directory" aria-labelledby="loop-directory-title">
+            <div class="nc-loop-directory-head">
+                <h2 id="loop-directory-title">闭环目录</h2>
+                <span class="text-secondary small">{{ loop_items|length }} 条</span>
+            </div>
+            <nav class="nc-loop-directory-content" aria-label="按平台和闭环类型浏览">
+                <div class="nc-loop-platforms" aria-label="平台">
+                    <div class="nc-loop-platform is-current" data-provider="meta" aria-current="true">
+                        <span class="nc-loop-platform-mark" aria-hidden="true">M</span>
+                        <span>Meta</span>
+                        <span class="nc-loop-platform-meta">Facebook · Instagram</span>
+                    </div>
+                    <div class="nc-loop-platform" data-provider="google" aria-disabled="true">
+                        <span class="nc-loop-platform-mark" aria-hidden="true">G</span><span>Google Ads</span><small>待开放</small>
+                    </div>
+                    <div class="nc-loop-platform" data-provider="tiktok" aria-disabled="true">
+                        <span class="nc-loop-platform-mark" aria-hidden="true">T</span><span>TikTok Ads</span><small>待开放</small>
+                    </div>
+                </div>
+                <div class="nc-loop-routes" aria-label="Meta 获客路线">
+                    <div class="nc-loop-route-option is-current" data-route="website_leads" aria-current="true"><i data-lucide="globe" aria-hidden="true"></i><strong>网站线索</strong><span class="nc-loop-route-count">{{ loop_items|length }}</span></div>
+                    <div class="nc-loop-route-option" data-route="instant_form" aria-disabled="true"><i data-lucide="clipboard-list" aria-hidden="true"></i>即时表单<small>待开放</small></div>
+                    <div class="nc-loop-route-option" data-route="whatsapp_click" aria-disabled="true"><i data-lucide="message-circle" aria-hidden="true"></i>WhatsApp 点击<small>暂停</small></div>
+                </div>
+                <div class="nc-loop-instances">
+                    <div class="nc-loop-instances-head">
+                        <div class="nc-loop-picker-group">
+                            <span class="nc-loop-picker-label" id="loop-picker-label">闭环进程</span>
+                            {% if selected_item %}
+                                <div class="dropdown nc-loop-process-picker">
+                                    <button class="btn btn-outline-secondary dropdown-toggle nc-loop-process-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-labelledby="loop-picker-label loop-picker-current">
+                                        <span class="nc-loop-status-dot" data-health="{{ selected_item.health_code }}" aria-hidden="true"></span>
+                                        <span class="nc-loop-process-name" id="loop-picker-current">{{ selected_item.loop.name }}</span>
+                                        <span class="nc-loop-process-meta">{{ selected_item.lifecycle_label }}</span>
+                                    </button>
+                                    <div class="dropdown-menu nc-loop-process-menu" aria-label="选择闭环进程">
+                                        {% for item in loop_items %}
+                                            <a class="nc-loop-process-option {% if selected_item.loop.pk == item.loop.pk %}is-selected{% endif %}" href="?loop={{ item.loop.loop_key }}" {% if selected_item.loop.pk == item.loop.pk %}aria-current="true"{% endif %}>
+                                                <span class="nc-loop-status-dot" data-health="{{ item.health_code }}" aria-hidden="true"></span>
+                                                <span class="nc-loop-process-name">{{ item.loop.name }}</span>
+                                                <span class="nc-loop-process-meta">{{ item.lifecycle_label }}</span>
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <button class="btn btn-outline-secondary btn-sm nc-loop-picker-rename" type="button" data-bs-toggle="modal" data-bs-target="#loop-rename-modal"><i data-lucide="pencil" aria-hidden="true"></i>重命名</button>
+                            {% else %}
+                                <span class="text-secondary small">暂无闭环</span>
+                            {% endif %}
+                        </div>
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'console:marketing_guided_loop_create' %}"><i data-lucide="plus" aria-hidden="true"></i>新建闭环</a>
+                    </div>
+                </div>
+            </nav>
+        </section>
+
+        <section class="nc-loop-inspector" aria-label="闭环工作区">
+            {% if selected_item %}
+                <header class="nc-loop-inspector-head">
+                    <div class="min-w-0">
+                        <div class="nc-loop-context">Meta <i data-lucide="chevron-right" aria-hidden="true"></i> 网站线索闭环</div>
+                        <div class="nc-loop-title-row">
+                            <h2>{{ selected_item.loop.name }}</h2>
+                            <span class="badge {% if selected_item.lifecycle_label == '运行中' %}bg-green-lt text-green{% elif selected_item.lifecycle_label == '有异常' %}bg-red-lt text-red{% else %}bg-blue-lt text-blue{% endif %}">{{ selected_item.lifecycle_label }}</span>
+                        </div>
+                        <div class="nc-loop-subline">
+                            <span>{{ selected_item.environment_label }}</span><span class="nc-loop-separator">·</span>
+                            <span>健康状态：{{ selected_item.health_label }}</span><span class="nc-loop-separator">·</span>
+                            <span>更新于 {{ selected_item.loop.updated_at|date:'Y-m-d H:i' }}</span>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="nc-loop-inspector-body">
+                    <section class="nc-loop-next-action" aria-labelledby="next-action-title">
+                        <div class="nc-loop-next-action-copy">
+                            <div class="nc-loop-eyebrow">下一步操作{% if selected_item.current_task %} · 第 {{ selected_item.current_task.sequence_no }} 步，共 {{ selected_item.total_tasks }} 步{% endif %}</div>
+                            <h3 id="next-action-title">{% if selected_item.current_task %}{{ selected_item.current_task.title }}{% else %}检查闭环配置{% endif %}</h3>
+                            <p>{% if selected_item.dataset_binding.external_id %}已记录 Meta 数据源 ID {{ selected_item.dataset_binding.external_id }}；连接与事件仍需验证。{% else %}在工作流中选择同站点的已有数据源；确实没有时，才登记新建数据源的数字 ID。{% endif %}</p>
+                        </div>
+                        <a class="btn btn-primary btn-sm" href="{% url 'console:marketing_guided_loop_detail' selected_item.loop.loop_key %}">继续配置 <i data-lucide="arrow-right" aria-hidden="true"></i></a>
+                    </section>
+
+                    <div class="nc-loop-overview-grid">
+                        <section class="nc-loop-section" aria-labelledby="progress-title">
+                            <div class="nc-loop-section-head"><h3 id="progress-title">配置进度</h3><span>{{ selected_item.completed_tasks }} / {{ selected_item.total_tasks }} 项完成</span></div>
+                            <div class="nc-loop-progress-track" role="progressbar" aria-label="闭环配置进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ selected_item.progress_percent }}"><div class="nc-loop-progress-value" style="width:{{ selected_item.progress_percent }}%"></div></div>
+                            <div class="nc-loop-progress-foot"><span>当前：{% if selected_item.current_task %}{{ selected_item.current_task.title }}{% else %}等待检查{% endif %}</span><span>{{ selected_item.progress_percent }}%</span></div>
+                        </section>
+                        <section class="nc-loop-section" aria-labelledby="asset-title">
+                            <div class="nc-loop-section-head"><h3 id="asset-title">Meta 数据源</h3><span>本闭环使用</span></div>
+                            {% if selected_item.dataset_binding.external_id %}
+                                <div class="nc-loop-asset-row"><div><div class="nc-loop-asset-name">已记录数据集 ID</div><div class="nc-loop-asset-value">{{ selected_item.dataset_binding.external_id }} · 尚未验证</div></div><span class="badge bg-blue-lt text-blue">待验证</span></div>
+                            {% else %}
+                                <div class="nc-loop-asset-row"><div><div class="nc-loop-asset-name">尚未选择</div><div class="nc-loop-asset-value">可复用已有数据源，或登记新建 ID</div></div><span class="badge bg-secondary-lt text-secondary">待设置</span></div>
+                            {% endif %}
+                        </section>
+                    </div>
+
+                    <section class="nc-loop-chain" aria-labelledby="chain-title">
+                        <div class="nc-loop-chain-head"><h3 id="chain-title">闭环连接状态</h3><a href="{% url 'console:marketing_guided_loop_detail' selected_item.loop.loop_key %}#workflow-title">查看工作流节点</a></div>
+                        <div class="nc-loop-chain-items" role="list" aria-label="广告到转化回传的节点">
+                            {% for node in selected_item.nodes %}
+                                <div class="nc-loop-chain-item" role="listitem">
+                                    <span class="nc-loop-chain-node" data-status="{{ node.status }}"><i data-lucide="{% if node.node_key == 'meta_ad' %}megaphone{% elif node.node_key == 'website' %}globe{% elif node.node_key == 'web_form' %}clipboard-list{% elif node.node_key == 'crm' %}users{% elif node.node_key == 'capi' %}radio-tower{% elif node.node_key == 'meta_dataset' %}database{% else %}chart-no-axes-combined{% endif %}" aria-hidden="true"></i></span>
+                                    <span class="nc-loop-chain-label">{{ node.title }}</span>
+                                    <span class="nc-loop-chain-state">{% if node.status == 'healthy' %}已验证{% elif node.status == 'configured' %}已记录{% elif node.status == 'waiting_user' %}待操作{% elif node.status == 'failed' %}异常{% else %}待设置{% endif %}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </section>
+                </div>
+
+                <footer class="nc-loop-inspector-foot">
+                    <span>闭环编号：{{ selected_item.loop.binding_key }}</span>
+                    <span>修改人：{{ selected_item.loop.updated_by.get_username }}</span>
+                </footer>
+            {% else %}
+                <div class="nc-loop-empty">
+                    <div>
+                        <span class="nc-loop-empty-icon"><i data-lucide="workflow" aria-hidden="true"></i></span>
+                        <h2>{% if load_error %}暂时无法读取闭环{% else %}还没有网站线索闭环{% endif %}</h2>
+                        <p>{% if load_error %}请稍后刷新页面。如果问题持续，请联系系统管理员。{% else %}创建第一条闭环后，这里会持续显示它的配置进度、连接状态和下一步操作。{% endif %}</p>
+                        {% if not load_error %}<a class="btn btn-primary" href="{% url 'console:marketing_guided_loop_create' %}"><i data-lucide="plus" aria-hidden="true"></i> 新建网站线索闭环</a>{% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+    </div>
+    {% if selected_item %}
+        <div class="modal fade" id="loop-rename-modal" tabindex="-1" aria-labelledby="loop-rename-title" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post" action="{% url 'console:marketing_guided_loop_rename' selected_item.loop.loop_key %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h2 class="modal-title" id="loop-rename-title">重命名闭环进程</h2>
+                        <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="关闭"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label" for="loop-rename-name">闭环名称</label>
+                        <input class="form-control" id="loop-rename-name" name="name" type="text" minlength="2" maxlength="200" required value="{{ selected_item.loop.name }}">
+                        <div class="form-hint mt-2">仅修改显示名称；闭环编号和已绑定的 Meta 数据集保持原样。</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">取消</button>
+                        <button class="btn btn-primary" type="submit">保存名称</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

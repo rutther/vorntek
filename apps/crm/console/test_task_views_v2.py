@@ -6,6 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Group
 from django.db import connection
 from django.test import TestCase
@@ -66,6 +67,7 @@ class TaskViewsV2Tests(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.fixture_password = make_password('password')
         existing = set(connection.introspection.table_names())
         cls.created_models = []
         try:
@@ -97,11 +99,11 @@ class TaskViewsV2Tests(TestCase):
             for role in (ROLE_SALES, ROLE_SALES_MANAGER, ROLE_MARKETING_OPS, ROLE_SYSTEM_ADMIN)
         }
         User = get_user_model()
-        self.sales = User.objects.create_user(username='task-sales', password='password')
-        self.other_sales = User.objects.create_user(username='task-other', password='password')
-        self.manager = User.objects.create_user(username='task-manager', password='password')
-        self.marketing = User.objects.create_user(username='task-marketing', password='password')
-        self.admin = User.objects.create_user(username='task-admin', password='password')
+        self.sales = User.objects.create(username='task-sales', password=self.fixture_password)
+        self.other_sales = User.objects.create(username='task-other', password=self.fixture_password)
+        self.manager = User.objects.create(username='task-manager', password=self.fixture_password)
+        self.marketing = User.objects.create(username='task-marketing', password=self.fixture_password)
+        self.admin = User.objects.create(username='task-admin', password=self.fixture_password)
         self.sales.groups.add(groups[ROLE_SALES])
         self.other_sales.groups.add(groups[ROLE_SALES])
         self.manager.groups.add(groups[ROLE_SALES_MANAGER])
@@ -117,10 +119,10 @@ class TaskViewsV2Tests(TestCase):
             is_default=True, enabled=True, sort_order=10,
         )
         self.team = SalesTeam.objects.create(
-            site=self.site, code='team-a', name='Team A', enabled=True
+            site=self.site, code='team_a', name='Team A', enabled=True
         )
         self.other_team = SalesTeam.objects.create(
-            site=self.site, code='team-b', name='Team B', enabled=True
+            site=self.site, code='team_b', name='Team B', enabled=True
         )
         SalesTeamMember.objects.create(team=self.team, user=self.sales, membership_role='member')
         SalesTeamMember.objects.create(team=self.team, user=self.manager, membership_role='manager')
@@ -153,6 +155,110 @@ class TaskViewsV2Tests(TestCase):
         self.assertNotIn(self.task.updated_at.isoformat(), token)
         self.assertEqual(task_version_value(token), self.task.updated_at)
         self.assertIsNone(task_version_value(f'{token}x'))
+
+    def _trashed_lead_with_task(self):
+        form = LeadFormDefinition.objects.create(
+            site=self.site, locale=self.locale, code='task-trash-test', name='Task trash test',
+            capi_enabled=False, form_schema={}, config_json={},
+        )
+        lead = LeadSubmission.objects.create(
+            site=self.site, locale=self.locale, form=form, team=self.team, assignee=self.sales,
+            full_name='Synthetic retired lead', submitted_at=self.now, stage_updated_at=self.now,
+        )
+        task = create_task(
+            site=self.site, submission=lead, owner_user=self.sales, team=self.team,
+            created_by_user=self.sales, title='Retained lead task', due_at=self.now,
+        )
+        LeadSubmission.objects.filter(pk=lead.pk).update(trashed_at=self.now, trashed_by=self.manager)
+        return lead, task
+
+    def test_trash_operational_task_creation_rechecks_stale_target(self):
+        from django.core.exceptions import ValidationError
+
+        lead, _task = self._trashed_lead_with_task()
+        before = Task.objects.filter(submission=lead).count()
+        with self.assertRaises(ValidationError) as error:
+            create_task_workflow(
+                site=self.site, actor=self.sales, owner_user=self.sales, submission=lead,
+                title='Must not create', due_at=self.now, idempotency_token='trash-task-create-test',
+            )
+        self.assertEqual(error.exception.code, 'lead_trashed')
+        self.assertEqual(Task.objects.filter(submission=lead).count(), before)
+
+    def test_trash_operational_task_mutation_rechecks_locked_target(self):
+        from django.core.exceptions import ValidationError
+        from leads.task_workflow_services import start_task_workflow
+
+        _lead, task = self._trashed_lead_with_task()
+        with self.assertRaises(ValidationError) as error:
+            start_task_workflow(task_id=task.pk, actor=self.sales, expected_updated_at=task.updated_at)
+        self.assertEqual(error.exception.code, 'lead_trashed')
+        task.refresh_from_db()
+        self.assertEqual(task.status, 'open')
+
+    def test_trash_operational_task_queue_excludes_retained_record(self):
+        _lead, task = self._trashed_lead_with_task()
+        self._login(self.sales)
+        response = self.client.get(reverse('console:task_workspace_v2'), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([row['id'] for row in response.context['workspace']['rows']], [self.task.pk])
+        self.assertTrue(Task.objects.filter(pk=task.pk).exists())
+
+    def test_trash_operational_task_history_is_read_only(self):
+        _lead, task = self._trashed_lead_with_task()
+        self._login(self.sales)
+        response = self.client.get(reverse('console:task_workspace_detail_v2', args=[task.pk]), follow=True)
+        self.assertEqual(response.status_code, 200)
+        workspace = response.context['workspace']
+        self.assertEqual(workspace['record']['id'], task.pk)
+        for capability in ('can_edit', 'can_start', 'can_close', 'can_assign'):
+            with self.subTest(capability=capability):
+                self.assertFalse(workspace[capability])
+
+    def test_trash_legacy_task_service_cannot_create_or_close(self):
+        from django.core.exceptions import ValidationError
+        from leads.crm_services import complete_task
+
+        lead, task = self._trashed_lead_with_task()
+        with self.assertRaises(ValidationError) as create_error:
+            create_task(site=self.site, submission=lead, owner_user=self.sales, team=self.team,
+                        created_by_user=self.sales, title='Blocked legacy task', due_at=self.now)
+        self.assertEqual(create_error.exception.code, 'lead_trashed')
+        with self.assertRaises(ValidationError) as close_error:
+            complete_task(task_id=task.pk, actor=self.sales, outcome='Must not close')
+        self.assertEqual(close_error.exception.code, 'lead_trashed')
+        task.refresh_from_db()
+        self.assertEqual((task.status, task.outcome), ('open', ''))
+
+    def test_trash_manual_activity_rechecks_stale_target(self):
+        from django.core.exceptions import ValidationError
+
+        lead, _task = self._trashed_lead_with_task()
+        before = Activity.objects.filter(submission=lead).count()
+        with self.assertRaises(ValidationError) as error:
+            append_manual_activity_workflow(
+                site=self.site, actor=self.sales, submission=lead,
+                activity_type='note', direction='internal', subject='Must not append',
+                body='Synthetic note', occurred_at=self.now,
+                idempotency_token='trash-manual-activity-test',
+            )
+        self.assertEqual(error.exception.code, 'lead_trashed')
+        self.assertEqual(Activity.objects.filter(submission=lead).count(), before)
+
+    def test_restore_task_resumes_original_owner_status_and_actions(self):
+        from leads.lead_workflow_services import restore_lead_from_trash
+        from leads.task_workflow_services import start_task_workflow
+
+        lead, task = self._trashed_lead_with_task()
+        restore_lead_from_trash(submission_id=lead.pk, actor=self.manager)
+        task.refresh_from_db()
+        self.assertEqual((task.owner_user_id, task.status, task.due_at), (self.sales.pk, 'open', self.now))
+        self._login(self.sales)
+        response = self.client.get(reverse('console:task_workspace_detail_v2', args=[task.pk]), follow=True)
+        self.assertTrue(response.context['workspace']['can_start'])
+        start_task_workflow(task_id=task.pk, actor=self.sales, expected_updated_at=task.updated_at)
+        task.refresh_from_db()
+        self.assertEqual((task.owner_user_id, task.status), (self.sales.pk, 'in_progress'))
 
     def test_list_defaults_to_actionable_and_renders_one_h1(self):
         create_task(

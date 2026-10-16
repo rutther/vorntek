@@ -122,8 +122,8 @@ class OpportunityViewsV2Tests(TestCase):
             enabled=True,
             sort_order=10,
         )
-        self.team_a = SalesTeam.objects.create(site=self.site, code='team-a', name='Team A', enabled=True)
-        self.team_b = SalesTeam.objects.create(site=self.site, code='team-b', name='Team B', enabled=True)
+        self.team_a = SalesTeam.objects.create(site=self.site, code='team_a', name='Team A', enabled=True)
+        self.team_b = SalesTeam.objects.create(site=self.site, code='team_b', name='Team B', enabled=True)
         SalesTeamMember.objects.create(team=self.team_a, user=self.sales, membership_role='member')
         SalesTeamMember.objects.create(team=self.team_a, user=self.manager, membership_role='manager')
         SalesTeamMember.objects.create(team=self.team_b, user=self.other_sales, membership_role='member')
@@ -174,6 +174,43 @@ class OpportunityViewsV2Tests(TestCase):
             company=self.company_a,
             contact=self.contact_a,
         )
+
+    def test_personal_configured_inquiry_keeps_its_identity_and_field_labels(self):
+        form = LeadFormDefinition.objects.create(site=self.site, code='general-support', name='通用咨询',
+            category='general', status='active', form_schema={'fields':[
+                {'name':'email', 'type':'email', 'label':'回复邮箱', 'required':True},
+                {'name':'capacity', 'type':'text', 'label':'参考编号'},
+                {'name':'topic', 'type':'select', 'label':'咨询主题',
+                 'options':[{'value':'support', 'label':'使用支持'}]},
+            ]})
+        lead = LeadSubmission.objects.create(site=self.site, form=form, email='support@example.invalid',
+            assignee=self.sales, team=self.team_a, submitted_at=self.now, stage_updated_at=self.now,
+            payload_json={'capacity':'DEMO-003', 'topic':'support'})
+        contact = Contact.objects.create(site=self.site, owner_user=self.sales, team=self.team_a,
+            full_name='', email='support@example.invalid', email_normalized='support@example.invalid')
+        opportunity = self._opportunity(name='通用咨询 · 示例', owner=self.sales, team=self.team_a,
+            company=None, contact=contact)
+        opportunity.source_submission = lead
+        opportunity.capacity_target = 'DEMO-003'
+        opportunity.save(update_fields=['source_submission', 'capacity_target'])
+        self.client.force_login(self.sales)
+        response = self.client.get(reverse('console:opportunity_workspace_detail_v2', args=[opportunity.pk]), self._canonical_query())
+        self.assertEqual(response.status_code, 200)
+        record = response.context['workspace']['record']
+        self.assertEqual(record['contact'], 'support@example.invalid')
+        self.assertContains(response, '<dt>参考编号</dt>', html=True)
+        self.assertContains(response, '<dd>使用支持</dd>', html=True)
+        self.assertNotContains(response, '<dt>产能目标</dt>', html=True)
+        self.assertNotContains(response, '<dt>包装形式</dt>', html=True)
+
+    def test_manual_opportunity_uses_neutral_scope_labels_without_losing_fields(self):
+        self.client.force_login(self.sales)
+        response = self.client.get(reverse('console:opportunity_workspace_detail_v2', args=[self.owned.pk]), self._canonical_query())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<dt>项目参数</dt>', html=True)
+        self.assertContains(response, '<dt>补充要求</dt>', html=True)
+        self.assertContains(response, '36,000 BPH')
+        self.assertContains(response, 'PET')
 
     def _opportunity(
         self,
@@ -269,7 +306,7 @@ class OpportunityViewsV2Tests(TestCase):
 
     def test_corrupt_cross_site_direct_targets_are_hidden_even_from_admin(self):
         other_site = Site.objects.create(
-            code='opportunity-other-site',
+            code='opportunity_other_site',
             name='Opportunity Other Site',
             base_url='https://opportunity-other.example.com',
             default_locale='en',
@@ -287,7 +324,7 @@ class OpportunityViewsV2Tests(TestCase):
         )
         other_team = SalesTeam.objects.create(
             site=other_site,
-            code='opportunity-other-team',
+            code='opportunity_other_team',
             name='Opportunity Other Team',
             enabled=True,
         )
@@ -668,13 +705,13 @@ class OpportunityViewsV2Tests(TestCase):
     def test_manager_assignment_cannot_move_record_across_team_boundary(self):
         managed_destination = SalesTeam.objects.create(
             site=self.site,
-            code='team-c',
+            code='team_c',
             name='Team C',
             enabled=True,
         )
         current_team = SalesTeam.objects.create(
             site=self.site,
-            code='team-d',
+            code='team_d',
             name='Team D',
             enabled=True,
         )

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="680" viewBox="0 0 1100 680" role="img" aria-labelledby="title description">
+ <title id="title">已选择 Lead，仍提示设置事件</title><desc id="description">Vorntek原创操作示意图；示例内容不代表任何实际平台账号、凭据或验收结果。 已有集成且事件已收到时，不要重复安装代码；刷新后再检查提示。</desc>
+ <rect width="1100" height="680" rx="14" fill="#f5f7fb"/>
+ <g font-family="Microsoft YaHei,PingFang SC,Noto Sans CJK SC,Arial,sans-serif">
+ <path d="M0 14Q0 0 14 0H1086Q1100 0 1100 14V81H0Z" fill="#fff"/>
+ <text x="28" y="48" font-size="23" font-weight="700" fill="#152846">Vorntek · 操作指引</text>
+ <rect x="790" y="22" width="280" height="36" rx="18" fill="#fff2d6"/>
+ <text x="930" y="46" text-anchor="middle" font-size="17" font-weight="600" fill="#82520b">示例图 · 非实时账号状态</text>
+ <line x1="0" y1="81" x2="1100" y2="81" stroke="#dde4ef"/>
+ <rect x="24" y="108" width="180" height="542" rx="10" fill="#eaf0f9"/>
+ <text x="44" y="145" font-size="17" font-weight="700" fill="#244061">核对路径</text>
+ <text x="44" y="189" fill="#405977" font-size="16" font-weight="400"><tspan x="44" dy="0">广告管理工具</tspan><tspan x="44" dy="36">广告组</tspan></text>
+ <rect x="42" y="521" width="143" height="80" rx="8" fill="#fff"/>
+ <text x="56" y="553" fill="#405977" font-size="16" font-weight="600"><tspan x="56" dy="0">使用自己的</tspan><tspan x="56" dy="26">数据集与网址</tspan></text>
+ <text x="234" y="139" fill="#162b4a" font-size="26" font-weight="700"><tspan x="234" dy="0">已选择 Lead，仍提示设置事件</tspan></text>
+ <text x="234" y="178" font-size="16" fill="#62758f">按红框逐项核对，完成后返回本站登记实际结果。</text>
+ <rect x="234" y="205" width="830" height="68" rx="9" fill="#fff" stroke="#e0e6ef" stroke-width="1"/><circle cx="260" cy="236" r="12" fill="#e8edf5"/><text x="260" y="241" text-anchor="middle" font-size="14" fill="#63738c">1</text><text x="283" y="241" fill="#52647e" font-size="16" font-weight="600"><tspan x="283" dy="0">转化位置</tspan></text><text x="485" y="241" fill="#243550" font-size="18" font-weight="400"><tspan x="485" dy="0">网站</tspan></text><rect x="234" y="281" width="830" height="68" rx="9" fill="#fff5f5" stroke="#df5555" stroke-width="2"/><circle cx="260" cy="312" r="12" fill="#2563eb"/><text x="260" y="317" text-anchor="middle" font-size="14" fill="#fff">2</text><text x="283" y="317" fill="#52647e" font-size="16" font-weight="600"><tspan x="283" dy="0">数据集</tspan></text><text x="485" y="317" fill="#243550" font-size="18" font-weight="600"><tspan x="485" dy="0">选择本次接入对应的数据集</tspan></text><rect x="234" y="357" width="830" height="68" rx="9" fill="#fff5f5" stroke="#df5555" stroke-width="2"/><circle cx="260" cy="388" r="12" fill="#2563eb"/><text x="260" y="393" text-anchor="middle" font-size="14" fill="#fff">3</text><text x="283" y="393" fill="#52647e" font-size="16" font-weight="600"><tspan x="283" dy="0">转化事件</tspan></text><text x="485" y="393" fill="#243550" font-size="18" font-weight="600"><tspan x="485" dy="0">成为潜在客户 / Lead</tspan></text><rect x="234" y="433" width="830" height="68" rx="9" fill="#fff5f5" stroke="#df5555" stroke-width="2"/><circle cx="260" cy="464" r="12" fill="#2563eb"/><text x="260" y="469" text-anchor="middle" font-size="14" fill="#fff">4</text><text x="283" y="469" fill="#52647e" font-size="16" font-weight="600"><tspan x="283" dy="0">提示仍存在时</tspan></text><text x="485" y="469" fill="#243550" font-size="18" font-weight="600"><tspan x="485" dy="0">先到测试事件核对，再刷新广告编辑页</tspan></text>
+ <rect x="234" y="517" width="830" height="69" rx="9" fill="#e8f0ff"/>
+ <text x="253" y="548" fill="#234d8b" font-size="17" font-weight="400"><tspan x="253" dy="0">已有集成且事件已收到时，不要重复安装代码；刷新后再检查提示。</tspan></text>
+ <text x="234" y="658" font-size="14" fill="#657790">平台界面可能更新；以实际页面为准。示例内容不能作为当前接收、匹配或去重证据。</text>
+ </g></svg>

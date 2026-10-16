@@ -14,6 +14,8 @@ from .access import (
     ROLE_SALES_MANAGER,
     ROLE_SYSTEM_ADMIN,
     activity_queryset_for_user,
+    active_lead_queryset,
+    active_task_queryset,
     crm_owned_queryset_for_user,
     lead_queryset_for_user,
     task_queryset_for_user,
@@ -101,13 +103,13 @@ def build_workbench_context(*, site, user, now=None, limit: int = 40) -> dict:
     stale_lead_cutoff = now - timedelta(hours=4)
 
     leads = lead_queryset_for_user(
-        LeadSubmission.objects.filter(site=site).select_related(
+        active_lead_queryset(LeadSubmission.objects.filter(site=site)).select_related(
             'assignee', 'team', 'locale', 'conversion__opportunity'
         ),
         user,
     )
     tasks = task_queryset_for_user(
-        Task.objects.filter(site=site).select_related(
+        active_task_queryset(Task.objects.filter(site=site)).select_related(
             'owner_user', 'company', 'contact', 'opportunity', 'submission'
         ),
         user,

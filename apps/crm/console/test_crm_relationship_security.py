@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.conf import settings
@@ -378,9 +379,9 @@ class CrmRelationshipSecurityTests(TestCase):
             due_at=self.now + timedelta(days=2),
             submission=self.lead_a,
         )
-        storage_root = Path(settings.BASE_DIR) / '.runtime' / f'crm-rel-test-{self.lead_a.id}'
-        storage_root.mkdir(parents=True, exist_ok=True)
-        with patch('console.crm_files.attachment_storage_root', return_value=storage_root):
+        with TemporaryDirectory(prefix='vorntek-relationship-') as directory, \
+                patch('console.crm_files.attachment_storage_root', return_value=Path(directory)):
+            storage_root = Path(directory)
             attachment = store_crm_attachment(
                 site=self.site_a,
                 uploaded_file=SimpleUploadedFile('proposal.pdf', b'%PDF-proposal'),
@@ -390,10 +391,6 @@ class CrmRelationshipSecurityTests(TestCase):
             )
             stored_path = storage_root / attachment.storage_path
             self.assertTrue(stored_path.is_file())
-            stored_path.unlink()
-            stored_path.parent.rmdir()
-            stored_path.parent.parent.rmdir()
-            storage_root.rmdir()
 
         self.assertEqual(activity.submission_id, self.lead_a.id)
         self.assertEqual(task.team_id, self.team_a.id)

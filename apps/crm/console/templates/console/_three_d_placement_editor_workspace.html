@@ -117,14 +117,7 @@
                     <h3>预览</h3>
                     {% if three_d_preview_url %}
                         <div class="three-d-live-preview">
-                            {% if three_d_public_config.modelUrl %}
-                                <div class="three-d-empty-preview">
-                                    <span>模型入口</span>
-                                    <strong class="mono">{{ three_d_public_config.modelUrl }}</strong>
-                                </div>
-                            {% else %}
-                                <iframe src="{{ three_d_preview_url }}" title="3D 槽位预览"></iframe>
-                            {% endif %}
+                            <iframe src="{{ three_d_preview_url }}" title="3D 槽位预览"></iframe>
                         </div>
                         <div class="three-d-meta-list">
                             <div>
@@ -139,6 +132,7 @@
 
                 <section class="three-d-sidebox">
                     <h3>读取规则</h3>
+                    <p>这里是登录后的编辑预览，不会启用槽位或发布原文件到官网。</p>
                     <ol class="three-d-steps">
                         <li><span>1</span>前台读取槽位代码</li>
                         <li><span>2</span>槽位找到当前展示配置</li>

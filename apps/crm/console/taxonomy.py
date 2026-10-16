@@ -96,8 +96,11 @@ def descendant_ids(categories: list[Category], category_id: int) -> set[int]:
     return found
 
 
-def category_tree_data(site: Site, locale: SiteLocale) -> list[dict[str, object]]:
-    categories = ordered_categories(site, locale)
+def category_tree_data(
+    site: Site, locale: SiteLocale, *, categories: list[Category] | None = None,
+) -> list[dict[str, object]]:
+    if categories is None:
+        categories = ordered_categories(site, locale)
     if not categories:
         return []
 

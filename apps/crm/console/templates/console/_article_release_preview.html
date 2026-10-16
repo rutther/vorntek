@@ -1,0 +1,33 @@
+<section class="editor-shell article-preview-workspace">
+  <div class="editor-card">
+    <h2>文章发布预览</h2>
+    {% if preview_article %}<p>单篇预览：{{ preview_article.title }}。读取当前已保存的正文，包含草稿；不会修改文章状态。</p>{% else %}<p>读取本站所有启用语言中标为“已发布”的后台文章，生成独立的全文预览版本。草稿和归档不会包含在内。</p>{% endif %}
+    <p>数据库保存不等于官网上线。生成预览不会激活版本、部署网站或发送营销事件。预览中的业务提交操作关闭。</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="workspace" value="1">{% if preview_article %}<input type="hidden" name="article" value="{{ preview_article.pk }}">{% endif %}<button type="submit" class="button primary">生成文章预览版本</button></form>
+    {% if article_preview_error %}<p role="alert">{{ article_preview_error }}</p>{% endif %}
+    {% if article_preview_result %}
+      <h3>预览产物已生成，未上线</h3>
+      <p>文章数：{{ article_preview_result.articleCount }}</p>
+      <p style="overflow-wrap:anywhere">文件版本：<code>{{ article_preview_result.version }}</code></p>
+      <p style="overflow-wrap:anywhere">内容版本：<code>{{ article_preview_result.sourceVersion }}</code></p>
+      {% for missing in article_preview_result.missingTranslations %}<p>缺少译文：{{ missing.contentKey }} — {{ missing.languages|join:", " }}</p>{% endfor %}
+      <details open><summary>打开此版本的文章预览</summary><ul>{% for link in article_preview_result.links %}<li style="overflow-wrap:anywhere"><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.name }}</a></li>{% endfor %}</ul></details>
+      {% if article_preview_result.scope == 'sitePublished' and not article_preview_result.missingTranslations and can_build_website_candidate %}
+      <h3>下一步：固化本次预览</h3>
+      <p>本次对应预览记录 #{{ article_preview_result.recordId }}。相同内容会复用原记录，不一定排在历史列表最前；请从这里继续，不要按创建时间猜测。固化不会选择或部署网站，后续仍需分别审查。</p>
+      <form method="post" action="{% url 'console:website_candidate_build' article_preview_result.recordId %}">{% csrf_token %}<button type="submit" class="button primary">固化本次预览为整站候选</button></form>
+      {% endif %}
+    {% endif %}
+    <p><a href="{% url 'console:articles' %}">返回文章管理</a> · <a href="{% url 'console:releases' %}">整站候选、选版与部署</a></p>
+    <h3>最近20条预览记录</h3>
+    <p>以下是私有预览记录，不代表官网上线；刷新或重新进入后仍可查看。单篇草稿预览不能作为整站部署候选。</p>
+    {% for record in article_preview_history %}
+      <details>
+        <summary>{{ record.createdAt|date:"Y-m-d H:i" }} — {% if record.wholeSite %}整站已发布文章{% else %}单篇预览{% endif %} — {% if record.status == 'built' %}已生成，未上线{% else %}生成失败{% endif %}</summary>
+        {% if record.error %}<p>检查代码：{{ record.error }}</p>{% endif %}
+        <p style="overflow-wrap:anywhere">{{ record.version }}</p>
+        <ul>{% for link in record.links %}<li style="overflow-wrap:anywhere"><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.name }}</a></li>{% endfor %}</ul>
+      </details>
+    {% empty %}<p>尚无文章预览记录。</p>{% endfor %}
+  </div>
+</section>

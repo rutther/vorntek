@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.template import Context, Engine
 from django.utils.safestring import mark_safe
@@ -22,9 +22,21 @@ COPY = {
 
 _engine = Engine(dirs=[str(Path(__file__).parent / 'templates')], autoescape=True)
 
+for _language,_resource_label in {'en':'Resources','zh':'技术资源','fr':'Ressources','ar':'الموارد'}.items():
+    COPY[_language]['resources']=_resource_label
+
 
 def _copy(locale: str) -> dict:
     return COPY.get(locale, COPY['en'])
+
+
+def _base_href(path: str, *, locale: str, default_locale: str, mode: str) -> str:
+    if mode != 'shared':
+        return ('' if locale == default_locale else '/' + locale) + path
+    target = urlsplit(path)
+    query = [(key, value) for key, value in parse_qsl(target.query, keep_blank_values=True) if key != 'lang']
+    query.append(('lang', locale))
+    return urlunsplit(('', '', target.path, urlencode(query), target.fragment))
 
 
 def _safe_markdown_link(url: str) -> bool:
@@ -97,15 +109,13 @@ def render_markdown(
                 parts = destination.path.strip('/').split('/')
                 if (
                     parts[0]
-                    in ('products', 'company', 'technology', 'solutions', 'service', 'contact', 'privacy')
+                    in ('products', 'company', 'technology', 'solutions', 'service', 'contact', 'privacy', 'resources')
                     or destination.path == '/articles/'
                 ):
-                    prefix = (
-                        ''
-                        if base_route_mode == 'shared' or locale == default_locale
-                        else '/' + locale
-                    )
-                    child.attrSet('href', prefix + href)
+                    if destination.path == '/articles/':
+                        child.attrSet('href', ('' if locale == default_locale else '/' + locale) + href)
+                    else:
+                        child.attrSet('href', _base_href(href, locale=locale, default_locale=default_locale, mode=base_route_mode))
     rendered = parser.renderer.render(tokens, parser.options, {})
     return rendered.replace(
         '<table>', '<div class="article-table" tabindex="0"><table>'
@@ -180,18 +190,18 @@ def render_article_documents(release: dict, *, preview: bool = True) -> dict[str
             't': t,
             'prefix': prefix,
             'basePrefix': base_prefix,
+            **{key + 'Href': _base_href(path, locale=language, default_locale=default_locale, mode=base_route_mode)
+               for key, path in {'home':'/','contact':'/contact/','products':'/products/','privacy':'/privacy/'}.items()},
             'preview': preview,
             'releaseHash': release['releaseSha256'],
             'nav': [
-                {'label': t[key], 'href': base_prefix + '/' + key + '/'}
+                {'label': t[key], 'href': hub if key == 'articles' else _base_href('/' + key + '/', locale=language, default_locale=default_locale, mode=base_route_mode)}
                 for key in (
-                    'company',
                     'products',
-                    'technology',
                     'solutions',
-                    'articles',
-                    'service',
-                    'contact',
+                    'technology',
+                    'resources',
+                    'company',
                 )
             ],
         }

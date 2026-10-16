@@ -1,0 +1,16 @@
+.mi-handoff{margin-top:20px;padding:20px 0 0;border-top:1px solid #dce4ef;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.mi-handoff-heading{display:flex;align-items:center;gap:9px;color:#182d48;font-size:15px}
+.mi-handoff-heading svg{width:19px;height:19px;color:#215bd0;flex-shrink:0}
+.mi-handoff p{margin:0;color:#576b84;font-size:13px;line-height:1.65}
+.mi-handoff .mi-continue{margin-top:4px;min-height:44px;gap:14px;text-decoration:none;max-width:100%;white-space:normal;text-align:left}
+.mi-handoff small{font-size:12px;color:#576b84;line-height:1.6}
+.mi-check-section:has(.mi-handoff) .mi-actions{margin-top:18px;padding-top:14px}
+.mi-check-section:has(.mi-handoff) .mi-actions button{font-weight:500}
+.mi-check-list{list-style:none;margin:14px 0!important;padding:0!important;display:grid;gap:14px}
+.mi-check-list li{display:flex;gap:10px;margin:0!important;line-height:1.6}
+.mi-check-list p{margin:3px 0 0;font-size:13px;overflow-wrap:anywhere;color:#576b84}
+.mi-check-symbol{display:flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;color:#956018}
+.mi-check-symbol svg{width:16px;height:16px}.mi-check-symbol.is-pass{color:#237757}.mi-check-symbol.is-fail{color:#b23737}
+.mi-check-section[data-connection-state=ready] .mi-handoff-heading{color:#215bd0}
+@media(max-width:540px){.mi-handoff{padding-top:18px}.mi-handoff-heading{font-size:15px}.mi-handoff .mi-continue{width:100%;justify-content:space-between}.mi-diagnostic summary>span{font-size:11px;overflow-wrap:anywhere;max-width:55%}}
+.mi-origin{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin:0 0 24px;padding:18px 20px;border:1px solid #c7d8f5;background:#f2f6fe;border-radius:8px}.mi-origin>div{flex:1;min-width:180px}.mi-origin span{display:block;color:#576b84;font-size:12px}.mi-origin strong{display:block;margin-top:4px;color:#182d48;overflow-wrap:anywhere}.mi-origin p{flex-basis:100%;margin:0;color:#576b84;font-size:12px}.mi-breadcrumb{overflow-wrap:anywhere}.mi-breadcrumb>span:last-child{min-width:0}

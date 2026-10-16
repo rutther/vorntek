@@ -1,5 +1,22 @@
 ARG PYTHON_IMAGE=python:3.12.12-slim-bookworm
-FROM ${PYTHON_IMAGE}
+ARG NODE_IMAGE=node:24.20.0-bookworm-slim
+FROM ${NODE_IMAGE} AS flow-builder
+WORKDIR /build/apps/crm/flow-ui
+COPY apps/crm/flow-ui/package.json apps/crm/flow-ui/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY apps/crm/flow-ui/ ./
+COPY apps/crm/console/static/ ../console/static/
+COPY apps/website/assets/meta-pixel.js /build/apps/website/assets/meta-pixel.js
+COPY apps/website/inquiry-form.js /build/apps/website/inquiry-form.js
+COPY apps/website/app.js /build/apps/website/app.js
+COPY apps/website/styles.css /build/apps/website/styles.css
+COPY scripts/test_website_pixel_runtime.mjs /build/scripts/test_website_pixel_runtime.mjs
+COPY scripts/test_three_d_camera.mjs /build/scripts/test_three_d_camera.mjs
+COPY scripts/test_three_d_load_state.mjs /build/scripts/test_three_d_load_state.mjs
+COPY scripts/test_three_d_preview_config.mjs /build/scripts/test_three_d_preview_config.mjs
+RUN node --test /build/scripts/test_website_pixel_runtime.mjs /build/scripts/test_three_d_camera.mjs /build/scripts/test_three_d_load_state.mjs /build/scripts/test_three_d_preview_config.mjs && npm test && npm run build
+
+FROM ${PYTHON_IMAGE} AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 COPY apps/crm/requirements.lock /tmp/requirements.lock
@@ -7,6 +24,9 @@ RUN pip install --no-cache-dir -r /tmp/requirements.lock \
     && groupadd --gid 10001 newcrown \
     && useradd --uid 10001 --gid 10001 --no-create-home newcrown
 COPY apps/crm/ /app/
+COPY docs/vorntekDemo/articles.json /app/console/data/industrial_articles.json
+COPY --from=flow-builder /build/apps/crm/console/static/console/flow-workspace/ /app/console/static/console/flow-workspace/
+COPY --from=flow-builder /build/apps/crm/console/static/console/meta-help/ /app/console/static/console/meta-help/
 COPY apps/website/ /app/website-source/
 COPY apps/website/ /srv/website/releases/bundled/
 COPY VERSION /app/VERSION

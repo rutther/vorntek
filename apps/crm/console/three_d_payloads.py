@@ -9,10 +9,10 @@ from .content_access import (
     ASSETS_IMPORT_LOCAL,
     ASSETS_READ,
     ASSETS_WRITE,
-    RELEASES_PREVIEW_BUILD,
 )
 from .payloads import default_site_locale, format_admin_datetime
-from .three_d_config import asset_extension, build_splat_viewer_url, purpose_label, slot_label
+from .preview_navigation import preview_workflow_entry
+from .three_d_config import asset_extension, purpose_label, slot_label
 
 
 def _asset_name(asset: MediaAsset) -> str:
@@ -54,8 +54,8 @@ def _asset_status_label(status: str) -> str:
 
 def _preview_build_guidance(can_build_preview: bool) -> str:
     if can_build_preview:
-        return '配置或槽位发生变更后，可生成新的预览产物，再核对前台展示。'
-    return '配置或槽位发生变更后，由具备预览构建权限的成员生成新的预览产物。'
+        return '配置或槽位变更后，可生成新的预览产物及网站候选；由有权限的成员核对、选择并部署，官网才会更新。'
+    return '配置或槽位变更后，由具备预览构建权限的成员生成新的预览产物及网站候选，再核对部署；只保存不会更新官网。'
 
 
 def three_d_page_payload(
@@ -127,7 +127,8 @@ def three_d_workspace_context(
         raise PermissionDenied('当前账号没有查看 3D 素材的权限。')
     can_write = ASSETS_WRITE in capabilities
     can_import_local = ASSETS_WRITE in capabilities and ASSETS_IMPORT_LOCAL in capabilities
-    can_build_preview = RELEASES_PREVIEW_BUILD in capabilities
+    preview_entry = preview_workflow_entry(capabilities)
+    can_build_preview = bool(preview_entry['url'])
     if site is None:
         site, _locale = default_site_locale()
     assets = list(
@@ -181,8 +182,7 @@ def three_d_workspace_context(
     profile_rows = []
     for profile in profiles:
         asset = profile.asset
-        ext = asset_extension(asset.public_path)
-        viewer_url = build_splat_viewer_url(profile) if ext in {'.sog', '.ply'} else asset.public_path
+        viewer_url = reverse('console:three_d_profile_preview', args=[profile.pk])
         linked_slots = placements_by_profile.get(profile.id, [])
         config = profile.config_json or {}
         auto_rotate = bool(config.get('autoRotate', True))
@@ -262,7 +262,8 @@ def three_d_workspace_context(
             'placements': placement_rows,
             'createProfileUrl': reverse('console:three_d_profile_create') if can_write else '',
             'createPlacementUrl': reverse('console:three_d_placement_create') if can_write else '',
-            'buildPreviewUrl': reverse('console:release_build_preview') if can_build_preview else '',
+            'buildPreviewUrl': preview_entry['url'],
+            'buildPreviewMethod': preview_entry['method'],
             'assetsUrl': reverse('console:assets'),
             'uploadUrl': reverse('console:asset_upload') if can_write else '',
             'importUrl': reverse('console:asset_import_path') if can_import_local else '',
@@ -285,7 +286,8 @@ def three_d_asset_detail_context(
     if ASSETS_READ not in capabilities:
         raise PermissionDenied('当前账号没有查看 3D 素材的权限。')
     can_write = ASSETS_WRITE in capabilities
-    can_build_preview = RELEASES_PREVIEW_BUILD in capabilities
+    preview_entry = preview_workflow_entry(capabilities)
+    can_build_preview = bool(preview_entry['url'])
     site = asset.site
     profiles = list(
         ThreeDViewProfile.objects.select_related('asset')
@@ -382,6 +384,7 @@ def three_d_asset_detail_context(
                 f"{reverse('console:three_d_profile_create')}?asset_id={asset.id}"
                 if can_write else ''
             ),
-            'buildPreviewUrl': reverse('console:release_build_preview') if can_build_preview else '',
+            'buildPreviewUrl': preview_entry['url'],
+            'buildPreviewMethod': preview_entry['method'],
         }
     }

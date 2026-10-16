@@ -1,0 +1,19 @@
+{
+  "format": "vorntek-fictional-customer-examples-v1",
+  "notice": "SYNTHETIC DEMO / DO NOT CONTACT / 虚构演示数据",
+  "count": 200,
+  "contexts": [
+    {"id": "general_project", "label": "虚构项目协作示例"},
+    {"id": "general_support", "label": "虚构支持咨询示例"},
+    {"id": "partner_discussion", "label": "虚构合作沟通示例"}
+  ],
+  "sources": [
+    ["manual", "manual_create"],
+    ["research", "file_import"],
+    ["website_form", "automatic_receive"],
+    ["meta_native", "automatic_receive"],
+    ["other", "file_import"]
+  ],
+  "countries": ["China", "Ghana", "Kenya", "Egypt", "Saudi Arabia", "United Arab Emirates", "Morocco", "South Africa"],
+  "states": [{"until": 150, "state": "available"}, {"until": 190, "state": "review"}, {"until": 200, "state": "archived"}]
+}

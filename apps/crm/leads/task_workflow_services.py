@@ -20,7 +20,7 @@ from .crm_services import (
     synchronize_submission_next_follow_up,
     _set_stage_audit_context,
 )
-from .models import Activity, Company, CrmMutationReceipt, Opportunity, SalesTeamMember, Task
+from .models import Activity, Company, CrmMutationReceipt, LeadSubmission, Opportunity, SalesTeamMember, Task
 
 
 TASK_TYPES = frozenset({'follow_up', 'call', 'email', 'whatsapp', 'meeting', 'quote', 'review', 'other'})
@@ -347,6 +347,10 @@ def create_task_workflow(
         priority=priority,
         due_at=due_at,
     )
+    if submission is not None:
+        submission = LeadSubmission.objects.select_for_update(of=('self',)).get(pk=submission.pk, site=site)
+        if submission.trashed_at is not None:
+            raise TaskWorkflowError('线索已移入回收站，请先恢复后再操作。', code='lead_trashed')
     scope = validate_crm_relationship_targets(
         site=site,
         submission=submission,
@@ -422,7 +426,12 @@ def create_task_workflow(
 
 
 def _locked_task(task_id: int) -> Task:
-    return (
+    # Lead disposition locks the parent before its tasks. Use that same order
+    # here so trash eligibility is stable without introducing a reverse lock.
+    target_id = Task.objects.values_list('submission_id', flat=True).get(pk=task_id)
+    if target_id is not None:
+        LeadSubmission.objects.select_for_update(of=('self',)).get(pk=target_id)
+    task = (
         Task.objects.select_for_update(of=('self',))
         .select_related(
             'site', 'owner_user', 'team', 'created_by_user',
@@ -430,11 +439,16 @@ def _locked_task(task_id: int) -> Task:
         )
         .get(pk=task_id)
     )
+    if task.submission_id != target_id:
+        raise TaskWorkflowError('任务关联对象已变化，请刷新后重试。', code='task_target_changed')
+    return task
 
 
 def _authorize_locked(task: Task, authorizer):
     if authorizer is not None:
         authorizer(task)
+    if task.submission_id and task.submission.trashed_at is not None:
+        raise TaskWorkflowError('线索已移入回收站，关联任务暂停处理；请先恢复线索。', code='lead_trashed')
 
 
 def _require_version(task: Task, expected_updated_at):
@@ -712,6 +726,10 @@ def append_manual_activity_workflow(
     audit_recorder=None,
     mutation_scope: str = 'activity.create',
 ) -> ActivityMutationResult:
+    if submission is not None:
+        submission = LeadSubmission.objects.select_for_update(of=('self',)).get(pk=submission.pk)
+        if submission.trashed_at is not None:
+            raise TaskWorkflowError('线索已在回收站，恢复后才能记录跟进。', code='lead_trashed')
     if activity_type not in MANUAL_ACTIVITY_TYPES:
         raise TaskWorkflowError('只能记录人工沟通活动。', code='activity_type_invalid')
     if direction not in ACTIVITY_DIRECTIONS:

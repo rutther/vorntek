@@ -536,7 +536,7 @@
                 edit.href = row.editHref;
                 actions.append(edit);
             }
-            actions.append(preview);
+            if (row.previewHref) actions.append(preview);
             actionCell.append(actions);
 
             tr.append(articleCell, categoryCell, statusCell, seoCell, updatedCell, actionCell);

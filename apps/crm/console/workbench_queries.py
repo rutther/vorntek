@@ -265,16 +265,16 @@ def _build_sales_workbench(
     now,
     limit: int,
 ) -> dict[str, Any]:
-    leads = LeadSubmission.objects.filter(
+    leads = access.active_lead_queryset(LeadSubmission.objects.filter(
         site=site,
         stage__in=ACTIVE_LEAD_STAGES,
         conversion__isnull=True,
-    )
+    ))
     tasks = access.task_queryset_for_user(
-        Task.objects.filter(
+        access.active_task_queryset(Task.objects.filter(
             site=site,
             status__in=ACTIONABLE_TASK_STATUSES,
-        ),
+        )),
         user,
         roles=roles,
     )

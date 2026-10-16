@@ -184,6 +184,8 @@ class ThreeDPlacementForm(forms.Form):
         self.site = site
         self.placement = placement
         super().__init__(*args, **kwargs)
+        from .three_d_slots import slot_registry
+        self.fields['slot_code'].choices=[(code,row['label']) for code,row in slot_registry().items()]
         self.fields['profile'].queryset = (
             ThreeDViewProfile.objects.filter(site=site)
             .exclude(status='archived')

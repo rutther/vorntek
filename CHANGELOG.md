@@ -1,12 +1,82 @@
 # Changelog
 
+## [0.2.0-rc.1] — source release candidate
+
+- Complete desktop CRM and guided marketing workspace, illustrated guidance,
+  flow diagrams, independent workflow instances and scoped Pixel runtime.
+- Configurable inquiry fields through public validation, CRM, qualification,
+  notification and opportunity handling; consent and immutable delivery routing.
+- Recoverable lead trash with multi-selection and original task/state restoration,
+  fresh role/session checks and durable private-file recovery.
+- Replaceable industrial company website: six equipment models, bilingual
+  catalogue/applications/guides, media, downloads and optional three-language drafts.
+- Authenticated article/GLB/splat preview and immutable candidate/selection/
+  deployment/recovery, retaining explicit operator actions.
+- Optional `seed_industrial_examples`, preserving old examples, passwords and
+  later edits; additive SQL through0043 and actual public-main upgrade checks.
+- Reviewed exact resource identities and reproducible source packaging.
+  External delivery is disabled by default; no prebuilt image or cluster SLA.
+
+Publication and final download acceptance are tracked separately. Earlier
+development details below are historical notes, not current pending-work claims.
+
+## Integration completeness follow-up
+
+- Authenticated GLB draft preview reads the scoped stored asset instead of
+  a not-yet-published public URL. The self-hosted renderer supports actual
+  drag/camera capture and ordinary save/reopen without enabling a public slot.
+  Missing/changed, external-resource and optional-decoder models show explicit
+  failure states, with no remote decoder or cloud runtime requests.
+
+- Article preview now hands off its exact current/reused record to candidate
+  construction instead of making operators guess the newest history row.
+  Draft-only, missing-translation and preview-only permission boundaries remain.
+
+- Editable select choices now persist from the ordinary form editor; enabled
+  selects without usable choices are rejected before saving/public exposure.
+- Public forms distinguish actionable validation errors from uncertain transport
+  failures, display bounded literal messages and retain inputs/retry identity.
+
+- Restore the existing Pixel scope save sub-operation and its original version,
+  placement, consent and transaction guards; saving does not activate delivery.
+- Restore the current CRM source-analysis page and matching-field completeness
+  view, with aggregate-only queries, explicit failure feedback and preserved
+  legacy advanced-tracking links. No advertising-attribution result is implied.
+
 All notable changes to Vorntek are recorded here. The project follows
 [Semantic Versioning](https://semver.org/); development versions are not release
 certifications.
 
 ## [Unreleased]
 
+### Fixed
+
+- Same-origin website navigation is no longer classified as an external referral;
+  consent filtering and campaign precedence remain unchanged.
+- Remaining conversation requirement examples use neutral categories and project
+  parameters instead of one customer's equipment or production units.
+
+- Candidate build failures explain missing translations or public resources
+  without exposing internal paths; deployment guidance no longer names a client environment.
+- Shared-base article navigation keeps the current article language.
+- The keyboard skip link no longer creates horizontal page overflow in RTL.
+- Article category pickers now show only choices accepted by the editor, while
+  ordinary edits can retain an existing unpublished category in the same scope.
+- Standalone console website links inherit the configured site origin instead
+  of an unrelated developer port; an explicit separate preview origin still wins.
+- Lead workspace timestamps use the active display timezone, matching task pages
+  for the same stored instant without rewriting database timestamps.
+- Integration help no longer embeds a former customer's phone or account suffix.
+
 ### Added
+
+- A plan-first, stale-state-guarded `configure_site_origin` maintenance command
+  for existing installations, with one-field updates and immutable audit records.
+
+- An opt-in, exact-peer HTTPS edge proxy renderer with standalone real Nginx
+  spoofing/client-identity checks; no automatic host configuration changes.
+- Updated bilingual neutral-product installation and rollout guidance, separating
+  optional example packs and historical release evidence from current delivery.
 
 - A canonical `VERSION` file and runtime version reporting in `/healthz/`.
 - A read-only `release_preflight` command for version, migration ledger, storage
@@ -70,6 +140,11 @@ certifications.
   echoing matched material; full-history CI repeats the gate.
 
 ### Changed
+
+- Standalone PostgreSQL acceptance follows current model/schema and scheduler
+  contracts, admits only the proven lossless literal-array restore reparse, and
+  verifies configurable neutral/personal inquiry flows rather than retired
+  fixed-industry defaults. Windows inventory uses an isolated real serving tree.
 
 - Import preview creation now serializes per site and safely reuses an existing
   batch when the same file is previewed again.

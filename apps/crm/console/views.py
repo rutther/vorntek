@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -23,6 +23,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 
 from leads.email_delivery import load_runtime_email_config, smtp_password_last4
 from leads.models import (
+    CrmAttachment,
     LeadConversion,
     LeadEventOutbox,
     LeadFormDefinition,
@@ -68,7 +69,10 @@ from .access import (
     ROLE_SALES,
     ROLE_SALES_MANAGER,
     ROLE_SYSTEM_ADMIN,
+    SALES_ROLES,
     SYSTEM_ROLES,
+    active_lead_queryset,
+    active_task_queryset,
     assignee_queryset_for_user,
     lead_queryset_for_user,
     primary_role_label,
@@ -91,6 +95,7 @@ from .content_access import (
     RELEASES_PREVIEW_BUILD,
     RELEASES_READ,
     effective_content_capabilities,
+    current_content_actor_for_commit,
 )
 from .audit import (
     integration_snapshot,
@@ -100,14 +105,18 @@ from .audit import (
     record_audit,
 )
 from .email_forms import SmtpSettingsForm
-from .data_governance_forms import RetentionExecutionForm, RetentionPolicyForm
+from .data_governance_forms import AttachmentCleanupForm, RetentionExecutionForm, RetentionPolicyForm
+from .crm_files import process_private_attachment_cleanup
 from .forms import ArticleEditorForm, AssetImportPathForm, AssetUploadForm, asset_mime_type
 from .lead_forms import LeadFormEditorForm, LeadSubmissionEditorForm, default_form_schema
+from leads.form_schema import FormSchemaError, public_form_fields
 from .lead_exports import build_leads_csv, build_leads_xlsx, lead_export_queryset
 from .leads_workspace import build_leads_workspace
 from .locale_admin import create_locale_from_source, disable_locale, enable_locale, set_default_locale
 from .locale_forms import LocaleBootstrapForm
 from .marketing_forms import MarketingIntegrationEditorForm
+from .meta_editor import MetaIntegrationSectionForm, connection_check_time
+from .marketing_diagnostics import diagnose_marketing_integration
 from .marketing_services import (
     PRIVACY_TRANSITIONS,
     execute_privacy_action,
@@ -117,6 +126,7 @@ from .marketing_services import (
     transition_privacy_request,
 )
 from .navigation import build_navigation
+from .commit_authorization import CommitAuthorizationError, current_actor_for_commit
 from .payloads import PUBLIC_PREVIEW_BASE_URL, admin_locale_label, assets_payload, default_site_locale, make_page, marketing_payload, releases_payload
 from .privacy_forms import (
     PRIVACY_TYPE_CHOICES,
@@ -139,14 +149,14 @@ from .release_pipeline import (
     PreviewBuildInProgress,
     run_preview_build,
 )
-from .secret_store import secret_last4
+from .secret_store import SecretVaultConfigurationError, secret_last4
 from .storage_security import (
     StorageSecurityError,
     private_file_response_headers,
     resolve_storage_asset_path,
 )
 from .taxonomy import category_tree_data
-from .three_d_config import build_splat_viewer_url, placement_public_config, slot_label
+from .three_d_config import placement_public_config, slot_label
 from .three_d_forms import ThreeDPlacementForm, ThreeDViewProfileForm
 from .three_d_payloads import three_d_asset_detail_context, three_d_asset_page_payload, three_d_page_payload, three_d_workspace_context
 from .system_forms import ConsoleUserForm, SalesTeamForm
@@ -192,6 +202,7 @@ CONTENT_ROUTE_CAPABILITIES: dict[str, frozenset[str]] = {
     'three_d_asset_detail': frozenset({ASSETS_READ}),
     'three_d_profile_create': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'three_d_profile_edit': frozenset({ASSETS_READ, ASSETS_WRITE}),
+    'three_d_profile_preview': frozenset({ASSETS_READ}),
     'three_d_placement_create': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'three_d_placement_edit': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'asset_upload': frozenset({ASSETS_READ, ASSETS_WRITE}),
@@ -357,8 +368,8 @@ def readable_content_locale_ids(
 
 
 def request_client_ip(request) -> str:
-    forwarded = (request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip()
-    return forwarded or (request.META.get('HTTP_X_REAL_IP') or '').strip() or request.META.get('REMOTE_ADDR', '')
+    from .client_ip import resolve_client_ip
+    return resolve_client_ip(request)
 
 
 def preview_base_url(request=None) -> str:
@@ -661,15 +672,19 @@ def sales_team_snapshot(team) -> dict:
 def sales_team_usage(team, *, lock=False) -> dict[str, int]:
     querysets = {
         'active_members': SalesTeamMember.objects.filter(team=team, user__is_active=True),
-        'open_leads': LeadSubmission.objects.filter(team=team).exclude(
+        'open_leads': active_lead_queryset(LeadSubmission.objects.filter(team=team)).exclude(
             stage__in=['won', 'lost', 'spam']
         ),
-        'actionable_tasks': Task.objects.filter(team=team, status__in=['open', 'in_progress']),
+        'actionable_tasks': active_task_queryset(Task.objects.filter(team=team, status__in=['open', 'in_progress'])),
         'open_opportunities': Opportunity.objects.filter(team=team).exclude(stage__in=['won', 'lost']),
     }
     if lock:
-        for queryset in querysets.values():
-            list(queryset.select_for_update().values_list('pk', flat=True))
+        for key, queryset in querysets.items():
+            # Active-task filtering joins a nullable submission. PostgreSQL
+            # cannot lock that outer-joined side; lock the task itself, while
+            # preserving the existing lock scope for the other usage checks.
+            locked = queryset.select_for_update(of=('self',)) if key == 'actionable_tasks' else queryset.select_for_update()
+            list(locked.values_list('pk', flat=True))
     return {key: queryset.count() for key, queryset in querysets.items()}
 
 
@@ -683,12 +698,14 @@ def sales_team_usage_queryset(queryset):
         ),
         open_lead_count=Count(
             'lead_submissions',
-            filter=~Q(lead_submissions__stage__in=['won', 'lost', 'spam']),
+            filter=Q(lead_submissions__trashed_at__isnull=True) & ~Q(lead_submissions__stage__in=['won', 'lost', 'spam']),
             distinct=True,
         ),
         actionable_task_count=Count(
             'crm_tasks',
-            filter=Q(crm_tasks__status__in=['open', 'in_progress']),
+            filter=Q(crm_tasks__status__in=['open', 'in_progress']) & (
+                Q(crm_tasks__submission_id__isnull=True) | Q(crm_tasks__submission__trashed_at__isnull=True)
+            ),
             distinct=True,
         ),
         open_opportunity_count=Count(
@@ -821,9 +838,8 @@ def home(request):
 @login_required
 @require_GET
 def marketing_attribution(request):
-    """Canonical GET-only alias for the current attribution renderer."""
-
-    return marketing(request)
+    from .marketing_source_views import source_analysis
+    return source_analysis(request)
 
 
 @login_required
@@ -1229,11 +1245,7 @@ def three_d_profile_edit(request, profile_id: int):
     else:
         form = ThreeDViewProfileForm(site=site, profile=profile)
 
-    preview_url = (
-        preview_public_url(build_splat_viewer_url(profile), request=request)
-        if profile.asset.file_ext in {'.sog', '.ply'}
-        else preview_public_url(profile.asset.public_path, request=request)
-    )
+    preview_url = reverse('console:three_d_profile_preview', args=[profile.pk])
     placement = ThreeDPlacement.objects.filter(site=site, profile=profile).order_by('sort_order', 'id').first()
     return render_form_console(
         request,
@@ -1250,6 +1262,49 @@ def three_d_profile_edit(request, profile_id: int):
             'three_d_placement': placement,
         },
     )
+
+
+@login_required
+@require_GET
+def three_d_profile_preview(request, profile_id: int):
+    from .three_d_preview import inspect_model, ModelPreviewError
+    from .three_d_publication import read_public_3d_asset
+    from .article_delivery import ArticleDeliveryError
+    site, _locale, _capabilities = content_site_scope(request, 'three_d_profile_preview')
+    profile = get_object_or_404(ThreeDViewProfile.objects.select_related('asset'),
+                               pk=profile_id, site=site, asset__site=site)
+    error = ''
+    is_splat = profile.asset.file_ext in {'.ply', '.sog'}
+    try:
+        if is_splat:
+            read_public_3d_asset(profile.asset, site)
+        else:
+            inspect_model(profile.asset)
+    except ModelPreviewError as exc:
+        error = str(exc)
+    except ArticleDeliveryError:
+        error = '模型文件不可用或包含不支持的外部资源；请返回资产库核对原文件。'
+    response = render(request, 'console/three_d_model_preview.html', {
+        'profile': profile, 'preview_error': error, 'is_splat': is_splat,
+        'preview_config': {'src': reverse('console:asset_file', args=[profile.asset_id]),
+                           'filename': 'scene'+profile.asset.file_ext, 'kind': 'splat' if is_splat else 'glb',
+                           'privatePreview': True,
+                           'title': profile.asset.title or profile.asset.original_name,
+                           'background': profile.background_color,
+                           'position': [float(profile.camera_position_x), float(profile.camera_position_y), float(profile.camera_position_z)],
+                           'target': [float(profile.camera_target_x), float(profile.camera_target_y), float(profile.camera_target_z)],
+                           'fov': float(profile.fov), 'interaction': profile.allow_interaction,
+                           'showUi': profile.show_ui, 'autoRotate': bool((profile.config_json or {}).get('autoRotate', True)),
+                           'duration': (profile.config_json or {}).get('autoRotateDuration', 20)},
+    })
+    for header, value in private_file_response_headers().items():
+        response[header] = value
+    response['Content-Security-Policy'] = (
+        "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; "
+        "connect-src 'self' data: blob:; img-src 'self' data: blob:; worker-src blob:; "
+        "frame-ancestors 'self'; base-uri 'none'; form-action 'none'; object-src 'none'")
+    response['X-Frame-Options'] = 'SAMEORIGIN'
+    return response
 
 
 @login_required
@@ -1270,7 +1325,7 @@ def three_d_placement_edit(request, placement_id: int):
         form = ThreeDPlacementForm(site=site, placement=placement)
 
     preview = placement_public_config(placement)
-    preview_url = preview_public_url(str(preview.get('viewerUrl') or preview.get('modelUrl') or ''), request=request)
+    preview_url = reverse('console:three_d_profile_preview', args=[placement.profile_id])
     return render_form_console(
         request,
         section_key='assets',
@@ -1328,6 +1383,8 @@ def asset_import_path(request):
                 imported_asset = form.save(site=site, created_by=request.user.get_username() or 'django-console')
             except StorageSecurityError:
                 form.add_error(None, '资产存储未配置或文件已不可用。')
+            except (DatabaseError, OSError, forms.ValidationError):
+                form.add_error(None, '未完成入库，已填写的说明已保留。请使用相同文件重试；若仍失败，请让管理员核对待恢复写入。')
             else:
                 messages.success(request, f'文件已导入资产库：{imported_asset.public_path}')
                 form = AssetImportPathForm()
@@ -1348,7 +1405,17 @@ def asset_import_path(request):
 
 @login_required
 def marketing(request):
-    return render_console(request, section_key='marketing', page_payload=marketing_payload())
+    tab = request.GET.get('tab', '')
+    if tab == 'integrations':
+        return redirect_get_preserving_query(request, 'console:marketing_integrations', drop=('tab',))
+    if tab not in {'ctas', 'rules', 'mappings'}:
+        return redirect_get_preserving_query(request, 'console:marketing_attribution')
+    payload = marketing_payload()
+    payload.update(title='高级追踪配置', description='维护既有 CTA、追踪规则与事件映射；不替代获客方案。',
+                   workspaceLabel='高级追踪配置', workspaceMeta='沿用既有配置与发布方式。', initialTab=tab)
+    payload['tabs'] = [item for item in payload['tabs'] if item['key'] in {'ctas', 'rules', 'mappings'}]
+    payload['views'] = {key: value for key, value in payload['views'].items() if key in {'ctas', 'rules', 'mappings'}}
+    return render_console(request, section_key='marketing_attribution', page_payload=payload)
 
 
 @login_required
@@ -1468,6 +1535,8 @@ def privacy_request_manage(request, privacy_request_id: int):
             action = str(request.POST.get('_action') or '').strip().lower()
             saved = False
             with transaction.atomic():
+                actor = current_actor_for_commit(request.user.pk, request.session.session_key,
+                    SYSTEM_ROLES if action == 'execute' or action == 'transition:completed' else MARKETING_ROLES)
                 item = get_object_or_404(
                     PrivacyRequest.objects.select_for_update(of=('self',)).select_related(
                         'handled_by_user', 'submission'
@@ -1489,7 +1558,7 @@ def privacy_request_manage(request, privacy_request_id: int):
                         if action.startswith('transition:'):
                             target_status = action.split(':', 1)[1]
                             if target_status == 'completed':
-                                if not is_system_admin:
+                                if not user_has_any_role(actor, SYSTEM_ROLES):
                                     raise PermissionDenied
                                 if item.request_type != 'export':
                                     raise ValidationError({
@@ -1498,11 +1567,11 @@ def privacy_request_manage(request, privacy_request_id: int):
                             transition_privacy_request(
                                 privacy_request=item,
                                 target_status=target_status,
-                                actor=request.user,
+                                actor=actor,
                                 resolution=form.cleaned_data['resolution'],
                             )
                             record_audit(
-                                actor=request.user,
+                                actor=actor,
                                 action='privacy_request_status_changed',
                                 entity_table='privacy_request',
                                 entity_id=item.id,
@@ -1512,7 +1581,7 @@ def privacy_request_manage(request, privacy_request_id: int):
                             )
                             messages.success(request, '隐私请求状态已更新。')
                         elif action == 'execute':
-                            if not is_system_admin:
+                            if not user_has_any_role(actor, SYSTEM_ROLES):
                                 raise PermissionDenied
                             required_confirmation = 'DELETE' if item.request_type == 'delete' else 'EXECUTE'
                             if str(form.cleaned_data['confirm'] or '').strip() != required_confirmation:
@@ -1521,10 +1590,11 @@ def privacy_request_manage(request, privacy_request_id: int):
                                 })
                             result = execute_privacy_action(
                                 privacy_request=item,
-                                actor=request.user,
+                                actor=actor,
+                                operator_note=form.cleaned_data['resolution'],
                             )
                             record_audit(
-                                actor=request.user,
+                                actor=actor,
                                 action='privacy_request_executed',
                                 entity_table='privacy_request',
                                 entity_id=item.id,
@@ -1635,6 +1705,11 @@ def marketing_integration_edit(request, integration_id: int):
         id=integration_id,
         site=site,
     )
+    from .integration_context import integration_guide_context
+    guide_context = integration_guide_context(request, integration)
+    redirect_url = f'{reverse("console:marketing_integration_edit", args=[integration.id])}?locale={locale.locale_code}'
+    if guide_context:
+        redirect_url += '&' + guide_context['query']
     if request.method == 'POST' and request.POST.get('_action') == 'diagnose':
         before = integration_snapshot(integration)
         record_audit(
@@ -1645,27 +1720,34 @@ def marketing_integration_edit(request, integration_id: int):
             before=before,
             request=request,
         )
-        diagnostic, _evidence = record_integration_diagnostic(
-            integration=integration,
-            actor=request.user,
-        )
-        record_audit(
-            actor=request.user,
-            action='marketing_integration_diagnosed',
-            entity_table='marketing_integration',
-            entity_id=integration.id,
-            before=before,
-            after=integration_snapshot(integration),
-            request=request,
-            metadata={'diagnostic_overall': diagnostic.get('overall', 'unknown')},
-        )
+        prepared = diagnose_marketing_integration(integration)
+        try:
+            with transaction.atomic():
+                diagnostic, _evidence = record_integration_diagnostic(
+                    integration=integration, actor=request.user, diagnostic=prepared)
+                record_audit(
+                    actor=request.user,
+                    action='marketing_integration_diagnosed',
+                    entity_table='marketing_integration',
+                    entity_id=integration.id,
+                    before=before,
+                    after=integration_snapshot(integration),
+                    request=request,
+                    metadata={'diagnostic_overall': diagnostic.get('overall', 'unknown')},
+                )
+        except ValidationError:
+            messages.error(request, '接入配置已更新，请刷新后重新检查连接。')
+            return redirect(redirect_url)
         if diagnostic['overall'] == 'pass':
             messages.success(request, f'连接诊断完成：{diagnostic["summary"]}')
         else:
             messages.warning(request, f'连接诊断完成：{diagnostic["summary"]}')
-        return redirect(f'{reverse("console:marketing_integration_edit", args=[integration.id])}?locale={locale.locale_code}')
+        return redirect(redirect_url)
     if request.method == 'POST':
-        form = MarketingIntegrationEditorForm(
+        editor_class = (MetaIntegrationSectionForm if request.POST.get('_section') and
+                        integration.provider.code == 'meta' and integration.integration_type == 'pixel'
+                        else MarketingIntegrationEditorForm)
+        form = editor_class(
             request.POST,
             integration=integration,
             updated_by=request.user.get_username() or 'django-console',
@@ -1680,18 +1762,32 @@ def marketing_integration_edit(request, integration_id: int):
                 before=before,
                 request=request,
             )
-            integration = form.save()
-            record_audit(
-                actor=request.user,
-                action='marketing_integration_updated',
-                entity_table='marketing_integration',
-                entity_id=integration.id,
-                before=before,
-                after=integration_snapshot(integration),
-                request=request,
-            )
-            messages.success(request, f'接入配置已更新：{integration.name}')
-            return redirect(f'{reverse("console:marketing_integration_edit", args=[integration.id])}?locale={locale.locale_code}')
+            try:
+                integration = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            except SecretVaultConfigurationError as exc:
+                form.add_error(None, str(exc))
+            else:
+                record_audit(
+                    actor=request.user,
+                    action='marketing_integration_updated',
+                    entity_table='marketing_integration',
+                    entity_id=integration.id,
+                    before=before,
+                    after=integration_snapshot(integration),
+                    request=request,
+                )
+                section_messages = {
+                    'credentials': '凭据已保存。下一步：检查连接。接入开关未改变。',
+                    'identity': '接入名称已保存。',
+                    'testing': '测试与接口设置已保存，请重新检查连接。',
+                    'advanced': '扩展配置已保存，请重新检查连接。',
+                    'state': '接入总开关已保存；实际发送仍取决于各流程的应用状态与访客同意。',
+                    'clear': '本接入凭据已清除。重新接入前需填写新凭据。',
+                }
+                messages.success(request, section_messages.get(getattr(form, 'section', ''), '设置已保存。') if form.is_meta_pixel else f'接入配置已更新：{integration.name}')
+                return redirect(redirect_url)
     else:
         form = MarketingIntegrationEditorForm(
             integration=integration,
@@ -1725,18 +1821,41 @@ def marketing_integration_edit(request, integration_id: int):
             if str(config.get('transport_provider') or 'meta').strip().lower() == 'ycloud'
             else integration.site.base_url.rstrip('/') + '/api/webhooks/whatsapp/'
         )
+    from marketing.flow_runtime import integration_runtime_summary
+    runtime_management = integration_runtime_summary(integration) if form.is_meta_pixel else None
+    from .meta_editor import connection_next_action
+    connection_journey = connection_next_action(config.get('last_diagnostic'), connection_status['primary_exists']) if form.is_meta_pixel else None
+    if form.is_meta_pixel:
+        # This template supplies task-specific help instead of Django's generic
+        # field help; do not emit aria-describedby targets that are not rendered.
+        for field in form.fields.values():
+            field.help_text = ''
+        form.fields['primary_secret'].widget.attrs.update({
+            'aria-describedby': 'mi-token-help mi-token-state',
+            'placeholder': '粘贴从 Meta 获取的访问令牌',
+            'spellcheck': 'false',
+        })
     return render_form_console(
         request,
-        section_key='marketing',
+        section_key='marketing_integrations',
         page_payload=marketing_integration_editor_page_payload(
             title=integration.name,
-            description='维护平台 ID、加密密钥、Webhook、CRM 阶段回传与诊断状态。',
+            description='Meta 网站事件接入' if form.is_meta_pixel else '维护平台 ID、加密密钥、Webhook、CRM 阶段回传与诊断状态。',
             locale_label=admin_locale_label(locale),
         ),
-        workspace_template='console/_marketing_integration_editor_workspace.html',
+        workspace_template=('console/_meta_integration_editor.html' if form.is_meta_pixel else 'console/_marketing_integration_editor_workspace.html'),
         locale_code=locale.locale_code,
+        extra_stylesheets=['console/meta-editor-v2.css', 'console/meta-editor-next-step.css'] if form.is_meta_pixel else [],
+        extra_scripts=['console/meta-editor-v2a.js'] if form.is_meta_pixel else [],
         extra_context={
+            'hide_toolrows': form.is_meta_pixel,
+            'hide_topbar_center': form.is_meta_pixel,
+            'editor_section': getattr(form, 'section', ''),
+            'editor_version': integration.updated_at.isoformat(),
             'marketing_integration_editor': form,
+            'runtime_management': runtime_management,
+            'connection_journey': connection_journey,
+            'guide_context': guide_context,
             'integration': integration,
             'editor_locale': locale,
             'connection_status': connection_status,
@@ -1750,6 +1869,7 @@ def marketing_integration_edit(request, integration_id: int):
             'vault_last4': vault_last4,
             'current_test_event_code': str(config.get('test_event_code') or ''),
             'last_diagnostic': config.get('last_diagnostic') if isinstance(config.get('last_diagnostic'), dict) else None,
+            'connection_check_time': connection_check_time(config.get('last_diagnostic')),
             'outbox_pending_count': outbox_counts['pending'] or 0,
             'outbox_sending_count': outbox_counts['sending'] or 0,
             'outbox_processing_count': outbox_counts['processing'] or 0,
@@ -1997,8 +2117,29 @@ def system_data_governance(request):
     execution_form = RetentionExecutionForm(
         initial={'version': workspace['policy_version']}
     )
+    cleanup_form = AttachmentCleanupForm()
 
-    if request.method == 'POST' and action == 'save_policy':
+    if request.method == 'POST' and action == 'retry_attachment_cleanup':
+        fresh_actor = get_user_model().objects.filter(pk=request.user.pk, is_active=True).first()
+        if not fresh_actor or not user_has_any_role(fresh_actor, SYSTEM_ROLES):
+            raise PermissionDenied('当前账号没有重试附件清理的权限。')
+        cleanup_form = AttachmentCleanupForm(request.POST)
+        if cleanup_form.is_valid():
+            try:
+                # Persist an authorized attempt before irreversible filesystem I/O.
+                # A later SQL failure leaves the existing retirement intent retryable.
+                record_audit(actor=fresh_actor, action='private_attachment_cleanup_requested',
+                    entity_table='privacy_retention_policy', entity_id=policy.id, request=request,
+                    metadata={'site_id': site.pk, 'limit': 100})
+                result = process_private_attachment_cleanup(site_id=site.pk, limit=100)
+                remaining = CrmAttachment.objects.filter(site=site).exclude(purge_storage_path='').count()
+                feedback = f'本次已完成 {result["removed"]} 个附件的物理清理；仍待处理 {remaining} 个。'
+                (messages.warning if remaining else messages.success)(request, feedback)
+                return redirect(f'{reverse("console:system_data_governance")}?locale={locale.locale_code}#attachment-cleanup')
+            except (DatabaseError, OSError, ValidationError):
+                cleanup_form.add_error(None, '本次清理未全部完成；待处理标记保留。请刷新核对，再重试或检查文件系统权限。')
+                workspace = build_data_governance_workspace(site=site)
+    elif request.method == 'POST' and action == 'save_policy':
         policy_form = RetentionPolicyForm(request.POST, policy=policy)
         if policy_form.is_valid():
             saved = False
@@ -2075,14 +2216,16 @@ def system_data_governance(request):
                     for message in error_messages if isinstance(error_messages, (list, tuple)) else [error_messages]:
                         execution_form.add_error(target, message)
             if executed:
-                messages.success(request, '数据保留策略已执行；实际清理数量已写入审计记录。')
+                messages.success(request, '数据保留策略已执行；记录处理数量已写入审计。附件物理清理请在下方单独核对。')
                 return redirect(
                     f'{reverse("console:system_data_governance")}?locale={locale.locale_code}'
                 )
     elif request.method == 'POST':
+        policy_form = RetentionPolicyForm(request.POST, policy=policy)
+        policy_form.is_valid()
         policy_form.add_error(None, '未识别的数据治理操作。')
 
-    return render_form_console(
+    response = render_form_console(
         request,
         section_key='system_data_governance',
         page_payload=system_page_payload(
@@ -2098,8 +2241,13 @@ def system_data_governance(request):
             'data_governance': workspace,
             'retention_policy_form': policy_form,
             'retention_execution_form': execution_form,
+            'attachment_cleanup_form': cleanup_form,
+            'stylesheet_version': '20261015-attachment-cleanup-1',
         },
     )
+    if request.method == 'POST' and action not in {'save_policy', 'execute_retention', 'retry_attachment_cleanup'}:
+        response.status_code = 400
+    return response
 
 
 @login_required
@@ -2221,9 +2369,9 @@ def lead_submission_edit(request, submission_id: int):
     site, locale = default_site_locale(requested_locale_code(request))
     submission = get_object_or_404(
         lead_queryset_for_user(
-            LeadSubmission.objects.select_related(
+            active_lead_queryset(LeadSubmission.objects.select_related(
                 'form', 'locale', 'route', 'cta', 'assignee', 'team', 'duplicate_of'
-            ),
+            )),
             request.user,
         ),
         id=submission_id,
@@ -2346,40 +2494,43 @@ def lead_submission_bulk_stage(request):
 
     submissions = list(
         lead_queryset_for_user(
-            LeadSubmission.objects.filter(site=site, id__in=ids),
+            active_lead_queryset(LeadSubmission.objects.filter(site=site, id__in=ids)),
             request.user,
         )
     )
     updated = 0
-    for submission in submissions:
-        before = lead_submission_snapshot(submission)
-        record_audit(
-            actor=request.user,
-            action='lead_bulk_stage_requested',
-            entity_table='lead_submission',
-            entity_id=submission.id,
-            before=before,
-            request=request,
-            metadata={'target_stage': stage},
-        )
-        update_submission_stage(
-            submission=submission,
-            stage=stage,
-            buyer_value=submission.buyer_value,
-            buyer_currency=submission.buyer_currency or 'USD',
-        )
-        record_audit(
-            actor=request.user,
-            action='lead_bulk_stage_updated',
-            entity_table='lead_submission',
-            entity_id=submission.id,
-            before=before,
-            after=lead_submission_snapshot(submission),
-            request=request,
-        )
+    unavailable = 0
+    for index, submission in enumerate(submissions):
+        try:
+            with transaction.atomic():
+                actor = current_actor_for_commit(request.user.pk, request.session.session_key, SALES_ROLES)
+                current = lead_queryset_for_user(active_lead_queryset(
+                    LeadSubmission.objects.select_for_update(of=('self',)).filter(site=site, pk=submission.pk)), actor).first()
+                if current is None:
+                    unavailable += 1
+                    continue
+                before = lead_submission_snapshot(current)
+                record_audit(
+                    actor=actor, action='lead_bulk_stage_requested', entity_table='lead_submission',
+                    entity_id=current.id, before=before, request=request, metadata={'target_stage': stage},
+                )
+                current, _queued, _attempted, _succeeded = update_submission_stage(
+                    submission=current, stage=stage, buyer_value=current.buyer_value,
+                    buyer_currency=current.buyer_currency or 'USD',
+                )
+                record_audit(
+                    actor=actor, action='lead_bulk_stage_updated', entity_table='lead_submission',
+                    entity_id=current.id, before=before, after=lead_submission_snapshot(current), request=request,
+                )
+        except CommitAuthorizationError:
+            messages.warning(request, f'已更新 {updated} 条；登录或操作权限已变化，剩余 {len(submissions)-index} 条未执行。请重新登录后核对。')
+            return redirect(next_url)
         updated += 1
 
-    messages.success(request, f'已批量更新 {updated} 条线索。')
+    if unavailable:
+        messages.warning(request, f'已批量更新 {updated} 条线索；{unavailable} 条记录状态或范围已变化，未执行。')
+    else:
+        messages.success(request, f'已批量更新 {updated} 条线索。')
     return redirect(next_url)
 
 
@@ -2842,25 +2993,11 @@ def public_lead_form_definition(request, form_code: str):
     if not lead_form:
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Form not found.'}, status=404))
 
-    schema = lead_form.form_schema or default_form_schema()
-    fields = []
-    for item in (schema.get('fields') or []):
-        if not isinstance(item, dict):
-            continue
-        if 'enabled' in item and not bool(item.get('enabled')):
-            continue
-        field_name = str(item.get('name') or item.get('key') or '').strip()
-        if not field_name:
-            continue
-        fields.append(
-            {
-                'name': field_name,
-                'type': str(item.get('type') or 'text').strip(),
-                'label': str(item.get('label') or '').strip(),
-                'placeholder': str(item.get('placeholder') or '').strip(),
-                'required': bool(item.get('required')),
-            }
-        )
+    try:
+        fields = public_form_fields(lead_form)
+    except FormSchemaError:
+        return apply_cors_headers(request, JsonResponse(
+            {'ok': False, 'error': '表单配置暂不可用，请联系管理员。'}, status=503))
 
     response = JsonResponse(
         {
@@ -2874,6 +3011,7 @@ def public_lead_form_definition(request, form_code: str):
             },
         }
     )
+    response['Cache-Control'] = 'no-store'
     return apply_cors_headers(request, response)
 
 
@@ -2884,7 +3022,19 @@ def public_marketing_measurement_config(request):
     if request.method != 'GET':
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Method not allowed.'}, status=405))
 
-    response = JsonResponse({'ok': True, **public_measurement_config()})
+    from marketing.flow_runtime import runtime_enabled
+    from marketing.measurement_context import resolve_measurement_site
+    if settings.NEWCROWN_ALLOW_EXTERNAL_IO and runtime_enabled():
+        site = resolve_measurement_site(request)
+        if not site:
+            return apply_cors_headers(request, JsonResponse({'ok':False,'error':'Unknown measurement host.'},status=400))
+        try:
+            config = public_measurement_config(site=site, path=request.GET.get('path','/'))
+        except ValidationError:
+            return apply_cors_headers(request, JsonResponse({'ok':False,'error':'Invalid measurement path.'},status=400))
+    else:
+        config = public_measurement_config()
+    response = JsonResponse({'ok': True, **config})
     response['Cache-Control'] = 'no-store, max-age=0'
     response['X-Content-Type-Options'] = 'nosniff'
     return apply_cors_headers(request, response)
@@ -2915,6 +3065,16 @@ def releases(request):
     )
 
 
+def _authorize_article_commit(request, form, *, site, locale):
+    required = {CONTENT_READ, CONTENT_WRITE}
+    if form.cleaned_data.get('status') == 'published' or (form.article and form.article.status == 'published'):
+        required.add(CONTENT_SET_PUBLISHED)
+    required_sitewide = {ASSETS_READ} if form.cleaned_data.get('cover_asset') else ()
+    _actor, capabilities = current_content_actor_for_commit(request.user.pk, request.session.session_key,
+        site=site, locale=locale, required=required, required_sitewide=required_sitewide)
+    form.allow_publish = CONTENT_SET_PUBLISHED in capabilities
+
+
 @login_required
 @require_http_methods(['GET', 'POST'])
 def article_create(request):
@@ -2937,9 +3097,15 @@ def article_create(request):
             allow_assets=can_read_assets,
         )
         if form.is_valid():
-            article = form.save()
-            messages.success(request, f'文章已保存：{article.title}')
-            return redirect(f'{reverse("console:article_edit", args=[article.id])}?locale={locale.locale_code}')
+            try:
+                with transaction.atomic():
+                    _authorize_article_commit(request, form, site=site, locale=locale)
+                    article = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(request, f'文章已保存：{article.title}')
+                return redirect(f'{reverse("console:article_edit", args=[article.id])}?locale={locale.locale_code}')
     else:
         form = ArticleEditorForm(
             site=site,
@@ -2965,8 +3131,8 @@ def article_create(request):
             'editor_path': f'/{locale.locale_code}/articles/{{slug}}/',
             'preview_url': '',
             'editor_locale': locale,
-            'category_tree': category_tree_data(site, locale),
-            'selected_category_id': None,
+            'category_tree': category_tree_data(site, locale, categories=list(form.fields['category'].queryset)),
+            'selected_category_id': form['category'].value(),
             'canReadAssets': can_read_assets,
             'canWriteAssets': can_write_assets,
         },
@@ -3004,9 +3170,15 @@ def article_edit(request, article_id: int):
             allow_assets=can_read_assets,
         )
         if form.is_valid():
-            article = form.save()
-            messages.success(request, f'文章已更新：{article.title}')
-            return redirect(f'{reverse("console:article_edit", args=[article.id])}?locale={locale.locale_code}')
+            try:
+                with transaction.atomic():
+                    _authorize_article_commit(request, form, site=site, locale=locale)
+                    article = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(request, f'文章已更新：{article.title}')
+                return redirect(f'{reverse("console:article_edit", args=[article.id])}?locale={locale.locale_code}')
     else:
         form = ArticleEditorForm(
             site=site,
@@ -3032,10 +3204,13 @@ def article_edit(request, article_id: int):
             'editor_mode': 'edit',
             'article': article,
             'editor_path': article.route.path,
-            'preview_url': f'{PUBLIC_PREVIEW_BASE_URL}{article.route.path}',
+            'preview_url': (
+                f'{reverse("console:article_release_preview")}?{urlencode({"locale": locale.locale_code, "article": article.pk})}'
+                if {CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD}.issubset(asset_capabilities) else ''
+            ),
             'editor_locale': locale,
-            'category_tree': category_tree_data(site, locale),
-            'selected_category_id': article.category_id,
+            'category_tree': category_tree_data(site, locale, categories=list(form.fields['category'].queryset)),
+            'selected_category_id': form['category'].value(),
             'canReadAssets': can_read_assets,
             'canWriteAssets': can_write_assets,
         },
@@ -3055,6 +3230,7 @@ def article_import(request):
             site=site,
             locale=locale,
             allow_publish=allow_publish,
+            commit_authorizer=lambda entry_form: _authorize_article_commit(request, entry_form, site=site, locale=locale),
         )
         if form.is_valid():
             try:
@@ -3062,11 +3238,17 @@ def article_import(request):
             except forms.ValidationError as exc:
                 form.add_error(None, exc)
             else:
-                messages.success(
-                    request,
-                    f'导入完成：新增 {import_result["created"]} 篇，更新 {import_result["updated"]} 篇，'
-                    f'失败 {import_result["failed"]} 篇，跳过 {import_result["skipped"]} 个文件。',
-                )
+                if import_result.get('dry_run'):
+                    messages.info(request, f'预演完成：拟变更 {import_result["planned"]} 篇；未写入数据库。请核对明细，再决定是否执行。')
+                notify = messages.warning if import_result.get('unexecuted') else messages.success
+                if not import_result.get('dry_run'):
+                    notify(
+                        request,
+                        f'导入完成：新增 {import_result["created"]} 篇，更新 {import_result["updated"]} 篇，'
+                        f'失败 {import_result["failed"]} 篇，跳过 {import_result["skipped"]} 个文件。'
+                        + (f'授权已变化，剩余 {import_result["unexecuted"]} 个文件未执行；已提交文章保留，请核对下方明细。'
+                           if import_result.get('unexecuted') else ''),
+                    )
     else:
         form = ArticleImportZipForm(site=site, locale=locale, allow_publish=allow_publish)
 
@@ -3148,9 +3330,13 @@ def category_edit(request, category_id: int):
             allow_publish=allow_publish,
         )
         if form.is_valid():
-            category = form.save()
-            messages.success(request, f'分类已更新：{category.name}')
-            return redirect(f'{reverse("console:category_edit", args=[category.id])}?locale={locale.locale_code}')
+            try:
+                category = form.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(request, f'分类已更新：{category.name}')
+                return redirect(f'{reverse("console:category_edit", args=[category.id])}?locale={locale.locale_code}')
     else:
         form = CategoryEditorForm(
             site=site,
@@ -3190,6 +3376,8 @@ def asset_upload(request):
                 uploaded_asset = form.save(site=site, created_by=request.user.get_username() or 'django-console')
             except StorageSecurityError:
                 form.add_error(None, '资产存储未配置或不可用。')
+            except (DatabaseError, OSError, forms.ValidationError):
+                form.add_error(None, '未完成入库，已填写的说明已保留。请重新选择相同文件重试；若仍失败，请让管理员核对待恢复写入。')
             else:
                 messages.success(request, f'资产已入库：{uploaded_asset.public_path}')
                 form = AssetUploadForm()
@@ -3228,16 +3416,25 @@ def asset_file(request, asset_id: int):
 
 @csrf_exempt
 def public_lead_submit(request, form_code: str):
+    from leads.measurement_routing import browser_receipt
     if request.method == 'OPTIONS':
         return apply_cors_headers(request, HttpResponse(status=204))
     if request.method != 'POST':
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Method not allowed.'}, status=405))
 
-    site, locale = default_site_locale(requested_locale_code(request))
+    from marketing.flow_runtime import runtime_enabled
+    from marketing.measurement_context import resolve_measurement_site
+    if runtime_enabled():
+        site = resolve_measurement_site(request)
+        if not site:
+            return apply_cors_headers(request, JsonResponse({'ok':False,'error':'Unknown form host.'},status=400))
+        locale = SiteLocale.objects.filter(site=site, locale_code=requested_locale_code(request), enabled=True).first()
+    else:
+        site, locale = default_site_locale(requested_locale_code(request))
     lead_form = get_object_or_404(LeadFormDefinition, site=site, code=form_code, status='active')
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
-    except json.JSONDecodeError:
+    except (UnicodeDecodeError, json.JSONDecodeError):
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Invalid JSON payload.'}, status=400))
 
     if not isinstance(payload, dict):
@@ -3271,6 +3468,7 @@ def public_lead_submit(request, form_code: str):
                 'dispatch_succeeded': result.dispatch_succeeded,
                 'duplicate': result.duplicate,
                 'notification_sent': result.notification_sent,
+                **({'measurement': browser_receipt(result, payload)} if runtime_enabled() else {}),
                 'message': lead_form.success_message or 'Your inquiry has been received.',
             }
         ),
@@ -3301,20 +3499,52 @@ def release_build_preview(request):
 
 
 @login_required
-@require_POST
+@require_http_methods(['GET', 'POST'])
 def article_release_preview(request):
-    site, _locale, _capabilities = content_site_scope(request, 'article_release_preview')
+    site, locale, capabilities = content_site_scope(request, 'article_release_preview')
+    selected = request.POST.get('article') if request.method == 'POST' else request.GET.get('article')
+    article = None
+    if selected:
+        if len(selected) > 18 or not selected.isascii() or not selected.isdigit():
+            raise Http404('文章不存在。')
+        article = get_object_or_404(Article.objects.select_related('route__locale','category'),
+            pk=int(selected), route__site=site, route__locale=locale)
     actor = request.user.get_username() or 'django-console'
-    try:
-        result = build_private_article_preview(site=site, actor=actor)
-    except (ArticleDeliveryError, OSError):
-        messages.error(request, '文章私有预览未生成；请检查内容与服务器预览配置。')
-    else:
-        messages.success(
-            request,
-            f'文章私有预览已生成：{result["articleCount"]} 篇；未发布到公开网站。',
-        )
-    return redirect('console:releases')
+    result, error = None, ''
+    if request.method == 'POST':
+        try:
+            result = build_private_article_preview(site=site, article=article, actor=actor) if article else build_private_article_preview(site=site, actor=actor)
+        except (ArticleDeliveryError, OSError):
+            error = '文章私有预览未生成；请检查内容与服务器预览配置。现有线上版本未改变。'
+            messages.error(request, error)
+        else:
+            messages.success(request, f'文章私有预览已生成：{result["articleCount"]} 篇；未发布到公开网站。')
+        # Existing POST build callers keep their redirect and whole-site contract.
+        if request.POST.get('workspace') != '1':
+            return redirect('console:releases')
+    from sitecore.models import Release
+    def links(manifest):
+        return [{'name':name, 'url':reverse('console:article_preview_file',
+            kwargs={'version':manifest['version'], 'artifact':name})} for name in manifest.get('files',[])] if manifest.get('version') else []
+    if result:
+        result['links'] = links(result)
+    history = []
+    for record in Release.objects.filter(site=site, snapshot_manifest__kind='articlePreview').order_by('-created_at')[:20]:
+        manifest = record.snapshot_manifest
+        history.append({'id':record.pk, 'wholeSite':manifest.get('scope')=='sitePublished',
+            'status':record.status, 'createdAt':record.created_at, 'version':manifest.get('version',''),
+            'error':manifest.get('errorCode',''), 'links':links(manifest) if record.status=='built' else []})
+    response = render_form_console(request, section_key='articles', locale_code=locale.locale_code,
+        page_payload={'title':'文章发布预览','sectionKey':'articles',
+            'description':'从已保存正文生成私有预览；预览不等于官网上线。'},
+        workspace_template='console/_article_release_preview.html',
+        extra_stylesheets=['console/article-workspace.css'],
+        extra_context={'preview_article':article, 'article_preview_result':result,
+            'article_preview_error':error, 'article_preview_history':history,
+            'can_build_website_candidate': RELEASES_CANDIDATE_BUILD in capabilities})
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
 
 
 @login_required
@@ -3328,11 +3558,21 @@ def website_candidate_build(request, preview_record_id: int):
             preview_record_id=preview_record_id,
             actor=actor,
         )
-    except (ArticleDeliveryError, OSError):
-        messages.error(
-            request,
-            '整站候选未生成；请重新审查文章预览并检查候选存储配置。',
-        )
+    except (ArticleDeliveryError, OSError) as exc:
+        code = exc.code if isinstance(exc, ArticleDeliveryError) else ''
+        guidance = {
+            'translations_not_ready': (
+                '整站候选未生成：当前启用语言的文章译文尚未齐全。'
+                '请在文章管理中按同一关联标识补齐译文并保存为已发布，再重新生成文章私有预览。'
+                '现有网站未改变。'
+            ),
+            'website_internal_reference_missing': (
+                '整站候选未生成：引用的页面或公开素材缺失。'
+                '请由管理员核对站点基础路径模式与资源，再重新生成文章私有预览。'
+                '现有网站未改变。'
+            ),
+        }.get(code, '整站候选未生成；请重新审查文章预览并检查候选存储配置。现有网站未改变。')
+        messages.error(request, guidance)
     else:
         messages.success(
             request,
@@ -3577,6 +3817,7 @@ def article_preview_file(request, version: str, artifact: str):
             base=base,
             store=article_preview_store(site, initialize=False),
             asset_root=Path(settings.SITEOS_ARTICLE_PREVIEW_ASSET_ROOT),
+            uploaded_site=site,
         )
     except (ArticleDeliveryError, OSError):
         response = _private_preview_response(

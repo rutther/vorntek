@@ -83,7 +83,7 @@ class WebsiteDeploymentTests(TestCase):
 
     def setUp(self):
         self.site = Site.objects.create(
-            code='deploy-site',
+            code='deploy_site',
             name='Deployment site',
             default_locale='en',
             enabled=True,
@@ -91,7 +91,7 @@ class WebsiteDeploymentTests(TestCase):
         )
         self.release = Release.objects.create(
             site=self.site,
-            release_key='website-candidate:deploy-site:1',
+            release_key='website-candidate:deploy_site:1',
             status='built',
             created_by='builder',
             notes='Immutable whole-site candidate.',
@@ -228,7 +228,7 @@ class WebsiteDeploymentTests(TestCase):
         first = self.deploy()
         second_release = Release.objects.create(
             site=self.site,
-            release_key='website-candidate:deploy-site:2',
+            release_key='website-candidate:deploy_site:2',
             status='built',
             created_by='builder',
             snapshot_manifest={
@@ -311,7 +311,7 @@ class WebsiteDeploymentTests(TestCase):
         )
         other = Release.objects.create(
             site=self.site,
-            release_key='website-candidate:deploy-site:2',
+            release_key='website-candidate:deploy_site:2',
             status='built',
             created_by='builder',
             snapshot_manifest={

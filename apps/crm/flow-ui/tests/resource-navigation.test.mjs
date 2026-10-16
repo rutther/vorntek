@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
+
+const path = new URL('../../console/static/console/resource-navigation.js', import.meta.url);
+test('resource navigation is a bounded mobile dialog with focus restoration', () => {
+  const dom = new JSDOM(`<body><div class="nc-shell"><aside class="nc-sidebar"><button data-resource-nav-close>关闭</button><a href="/a">接入</a><a href="/b">方案</a></aside><button data-resource-nav-backdrop hidden></button><div class="nc-app"><button data-resource-nav-open aria-expanded="false">菜单</button><main>内容</main></div></div></body>`, {runScripts:'outside-only'});
+  const {window:w} = dom;
+  const media = {matches:true, addEventListener:(_,fn)=>{media.onChange=fn;}};
+  w.matchMedia = () => media;
+  w.HTMLElement.prototype.getClientRects = () => [{width:100,height:40}];
+  w.eval(readFileSync(path, 'utf8'));
+  const open=w.document.querySelector('[data-resource-nav-open]'), close=w.document.querySelector('[data-resource-nav-close]');
+  const sidebar=w.document.querySelector('.nc-sidebar'), app=w.document.querySelector('.nc-app');
+  open.focus(); open.click();
+  assert.equal(open.getAttribute('aria-expanded'),'true');
+  assert.equal(sidebar.getAttribute('aria-modal'),'true');
+  assert.equal(app.hasAttribute('inert'),true);
+  assert.equal(w.document.activeElement,close);
+  const last=sidebar.querySelectorAll('a')[1]; last.focus();
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));
+  assert.equal(w.document.activeElement,close);
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  assert.equal(w.document.activeElement,open);
+  assert.equal(open.getAttribute('aria-expanded'),'false');
+  assert.equal(app.hasAttribute('inert'),false);
+  assert.equal(sidebar.hasAttribute('inert'),true);
+  open.click(); media.matches=false; media.onChange();
+  assert.equal(sidebar.hasAttribute('aria-modal'),false);
+  assert.equal(sidebar.hasAttribute('inert'),false);
+  assert.equal(app.hasAttribute('inert'),false);
+  dom.window.close();
+});

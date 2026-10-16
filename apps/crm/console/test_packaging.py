@@ -22,7 +22,7 @@ class PackagingTests(SimpleTestCase):
 
     def test_entire_real_chain_is_verified(self):
         chain = load_chain(settings.BASE_DIR / 'db' / 'migrations')
-        self.assertEqual(len(chain), 32)
+        self.assertEqual(len(chain), 43)
 
     def test_new_install_and_contiguous_upgrade(self):
         chain = [Migration('0001_a.sql', 'a', ''), Migration('0002_b.sql', 'b', '')]
@@ -79,6 +79,11 @@ class PackagingTests(SimpleTestCase):
         self.assertFalse(config['meta_pixel_enabled'])
         self.assertEqual(config['meta_pixel_id'], '')
         self.assertFalse(config['google_tag_enabled'])
+        # The full scoped API must obey the same no-I/O switch before even
+        # reading a site or querying runtime bindings.
+        scoped = public_measurement_config(site=object(), path='/contact/')
+        self.assertEqual(scoped['metaPixels'], [])
+        self.assertEqual(scoped['measurementContext'], '')
 
     @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False)
     def test_external_dispatch_disabled_before_records_are_read_or_changed(self):
