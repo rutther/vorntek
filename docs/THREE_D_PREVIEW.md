@@ -1,6 +1,6 @@
 # Authenticated 3D draft preview / 后台 3D 编辑预览
 
-The 3D profile and slot editors can preview self-contained GLB/glTF files through
+The 3D profile and slot editors can preview self-contained GLB (glTF 2) files through
 their existing site-scoped asset permission. A draft model need not be copied to
 the public website first. The viewer uses the authenticated asset read endpoint,
 not its not-yet-published `public_path`. Preview is read-only and no-store;
@@ -26,11 +26,15 @@ bounded explanation, not a fake success or remote decoder download. Original
 files, downloads, metadata and profile editing remain intact. Current preview
 bounds are 128MiB per model and 2MiB for its JSON metadata.
 
-This fixes the authenticated GLB/glTF editing path. It does **not** claim that the
+This fixes the authenticated GLB editing path. It does **not** claim that the
 legacy splat/PLY renderer or every public website slot is implemented or tested.
 The existing SOG/PLY routing remains separate; don't activate a public slot based
 only on successful private preview. Media-audit work previously deferred by the
 user is not reopened by this fix.
+
+The ordinary asset upload/database contract accepts `.glb`, not standalone
+`.gltf`. A compatibility parser branch does not establish `.gltf` upload support;
+no new asset extension or database constraint has been introduced here.
 
 Reproduce the frozen browser artifacts with `python scripts/vendor_model_viewer.py`;
 the checked-in bytes suffice for ordinary offline image/runtime builds. Run

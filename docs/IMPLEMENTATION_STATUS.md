@@ -4,7 +4,7 @@
 
 - Current public app is `67202e3`; its exact-preview handoff was exercised on the
   public hostname and reused the correct existing candidate. A subsequent draft
-  3D inspection reproduced a real model-URL 404. The new authenticated GLB/glTF
+  3D inspection reproduced a real model-URL 404. The new authenticated GLB
   preview is now source-fixed and locally exercised: actual render, drag, camera
   capture, ordinary save and reload preserve the view with the profile disabled.
   This new preview is **not deployed yet**; exact-source native PG/image and

@@ -23,11 +23,14 @@ class ThreeDPreviewTests(FileLifecycleFixture, TestCase):
         super().setUp()
         pack = json.loads((Path(__file__).parent/'data/content_examples.json').read_text(encoding='utf-8'))
         self.raw = base64.b64decode(next(x for x in pack['assets'] if x['key']=='geometry_triangle')['base64'])
-        self.path = self.root/'synthetic.glb'
+        relative = 'models/2026/10/0123456789abcdef-synthetic.glb'
+        self.path = self.root/relative
+        self.path.parent.mkdir(parents=True)
         self.path.write_bytes(self.raw)
         self.asset = MediaAsset.objects.create(site=self.site, asset_type='model3d', title='Synthetic triangle',
             original_name='synthetic.glb', file_ext='.glb', file_size_bytes=len(self.raw),
-            storage_path=str(self.path), public_path='/assets/unpublished.glb', sha256=hashlib.sha256(self.raw).hexdigest())
+            storage_path='storage/assets/'+relative, public_path='/assets/'+relative,
+            sha256=hashlib.sha256(self.raw).hexdigest())
         self.profile = ThreeDViewProfile.objects.create(site=self.site, asset=self.asset,
             code='synthetic_preview', name='Synthetic preview', status='disabled')
         self.url = f'/admin/assets/3d/profiles/{self.profile.pk}/preview/'
@@ -42,7 +45,7 @@ class ThreeDPreviewTests(FileLifecycleFixture, TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'/admin/assets/{self.asset.pk}/file/')
-        self.assertNotContains(response, '/assets/unpublished.glb')
+        self.assertNotContains(response, '/assets/models/2026/10/0123456789abcdef-synthetic.glb')
         self.assertContains(response, 'model-viewer')
         self.assertIn("connect-src 'self'", response['Content-Security-Policy'])
         self.assertNotIn("'unsafe-eval'", response['Content-Security-Policy'])
@@ -92,8 +95,8 @@ class ThreeDPreviewTests(FileLifecycleFixture, TestCase):
         self.client.force_login(actor)
         other = Site.objects.create(code='foreign_model', name='Foreign synthetic site')
         foreign_asset = MediaAsset.objects.create(site=other, asset_type='model3d', original_name='foreign.glb',
-            file_ext='.glb', file_size_bytes=len(self.raw), storage_path=str(self.path),
-            public_path='/assets/foreign.glb', sha256=self.asset.sha256)
+            file_ext='.glb', file_size_bytes=len(self.raw), storage_path=self.asset.storage_path,
+            public_path='/assets/models/2026/10/fedcba9876543210-foreign.glb', sha256=self.asset.sha256)
         foreign_profile = ThreeDViewProfile.objects.create(site=other, asset=foreign_asset,
             code='foreign_preview', name='Foreign synthetic preview', status='disabled')
         self.assertEqual(self.client.get(f'/admin/assets/3d/profiles/{foreign_profile.pk}/preview/').status_code, 404)
