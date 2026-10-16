@@ -111,21 +111,26 @@ def guard_non_loopback_sockets() -> None:
 
 
 def unmanaged_models():
-    from console.models import AuditLog
+    from console.models import AuditLog, ContentAccessGrant
     from leads.models import (
         Activity, Company, CompanyContactPoint, CompanyPoolState, ConsentRecord,
         Contact, CrmMutationReceipt, CustomerExportJob, CustomerImportBatch,
         CustomerImportRow, CustomerPoolRow, CustomerSource, LeadConversion,
-        LeadEventOutbox, LeadFormDefinition, LeadSubmission, Opportunity,
-        SalesTeam, SalesTeamMember, SavedView, Task,
+        LeadEventOutbox, LeadFormDefinition, LeadInboundEvent, LeadSubmission,
+        Opportunity, PrivacyRequest, SalesTeam, SalesTeamMember, SavedView, Task,
     )
     from marketing.models import CanonicalEvent, MarketingIntegration, MarketingProvider
-    from sitecore.models import Cta, PageRoute, Site, SiteLocale
+    from sitecore.models import (
+        Article, Category, Cta, MediaAsset, PageRoute, Release, ReleaseBuild,
+        Site, SiteLocale,
+    )
     return (
-        Site, SiteLocale, PageRoute, Cta, CanonicalEvent, MarketingProvider,
+        Site, SiteLocale, PageRoute, Category, Article, MediaAsset, Cta,
+        CanonicalEvent, MarketingProvider,
         MarketingIntegration, LeadFormDefinition, SalesTeam, SalesTeamMember,
         SavedView, LeadSubmission, ConsentRecord, Company, Contact, Opportunity,
         LeadConversion, Activity, Task, LeadEventOutbox, AuditLog,
+        LeadInboundEvent, PrivacyRequest, Release, ReleaseBuild, ContentAccessGrant,
         CrmMutationReceipt, CompanyPoolState, CompanyContactPoint, CustomerSource,
         CustomerImportBatch, CustomerImportRow, CustomerPoolRow, CustomerExportJob,
     )

@@ -1,4 +1,5 @@
 import csv
+import ast
 from io import StringIO
 from pathlib import Path
 import importlib.util
@@ -41,6 +42,24 @@ class BrowserAcceptanceFixtureTests(unittest.TestCase):
         self.assertIn("'not PostgreSQL acceptance'", source)
         self.assertNotIn('BROWSER_PASSWORD', source)
         self.assertNotIn('0.0.0.0', source)
+
+    def test_fixture_schema_covers_every_system_workbench_dependency(self):
+        source = (ROOT/'scripts'/'run_browser_acceptance_fixture.py').read_text(encoding='utf-8')
+        tree = ast.parse(source)
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == 'unmanaged_models'
+        )
+        returned = next(node.value for node in function.body if isinstance(node, ast.Return))
+        model_names = {node.id for node in returned.elts if isinstance(node, ast.Name)}
+        required = {
+            'Article', 'Category', 'ContentAccessGrant', 'LeadInboundEvent',
+            'MediaAsset', 'PrivacyRequest', 'Release', 'ReleaseBuild',
+        }
+        self.assertFalse(
+            required - model_names,
+            f'missing fixture models: {sorted(required - model_names)}',
+        )
 
 
 if __name__ == '__main__':
