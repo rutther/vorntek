@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict, dataclass
+import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -102,6 +103,34 @@ def _changed_blob_paths(root: Path, commits: list[str]) -> dict[str, set[str]]:
     return paths
 
 
+def load_asset_approvals(path: Path | None) -> set[tuple[str, str, int]]:
+    """Exact resource approvals only waive size, never other audit rules."""
+    if path is None:
+        return set()
+    try:
+        document = json.loads(path.read_text(encoding='utf-8'))
+        if document['format'] != 'vorntek-reviewed-assets-v1':
+            raise ValueError('Unsupported asset approval format.')
+        approvals = set()
+        for row in document['assets']:
+            name = row['path']
+            pure = PurePosixPath(name)
+            if (not isinstance(name, str) or not name or pure.is_absolute()
+                    or '..' in pure.parts or '\\' in name or ':' in name
+                    or str(pure) != name or not re.fullmatch(r'[a-f0-9]{64}', row['sha256'])
+                    or type(row['bytes']) is not int or row['bytes'] <= 0
+                    or any(not isinstance(row.get(field), str) or not row[field].strip()
+                           for field in ('source','license_or_provenance','reason'))):
+                raise ValueError('Invalid asset approval entry.')
+            key = (name,row['sha256'],row['bytes'])
+            if key in approvals:
+                raise ValueError('Duplicate asset approval.')
+            approvals.add(key)
+        return approvals
+    except (OSError,KeyError,TypeError,json.JSONDecodeError) as error:
+        raise ValueError('Cannot read valid asset approval manifest.') from error
+
+
 def audit_range(
     root: Path,
     base: str,
@@ -109,10 +138,13 @@ def audit_range(
     *,
     max_blob_bytes: int = DEFAULT_MAX_BLOB_BYTES,
     require_clean: bool = False,
+    asset_allowlist: Path | None = None,
 ) -> dict[str, object]:
     root = root.resolve()
     base_commit = _resolve(root, base)
     head_commit = _resolve(root, head)
+    approvals = load_asset_approvals(asset_allowlist)
+    used_approvals = set()
     ancestor = subprocess.run(
         ['git', 'merge-base', '--is-ancestor', base_commit, head_commit],
         cwd=root,
@@ -167,8 +199,16 @@ def audit_range(
         if size > largest_blob_bytes:
             largest_blob_bytes = size
             largest_blob_path = representative_path
+
+        payload = _git(root, 'cat-file', 'blob', oid)
         if size > max_blob_bytes:
-            findings.add(AuditFinding('oversized blob', oid, representative_path))
+            digest = hashlib.sha256(payload).hexdigest()
+            for path in paths:
+                key = (path,digest,size)
+                if key in approvals:
+                    used_approvals.add(key)
+                else:
+                    findings.add(AuditFinding('oversized blob', oid, path))
 
         for path in paths:
             pure = PurePosixPath(path)
@@ -180,7 +220,6 @@ def audit_range(
             if lower_path.endswith(BLOCKED_SUFFIXES):
                 findings.add(AuditFinding('blocked backup/key/archive suffix', oid, path))
 
-        payload = _git(root, 'cat-file', 'blob', oid)
         if b'\0' in payload[:8192]:
             continue
         text_blob_count += 1
@@ -202,6 +241,18 @@ def audit_range(
                     if marker in payload:
                         findings.add(AuditFinding(label, oid, path))
 
+    # A range starting at main may omit approved resources already in its tree.
+    # Recognize those exact base bytes; reject arbitrary/stale manifest entries.
+    for path,digest,size in approvals-used_approvals:
+        try:
+            payload = _git(root,'show',f'{base_commit}:{path}')
+        except subprocess.CalledProcessError:
+            payload = b''
+        if len(payload) == size and hashlib.sha256(payload).hexdigest() == digest:
+            used_approvals.add((path,digest,size))
+        else:
+            findings.add(AuditFinding('unused asset approval',digest,path))
+
     commit_count = int(
         _git(root, 'rev-list', '--count', f'{base_commit}..{head_commit}').decode().strip()
     )
@@ -218,6 +269,7 @@ def audit_range(
         'largest_blob_bytes': largest_blob_bytes,
         'largest_blob_path': largest_blob_path,
         'max_blob_bytes': max_blob_bytes,
+        'approved_asset_paths': len(used_approvals),
         'finding_count': len(ordered_findings),
         'findings': [asdict(item) for item in ordered_findings],
     }
@@ -230,6 +282,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--base', required=True, help='Trusted ancestor commit or tag.')
     parser.add_argument('--head', default='HEAD', help='Candidate commit (default: HEAD).')
     parser.add_argument('--root', type=Path, default=Path.cwd(), help='Git repository root.')
+    parser.add_argument('--asset-allowlist', type=Path,
+                        help='Reviewed exact path/SHA256/size approvals; other rules remain active.')
     parser.add_argument(
         '--max-blob-bytes', type=int, default=DEFAULT_MAX_BLOB_BYTES,
         help='Reject newly introduced blobs larger than this value.',
@@ -248,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
             args.head,
             max_blob_bytes=args.max_blob_bytes,
             require_clean=args.require_clean,
+            asset_allowlist=args.asset_allowlist,
         )
     except (subprocess.CalledProcessError, ValueError) as exc:
         print(f'History audit refused: {exc}', file=sys.stderr)

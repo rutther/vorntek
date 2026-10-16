@@ -114,6 +114,7 @@ class CIContractTests(unittest.TestCase):
                          'docker compose build', 'scripts/check_local_stack.py',
                          'python -m pip_audit -r apps/crm/requirements.lock',
                          'scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean',
+                         '--asset-allowlist docs/review/release-asset-allowlist.json',
                          'scripts/release_manifest.py --require-clean',
                          'release_preflight --strict', 'maintenance --help',
                          'run_synthetic_website_deployment_acceptance',
