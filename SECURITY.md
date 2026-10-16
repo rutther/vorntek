@@ -1,19 +1,17 @@
 # Security policy / 安全说明
 
-The published `v0.1.0-rc.1` is a source pre-release; the current 0.2 work is an
-unpushed development candidate. There is no supported production release,
-completed security certification, or approved public reporting channel yet. A
-private security-reporting contact must be configured before a supported release.
-Until then, contact the project owner through an existing private channel; do not
-post credentials, customer information, private files or raw logs in public issues.
+Report vulnerabilities through
+[GitHub private vulnerability reporting](https://github.com/rutther/vorntek/security/advisories/new),
+enabled and verified on2026-10-17. Do not post credentials, customer information,
+private files or raw operational logs in public issues.
 
-GitHub private vulnerability reporting was observed disabled through the public
-repository API on 2026-09-21. Do not send reports to the repository advisory form
-unless the owner has subsequently enabled and verified it.
+Identify the exact Tag/commit and provide a minimal synthetic reproduction.
+Fixes target the latest candidate. Source pre-releases do not promise long-term
+support, a response SLA or complete security certification. Current scope and
+evidence are in docs/RELEASE_SCOPE.md and docs/IMPLEMENTATION_STATUS.md.
 
-已公开的是 RC1 源码预发行；当前 0.2 候选尚未推送，也不是经过全面安全审计的受支持
-生产发行版。正式支持前必须确定私密漏洞报告渠道；2026-09-21 只读核对时 GitHub
-私密漏洞报告仍为关闭状态。请勿在公开 Issue、截图、代码或 CI 产物中暴露客户信息或密钥。
+中文：使用上述私密入口报告漏洞，已核实启用。提供准确版本和合成复现，勿在公开Issue
+或截图中贴客户资料、密码或运行日志。当前为源码预发行，不承诺长期支持或响应SLA。
 
 ## Deployment boundaries
 

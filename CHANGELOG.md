@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0-rc.1] — source release candidate
+
+- Complete desktop CRM and guided marketing workspace, illustrated guidance,
+  flow diagrams, independent workflow instances and scoped Pixel runtime.
+- Configurable inquiry fields through public validation, CRM, qualification,
+  notification and opportunity handling; consent and immutable delivery routing.
+- Recoverable lead trash with multi-selection and original task/state restoration,
+  fresh role/session checks and durable private-file recovery.
+- Replaceable industrial company website: six equipment models, bilingual
+  catalogue/applications/guides, media, downloads and optional three-language drafts.
+- Authenticated article/GLB/splat preview and immutable candidate/selection/
+  deployment/recovery, retaining explicit operator actions.
+- Optional `seed_industrial_examples`, preserving old examples, passwords and
+  later edits; additive SQL through0043 and actual public-main upgrade checks.
+- Reviewed exact resource identities and reproducible source packaging.
+  External delivery is disabled by default; no prebuilt image or cluster SLA.
+
+Publication and final download acceptance are tracked separately. Earlier
+development details below are historical notes, not current pending-work claims.
+
 ## Integration completeness follow-up
 
 - Authenticated GLB draft preview reads the scoped stored asset instead of

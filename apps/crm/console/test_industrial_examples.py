@@ -121,7 +121,7 @@ class IndustrialLifecycleTests(FileLifecycleFixture,TestCase):
             self.command()
 
     def test_active_integration_or_non_admin_refuses(self):
-        provider=MarketingProvider.objects.create(code='meta',name='Meta')
+        provider,_=MarketingProvider.objects.get_or_create(code='meta',defaults={'name':'Meta'})
         integration=MarketingIntegration.objects.create(site=self.site,provider=provider,enabled=True)
         with self.assertRaisesRegex(CommandError,'integrations'):
             self.command()

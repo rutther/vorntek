@@ -111,9 +111,14 @@ def postgres_start_options(runtime, port, platform=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pg-bin', type=Path, required=True)
+    parser.add_argument('--baseline-checkout',type=Path,
+                        help='Separate clean frozen public main checkout for an actual source upgrade.')
     parser.add_argument('--http', action='store_true', help='Also exercise website-to-CRM HTTP using synthetic accounts.')
     parser.add_argument('--review-seconds', type=int, default=0, help='Keep the isolated HTTP server available briefly for browser review (max 900s).')
     args = parser.parse_args()
+    if args.baseline_checkout:
+        from test_release_upgrade import validate_baseline_checkout
+        validate_baseline_checkout(args.baseline_checkout,ROOT)
     if not 0 <= args.review_seconds <= 900 or (args.review_seconds and not args.http):
         parser.error('--review-seconds requires --http and must be between 0 and 900.')
     if (CRM / '.env').exists():
@@ -164,13 +169,14 @@ def main():
         expected=0,
         contains=None,
         env_overrides=None,
+        cwd=None,
     ):
         child_env = dict(env, SITEOS_ADMIN_DATABASE_NAME=db, PGDATABASE=db)
         child_env.update(env_overrides or {})
         # A Windows postgres child can inherit pg_ctl's pipe handles after
         # pg_ctl exits. Files avoid waiting for the server to close those pipes.
         with tempfile.TemporaryFile() as output_file:
-            result = subprocess.run([str(part) for part in command], env=child_env, cwd=CRM,
+            result = subprocess.run([str(part) for part in command], env=child_env, cwd=cwd or CRM,
                                     stdout=output_file, stderr=subprocess.STDOUT, timeout=180)
             output_file.seek(0)
             output = output_file.read().decode('utf-8', errors='replace').replace(password, '[redacted]')
@@ -246,7 +252,8 @@ def main():
             conn.execute(sql.SQL('CREATE ROLE newcrown_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD {}')
                          .format(sql.Literal(password)))
             for db in ('newcrown_install', 'newcrown_restore', 'newcrown_upgrade', 'newcrown_unowned',
-                       'newcrown_archive_restore', 'newcrown_archive_failure', 'newcrown_archive_policy'):
+                       'newcrown_archive_restore', 'newcrown_archive_failure', 'newcrown_archive_policy',
+                       'newcrown_public_upgrade'):
                 conn.execute(sql.SQL('CREATE DATABASE {} OWNER newcrown_app').format(sql.Identifier(db)))
         checked('isolated_loopback_cluster_non_superuser_app', report['postgres_version'])
         before = fingerprint('newcrown_install')
@@ -392,6 +399,61 @@ with patch('console.management.commands.initialize_database.load_chain', return_
         )
         manage('check_unmanaged_schema', db='newcrown_upgrade')
         checked('upgrade_from_real_0026_schema_to_current')
+
+        if args.baseline_checkout:
+            from test_release_upgrade import preserved_original_rows
+            old_crm=args.baseline_checkout.resolve()/'apps/crm'
+            manage_old=lambda *cmd:run([sys.executable,'manage.py',*cmd],db='newcrown_public_upgrade',cwd=old_crm)
+            manage_old('initialize_database','--apply')
+            manage_old('bootstrap_site')
+            fixture='''from django.contrib.auth import get_user_model
+from django.utils import timezone
+from sitecore.models import Site,SiteLocale
+from leads.models import LeadSubmission,LeadFormDefinition,Company,Task,SalesTeam,SalesTeamMember
+from console.secret_store import store_secret
+site=Site.objects.get(code='siteos_demo')
+user=get_user_model().objects.create_superuser('upgrade-synthetic','upgrade@example.invalid','synthetic-test-only')
+team=SalesTeam.objects.get(site=site,code='default')
+SalesTeamMember.objects.create(team=team,user=user,membership_role='manager')
+company=Company.objects.create(site=site,name='Synthetic retained organization',normalized_name='synthetic retained organization',owner_user=user,team=team)
+lead=LeadSubmission.objects.create(site=site,form=LeadFormDefinition.objects.first(),full_name='Synthetic retained inquiry',email='inquiry@example.invalid',company=company.name,assignee=user,team=team,message='Retain this original inquiry',submitted_at=timezone.now(),stage_updated_at=timezone.now())
+Task.objects.create(site=site,submission=lead,company=company,team=team,owner_user=user,created_by_user=user,title='Synthetic retained next step',due_at=timezone.now(),status='open')
+store_secret(secret_key='synthetic-upgrade-vault',plaintext='synthetic-test-value',updated_by=user.username)
+'''
+            manage_old('shell','-c',fixture)
+            with connect('newcrown_public_upgrade') as conn:
+                old_columns={}
+                for table,column in conn.execute("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position"):
+                    if table != 'siteos_schema_migration':
+                        old_columns.setdefault(table,[]).append(column)
+                def original_rows():
+                    state={}
+                    for table,columns in old_columns.items():
+                        statement=sql.SQL('SELECT row_to_json(original)::text FROM (SELECT {} FROM public.{}) original ORDER BY row_to_json(original)::text').format(
+                            sql.SQL(',').join(map(sql.Identifier,columns)),sql.Identifier(table))
+                        state[table]=[hashlib.sha256(row[0].encode()).hexdigest() for row in conn.execute(statement)]
+                    return state
+                before_upgrade=original_rows()
+                require_schema_contract(manage('initialize_database','--apply',db='newcrown_public_upgrade'))
+                after_upgrade=original_rows()
+                differences=[{'table':table,'before_rows':len(before_upgrade[table]),'after_rows':len(after_upgrade[table])}
+                             for table in before_upgrade if before_upgrade[table]!=after_upgrade[table]]
+                report['public_upgrade_differences']=differences
+                assert preserved_original_rows(before_upgrade,after_upgrade),'Actual public-source upgrade changed original column values: '+json.dumps(differences)
+                manage('initialize_database','--apply',db='newcrown_public_upgrade',contains='pending: 0')
+                assert original_rows()==after_upgrade,'Repeated upgrade changed original rows'
+            verification='''from django.contrib.auth import authenticate
+from console.secret_store import load_secret
+from leads.models import Task,LeadSubmission
+assert authenticate(username='upgrade-synthetic',password='synthetic-test-only') is not None
+assert load_secret('synthetic-upgrade-vault')=='synthetic-test-value'
+assert Task.objects.get(title='Synthetic retained next step').status=='open'
+assert LeadSubmission.objects.get(email='inquiry@example.invalid').message=='Retain this original inquiry'
+print('SYNTHETIC_UPGRADE_PRESERVED')
+'''
+            manage('shell','-c',verification,db='newcrown_public_upgrade',contains='SYNTHETIC_UPGRADE_PRESERVED')
+            checked('actual_public_main_0032_upgrade_preserves_all_old_columns_password_vault_and_tasks',
+                    {'baseline':'6d3eefe7e5e124c31d175a1bfc971b58dd197082','original_tables':len(old_columns)})
 
         failure = '''import os; os.environ['DJANGO_SETTINGS_MODULE']='siteos_admin.settings'
 import django; django.setup()
@@ -725,6 +787,29 @@ for username,role in [('local-admin','system_admin'),('local-sales','sales')]:
                 with connect('newcrown_http_test') as conn:
                     browser_rows = conn.execute("SELECT count(*) FROM lead_submission WHERE email='browser-local-check@example.invalid'").fetchone()[0]
                 report['browser_review_submission_count'] = browser_rows
+        # Exercise the added importer against the actual SQL constraints, not
+        # merely SQLite's generated model tables. This cluster is exclusively
+        # synthetic; ordinary application role still cannot create databases.
+        with connect('postgres','postgres') as conn:
+            conn.execute('CREATE DATABASE newcrown_native_test OWNER newcrown_app')
+        manage('initialize_database','--apply',db='newcrown_native_test')
+        native_tests='''import os, socket, django
+from unittest.mock import patch
+from django.conf import settings
+assert settings.DATABASES['default']['NAME']=='newcrown_native_test'
+settings.DATABASES['default']['TEST']={'NAME':'newcrown_native_test'}
+django.setup()
+from django.core.management import call_command
+original=socket.socket.connect
+def guarded(sock,address):
+    if not isinstance(address,tuple) or address[0] not in ('127.0.0.1','::1','localhost'):
+        raise OSError('Native test refuses external connections')
+    return original(sock,address)
+with patch.object(socket.socket,'connect',guarded):
+    call_command('test','console.test_industrial_examples',keepdb=True,interactive=False,verbosity=1)
+'''
+        run([sys.executable,'-c',native_tests],db='newcrown_native_test',contains='OK')
+        checked('industrial_example_lifecycle_under_canonical_postgres_constraints')
         report['result'] = 'passed'
     except Exception as exc:
         report['result'] = 'failed'

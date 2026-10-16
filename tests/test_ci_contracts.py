@@ -110,7 +110,7 @@ class CIContractTests(unittest.TestCase):
         )
         self.assertEqual(application_checkout['with']['fetch-depth'], 0)
         commands = '\n'.join(step.get('run', '') for job in workflow['jobs'].values() for step in job['steps'])
-        for required in ('scripts/run_application_tests.py', 'scripts/test_postgres_install.py', '--http',
+        for required in ('scripts/run_application_tests.py', 'scripts/test_release_upgrade.py', '--baseline-checkout',
                          'docker compose build', 'scripts/check_local_stack.py',
                          'python -m pip_audit -r apps/crm/requirements.lock',
                          'scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean',
