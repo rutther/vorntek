@@ -1486,6 +1486,8 @@ def privacy_request_manage(request, privacy_request_id: int):
             action = str(request.POST.get('_action') or '').strip().lower()
             saved = False
             with transaction.atomic():
+                actor = current_actor_for_commit(request.user.pk, request.session.session_key,
+                    SYSTEM_ROLES if action == 'execute' or action == 'transition:completed' else MARKETING_ROLES)
                 item = get_object_or_404(
                     PrivacyRequest.objects.select_for_update(of=('self',)).select_related(
                         'handled_by_user', 'submission'
@@ -1507,7 +1509,7 @@ def privacy_request_manage(request, privacy_request_id: int):
                         if action.startswith('transition:'):
                             target_status = action.split(':', 1)[1]
                             if target_status == 'completed':
-                                if not is_system_admin:
+                                if not user_has_any_role(actor, SYSTEM_ROLES):
                                     raise PermissionDenied
                                 if item.request_type != 'export':
                                     raise ValidationError({
@@ -1516,11 +1518,11 @@ def privacy_request_manage(request, privacy_request_id: int):
                             transition_privacy_request(
                                 privacy_request=item,
                                 target_status=target_status,
-                                actor=request.user,
+                                actor=actor,
                                 resolution=form.cleaned_data['resolution'],
                             )
                             record_audit(
-                                actor=request.user,
+                                actor=actor,
                                 action='privacy_request_status_changed',
                                 entity_table='privacy_request',
                                 entity_id=item.id,
@@ -1530,7 +1532,7 @@ def privacy_request_manage(request, privacy_request_id: int):
                             )
                             messages.success(request, '隐私请求状态已更新。')
                         elif action == 'execute':
-                            if not is_system_admin:
+                            if not user_has_any_role(actor, SYSTEM_ROLES):
                                 raise PermissionDenied
                             required_confirmation = 'DELETE' if item.request_type == 'delete' else 'EXECUTE'
                             if str(form.cleaned_data['confirm'] or '').strip() != required_confirmation:
@@ -1539,10 +1541,11 @@ def privacy_request_manage(request, privacy_request_id: int):
                                 })
                             result = execute_privacy_action(
                                 privacy_request=item,
-                                actor=request.user,
+                                actor=actor,
+                                operator_note=form.cleaned_data['resolution'],
                             )
                             record_audit(
-                                actor=request.user,
+                                actor=actor,
                                 action='privacy_request_executed',
                                 entity_table='privacy_request',
                                 entity_id=item.id,
@@ -3486,6 +3489,7 @@ def article_release_preview(request):
         page_payload={'title':'文章发布预览','sectionKey':'articles',
             'description':'从已保存正文生成私有预览；预览不等于官网上线。'},
         workspace_template='console/_article_release_preview.html',
+        extra_stylesheets=['console/article-workspace.css'],
         extra_context={'preview_article':article, 'article_preview_result':result,
             'article_preview_error':error, 'article_preview_history':history})
     response['Cache-Control'] = 'private, no-store'

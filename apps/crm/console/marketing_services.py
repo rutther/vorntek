@@ -310,6 +310,7 @@ def execute_privacy_action(
     *,
     privacy_request: PrivacyRequest,
     actor,
+    operator_note: str = '',
 ) -> dict:
     if privacy_request.status != 'processing':
         raise ValidationError({'status': '隐私请求进入“处理中”后才能执行。'})
@@ -424,7 +425,8 @@ def execute_privacy_action(
         ).count()
         resolution = (
             f'已匿名化 {len(submission_ids)} 条线索和 {len(contact_ids)} 个联系人；'
-            f'删除 {attachments_removed} 个仅绑定个人记录的私有附件；'
+            f'已退役 {attachments_removed} 个仅绑定个人记录的私有附件记录；'
+            '文件物理清理结果需在系统数据治理中单独核对；'
             f'{retained_evidence} 条不可变业务活动记录按审计策略保留。'
         )
     else:
@@ -437,6 +439,10 @@ def execute_privacy_action(
         'contact_count': len(contact_ids),
         'retained_immutable_activity_count': retained_evidence,
     }
+    note = str(operator_note or '').strip()
+    if note:
+        privacy_request.request_json.update(execution_note=note, execution_summary=resolution)
+        resolution = f'人工处理说明：{note}\n\n系统执行摘要：{resolution}'
     privacy_request.save(update_fields=['request_json', 'updated_at'])
     transition_privacy_request(
         privacy_request=privacy_request,
@@ -455,6 +461,12 @@ def execute_privacy_action(
         'submission_count': len(submission_ids),
         'contact_count': len(contact_ids),
         'retained_immutable_activity_count': retained_evidence,
+        'private_attachments_retired': attachments_removed if privacy_request.request_type == 'delete' else 0,
+        'private_attachment_cleanup_status': (
+            'separate_verification_required' if privacy_request.request_type == 'delete' and attachments_removed
+            else 'not_applicable'
+        ),
+        # Compatibility alias counts retired records, never physical unlink success.
         'private_attachments_removed': attachments_removed if privacy_request.request_type == 'delete' else 0,
         'resolution': resolution,
     }

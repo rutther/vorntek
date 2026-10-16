@@ -56,7 +56,7 @@ class WebsiteRecoveryTests(TestCase):
     def setUp(self):
         self.version = '1' * 64
         self.site = Site.objects.create(
-            code='recovery-site',
+            code='recovery_site',
             name='Recovery site',
             default_locale='en',
             enabled=True,
@@ -64,7 +64,7 @@ class WebsiteRecoveryTests(TestCase):
         )
         self.release = Release.objects.create(
             site=self.site,
-            release_key='website-candidate:recovery-site:1',
+            release_key='website-candidate:recovery_site:1',
             status='built',
             snapshot_manifest={
                 'kind': 'websiteCandidate',

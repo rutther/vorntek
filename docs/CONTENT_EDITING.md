@@ -33,3 +33,12 @@ status or generating a preview alone never proves the public website changed.
 
 Configure `SITEOS_ARTICLE_PREVIEW_ROOT` and `SITEOS_ARTICLE_PUBLIC_ORIGIN` for the
 independent installation. Do not borrow another site's files or credentials.
+
+## Privacy execution boundary
+
+The existing privacy HTML/API execution paths recheck the current account,
+session and role before locking and changing the request. API execution requires
+the current `version` returned with the request payload; stale or missing versions
+do not authorize execution. HTML execution preserves the operator's resolution
+alongside the system summary. Retiring attachment records does not mean physical
+file cleanup succeeded; that state is verified separately in Data Governance.

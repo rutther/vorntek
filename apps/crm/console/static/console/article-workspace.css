@@ -1,3 +1,12 @@
+.article-preview-workspace > .editor-card {
+    padding: 20px 24px;
+    line-height: 1.7;
+}
+
+.article-preview-workspace h2 { margin-top: 0; }
+.article-preview-workspace details { margin-block: 14px; }
+.article-preview-workspace ul { padding-inline-start: 24px; }
+
 .article-workspace-root {
     position: relative;
     min-height: 0;

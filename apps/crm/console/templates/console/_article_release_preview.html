@@ -1,4 +1,4 @@
-<section class="editor-shell">
+<section class="editor-shell article-preview-workspace">
   <div class="editor-card">
     <h2>文章发布预览</h2>
     {% if preview_article %}<p>单篇预览：{{ preview_article.title }}。读取当前已保存的正文，包含草稿；不会修改文章状态。</p>{% else %}<p>读取本站所有启用语言中标为“已发布”的后台文章，生成独立的全文预览版本。草稿和归档不会包含在内。</p>{% endif %}

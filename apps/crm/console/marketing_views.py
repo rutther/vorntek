@@ -44,6 +44,7 @@ from .marketing_services import (
 from .marketing_diagnostics import diagnose_marketing_integration
 from .payloads import default_site_locale
 from .privacy_retention import execute_retention_policy, retention_preview, update_retention_policy
+from .privacy_versions import privacy_request_version_matches, privacy_request_version_token
 
 
 def _requested_locale(request) -> str | None:
@@ -59,6 +60,7 @@ def _validation_errors(exc: ValidationError) -> dict:
 def _privacy_payload(item: PrivacyRequest) -> dict:
     return {
         'id': item.id,
+        'version': privacy_request_version_token(item),
         'request_type': item.request_type,
         'status': item.status,
         'requester_name': item.requester_name,
@@ -463,17 +465,23 @@ def privacy_request_execute(request, privacy_request_id: int):
                 'confirm': [f'请输入 {required_confirmation} 确认执行。'],
             },
         }, status=400)
+    version = str(request.POST.get('version') or '').strip()
+    if not version:
+        return JsonResponse({'ok': False, 'errors': {'version': ['请先刷新并核对当前隐私请求版本。']}}, status=400)
     try:
         with transaction.atomic():
+            actor = current_actor_for_commit(request.user.pk, request.session.session_key, SYSTEM_ROLES)
             item = get_object_or_404(
                 PrivacyRequest.objects.select_for_update(),
                 id=privacy_request_id,
                 site=site,
             )
+            if not privacy_request_version_matches(version, item):
+                raise ValidationError({'version': '这条隐私请求已被其他人员更新。请刷新并重新核对后执行。'})
             before = privacy_request_snapshot(item)
-            result = execute_privacy_action(privacy_request=item, actor=request.user)
+            result = execute_privacy_action(privacy_request=item, actor=actor)
             record_audit(
-                actor=request.user,
+                actor=actor,
                 action='privacy_request_executed',
                 entity_table='privacy_request',
                 entity_id=item.id,

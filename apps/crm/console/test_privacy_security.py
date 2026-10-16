@@ -406,6 +406,8 @@ class PrivacySecurityRegressionTests(TestCase):
             {'confirm': 'APPLY RETENTION'},
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(
@@ -512,9 +514,11 @@ class PrivacySecurityRegressionTests(TestCase):
         item = self._processing_delete_request(lead)
         request = self.factory.post(
             reverse('console:privacy_request_execute', args=[item.id]),
-            {'confirm': 'DELETE'},
+            {'confirm': 'DELETE', 'version': privacy_request_version_token(item)},
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(
@@ -542,9 +546,11 @@ class PrivacySecurityRegressionTests(TestCase):
         item = self._processing_delete_request(lead)
         request = self.factory.post(
             reverse('console:privacy_request_execute', args=[item.id]),
-            {'confirm': 'DELETE', 'locale': 'en'},
+            {'confirm': 'DELETE', 'locale': 'en', 'version': privacy_request_version_token(item)},
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(marketing_views, 'default_site_locale', return_value=(self.site, self.locale)),
@@ -566,6 +572,8 @@ class PrivacySecurityRegressionTests(TestCase):
             },
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(marketing_views, 'default_site_locale', return_value=(self.site, self.locale)),
@@ -599,6 +607,8 @@ class PrivacySecurityRegressionTests(TestCase):
             {'status': 'verified', 'resolution': 'Identity checked.', 'locale': 'en'},
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(marketing_views, 'default_site_locale', return_value=(self.site, self.locale)),
@@ -634,6 +644,8 @@ class PrivacySecurityRegressionTests(TestCase):
             },
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(marketing_views, 'default_site_locale', return_value=(self.site, self.locale)),
@@ -661,6 +673,8 @@ class PrivacySecurityRegressionTests(TestCase):
             },
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(views, 'default_site_locale', return_value=(self.site, self.locale)),
@@ -697,6 +711,8 @@ class PrivacySecurityRegressionTests(TestCase):
             },
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(views, 'default_site_locale', return_value=(self.site, self.locale)),
@@ -737,6 +753,8 @@ class PrivacySecurityRegressionTests(TestCase):
             },
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(views, 'default_site_locale', return_value=(self.site, self.locale)),
@@ -775,6 +793,8 @@ class PrivacySecurityRegressionTests(TestCase):
             },
         )
         request.user = self.admin
+        self.client.force_login(self.admin)
+        request.session = self.client.session
 
         with (
             patch.object(views, 'default_site_locale', return_value=(self.site, self.locale)),

@@ -22,6 +22,8 @@ from console.category_forms import CategoryEditorForm
 from console.content_access import CONTENT_READ, CONTENT_WRITE
 from console.forms import ArticleEditorForm
 from console.models import ContentAccessGrant
+from console.marketing_services import execute_privacy_action
+from leads.models import LeadFormDefinition, LeadSubmission, PrivacyRequest
 from sitecore.models import Article, Category, PageRoute, SiteLocale
 from .test_file_lifecycle_contract import FileLifecycleFixture
 
@@ -187,6 +189,25 @@ class ContentCommitPortableTests(FileLifecycleFixture, TestCase):
         from console.website_candidate import _reviewed_preview
         with self.assertRaisesRegex(ArticleDeliveryError, 'reviewed_article_preview_missing'):
             _reviewed_preview(site=self.site, record_id=result['recordId'])
+
+    def test_privacy_execution_keeps_the_operator_note_and_system_summary(self):
+        actor = get_user_model().objects.create_superuser('privacy-note', 'synthetic@example.invalid', 'synthetic-only')
+        form = LeadFormDefinition.objects.create(site=self.site, code='privacy-note', name='Synthetic only', capi_enabled=False)
+        lead = LeadSubmission.objects.create(site=self.site, form=form, full_name='Synthetic subject', email='synthetic@example.invalid',
+            submitted_at=timezone.now(), stage_updated_at=timezone.now(), consent_json={'marketing':True})
+        item = PrivacyRequest.objects.create(site=self.site, submission=lead, request_type='withdraw_consent', status='processing',
+            requester_name='Synthetic subject', verified_at=timezone.now())
+        try:
+            result = execute_privacy_action(privacy_request=item, actor=actor, operator_note='Synthetic verified instruction')
+        except TypeError:
+            self.fail('Privacy execution discarded the operator note contract')
+        item.refresh_from_db()
+        lead.refresh_from_db()
+        self.assertEqual(item.status, 'completed')
+        self.assertEqual(item.request_json['execution_note'], 'Synthetic verified instruction')
+        self.assertIn('Synthetic verified instruction', item.resolution)
+        self.assertIn(item.request_json['execution_summary'], result['resolution'])
+        self.assertFalse(lead.consent_json['marketing'])
 
     def test_zip_rejects_wrong_locale_and_duplicate_identity_before_any_write(self):
         wrong = self.packed([('wrong.md', '---\ntitle: Wrong language\nlocale: zh\nslug: wrong-language\ncontent_key: wrongLanguage\n---\nSynthetic')])
