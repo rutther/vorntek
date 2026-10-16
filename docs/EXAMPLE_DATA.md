@@ -27,6 +27,13 @@ organizations and contacts, inquiry stages and a recycle-bin example, individual
 and corporate opportunities, open/in-progress/completed/canceled tasks, three
 same-template loop instances, and English/Chinese draft articles and pages.
 Business rows, workflows and persistence are real; the business stories are not.
+Example inquiries use the existing `disabled` notification policy, not a new
+delivery status. The recycle-bin scenario calls the real, audited trash command.
+Managers can select up to 100 currently visible leads, move unconverted records
+to the recoverable trash, then restore them. Trashed leads leave ordinary queues;
+their activities, pending tasks and delivery facts remain stored. Restore retains
+the original owner, stage and task state; normal delivery policy still applies,
+and previously successful deliveries are not replayed.
 This does not yet prove complete module/attachment/published-site coverage.
 
 ## Repeat import and bounded reset

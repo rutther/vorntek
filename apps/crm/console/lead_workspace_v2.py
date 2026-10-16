@@ -8,14 +8,18 @@ from typing import Iterable
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.contrib.postgres.expressions import ArraySubquery
+from django.core.exceptions import EmptyResultSet, ObjectDoesNotExist, ValidationError
 from django.core.paginator import Paginator
+from django.db import connections
 from django.db.models import (
     Case,
+    BooleanField,
     Count,
     DateTimeField,
     ExpressionWrapper,
     F,
+    Func,
     OuterRef,
     Q,
     QuerySet,
@@ -23,8 +27,9 @@ from django.db.models import (
     TextField,
     Value,
     When,
+    Window,
 )
-from django.db.models.functions import Coalesce, Lower, NullIf
+from django.db.models.functions import Coalesce, Lag, Lead, Lower, NullIf, RowNumber
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
@@ -40,12 +45,14 @@ from .access import (
     shareable_sales_team_queryset_for_user,
     task_queryset_for_user,
 )
+from .capabilities import SalesCapability, require_sales
 from .leads_payload import lead_stage_label, lead_stage_tone
 from .error_redaction import redact_event_error
 from .payloads import admin_locale_label, format_admin_datetime
 
 
 QUERY_KEYS = frozenset({
+    'view',
     'q',
     'stage',
     'language',
@@ -56,6 +63,7 @@ QUERY_KEYS = frozenset({
     'page',
     'page_size',
 })
+WORKSPACE_VIEWS = ('active', 'trash')
 STAGES = ('all', 'new', 'contacted', 'qualified', 'won', 'lost', 'spam')
 ACTIVE_STAGES = ('new', 'contacted', 'qualified')
 ACTIONABLE_TASK_STATUSES = ('open', 'in_progress')
@@ -105,6 +113,7 @@ SORT_OPTIONS = (
 
 @dataclass(frozen=True, slots=True)
 class LeadWorkspaceV2Filters:
+    view: str = 'active'
     query: str = ''
     stage: str = 'all'
     language: str = 'all'
@@ -135,6 +144,7 @@ class LeadWorkspaceV2Filters:
         source_values = {'all', *SOURCE_LABELS, *allowed_sources}
         owner_values = {'all', 'unassigned', 'mine', *(str(value) for value in allowed_owner_ids)}
 
+        view = _choice(querydict.get('view'), WORKSPACE_VIEWS, 'active')
         query = _clean_search(querydict.get('q'))
         stage = _choice(querydict.get('stage'), STAGES, 'all')
         language = _token_choice(querydict.get('language'), language_values, 'all')
@@ -147,6 +157,7 @@ class LeadWorkspaceV2Filters:
         if page_size not in PAGE_SIZES:
             page_size = DEFAULT_PAGE_SIZE
         return cls(
+            view=view,
             query=query,
             stage=stage,
             language=language,
@@ -166,6 +177,8 @@ class LeadWorkspaceV2Filters:
             'page': page if page is not None else self.page,
             'page_size': self.page_size,
         }
+        if self.view != 'active':
+            params['view'] = self.view
         if self.query:
             params['q'] = self.query
         if self.stage != 'all':
@@ -327,6 +340,8 @@ def build_lead_workspace_v2(
     list_url: str | None = None,
     detail_url_name: str | None = 'console:lead_workspace_detail_v2',
     now=None,
+    redirect_only: bool = False,
+    canonicalize: bool = False,
 ) -> dict:
     """Build the first-render context for the routed v2 lead workspace.
 
@@ -334,6 +349,10 @@ def build_lead_workspace_v2(
     record is resolved from the same filtered and sorted queryset as the list,
     so a crafted URL cannot open a record outside the user's scope or silently
     jump outside the active queue.
+
+    The list entry may request only its first-record redirect. That path uses
+    the same authorized page but does not build records/statistics that the
+    following detail request will immediately rebuild.
     """
 
     now = now or timezone.now()
@@ -378,18 +397,39 @@ def build_lead_workspace_v2(
         SiteLocale.objects.filter(site=site, enabled=True).order_by('sort_order', 'locale_code')
     )
     owners = list(assignee_queryset_for_user(request.user, site=site))
-    source_values = list(
+    source_choices = (
         scoped.exclude(source_channel='')
         .order_by()
         .values_list('source_channel', flat=True)
         .distinct()
     )
+    source_values = None
+    if redirect_only or canonicalize:
+        # A redirect does not render the source menu. Known sources are already
+        # whitelisted by the parser; validate a custom value in the same scoped
+        # base with one exact existence check, not a full DISTINCT scan.
+        requested_source = str(request.GET.get('source') or '').strip()
+        allowed_sources = []
+        if (requested_source not in {'all', *SOURCE_LABELS}
+                and SAFE_TOKEN.fullmatch(requested_source)
+                and scoped.filter(source_channel=requested_source).exists()):
+            allowed_sources = [requested_source]
+    else:
+        source_values = list(source_choices)
+        allowed_sources = source_values
     filters = LeadWorkspaceV2Filters.from_querydict(
         request.GET,
         allowed_languages=(locale.locale_code for locale in locales),
-        allowed_sources=source_values,
+        allowed_sources=allowed_sources,
         allowed_owner_ids=(owner.id for owner in owners),
     )
+    if filters.view == 'trash':
+        require_sales(request.user, SalesCapability.TRASH)
+        scoped_base = scoped_base.filter(trashed_at__isnull=False)
+        scoped = scoped.filter(trashed_at__isnull=False)
+    else:
+        scoped_base = scoped_base.filter(trashed_at__isnull=True)
+        scoped = scoped.filter(trashed_at__isnull=True)
 
     filtered = _apply_filters(
         scoped,
@@ -408,10 +448,49 @@ def build_lead_workspace_v2(
         due_soon_cutoff=due_soon_cutoff,
     )
 
+    list_url = list_url or _default_list_url(request)
+    if redirect_only and filters.page == 1:
+        # Page one cannot be above the last page. Do not scan the full filtered
+        # queue merely to redirect to its first record; the rendered detail
+        # still computes the authoritative count and pagination.
+        first_id = ordered.values_list('pk', flat=True).first()
+        return {'redirect_url': _detail_url(first_id, filters=filters, page=1,
+            list_url=list_url, detail_url_name=detail_url_name) if first_id is not None else None}
     paginator = Paginator(ordered, filters.page_size)
     page_obj = paginator.get_page(filters.page)
     filters = replace(filters, page=page_obj.number)
-    list_url = list_url or _default_list_url(request)
+    if redirect_only:
+        first_id = page_obj.object_list.values_list('pk', flat=True).first()
+        return {'redirect_url': _detail_url(first_id, filters=filters, page=page_obj.number,
+            list_url=list_url, detail_url_name=detail_url_name) if first_id is not None else None}
+
+    selected_record = ordered.filter(pk=lead_id).first() if lead_id is not None else None
+    navigation = _record_navigation(ordered, selected_record.id, sort_spec) if selected_record is not None else None
+    selected_page = (navigation[0] - 1) // filters.page_size + 1 if navigation is not None else None
+    if canonicalize and selected_page and selected_page != filters.page:
+        # The HTTP caller will discard this page and follow the canonical URL.
+        # Resolve that URL before loading its rows, history and statistics.
+        return {'redirect_url': _detail_url(selected_record.id, filters=filters, page=selected_page,
+            list_url=list_url, detail_url_name=detail_url_name)}
+
+    if source_values is None:
+        source_values = list(source_choices)
+
+    # Locate this page using a narrow ID projection before joining/materializing
+    # full records. Keep both stages in one SQL snapshot and retain the original
+    # scope, filter and deterministic order; deep OFFSET must not carry every
+    # earlier lead's full payload and related records through the sort.
+    if connections[ordered.db].vendor == 'postgresql':
+        page_ids = page_obj.object_list.values('pk')
+        # ANY(array init-plan) is a base-row predicate, unlike an IN semijoin
+        # that PostgreSQL may place after the expensive related-record joins.
+        page_membership = Func(F('pk'), ArraySubquery(page_ids),
+            template='%(expressions)s)', arg_joiner=' = ANY(', output_field=BooleanField())
+        page_obj.object_list, _page_sort = _apply_sort(
+            scoped.filter(page_membership), filters.sort, now=now,
+            reminder_delta=reminder_delta, overdue_cutoff=overdue_cutoff,
+            due_soon_cutoff=due_soon_cutoff,
+        )
 
     rows = [
         _lead_row(
@@ -425,11 +504,9 @@ def build_lead_workspace_v2(
         for lead in page_obj.object_list
     ]
 
-    selected_record = ordered.filter(pk=lead_id).first() if lead_id is not None else None
     selected = None
     previous_url = ''
     next_url = ''
-    selected_page = None
     activities: list[dict] = []
     tasks: list[dict] = []
     task_history: list[dict] = []
@@ -438,25 +515,24 @@ def build_lead_workspace_v2(
     task_history_total = 0
 
     if selected_record is not None:
-        selected_page = _page_for_record(ordered, selected_record, sort_spec, filters.page_size)
         selected = _lead_detail(selected_record, now=now, reminder_delta=reminder_delta)
-        previous_record = _neighbour(ordered, selected_record, sort_spec, after=False)
-        next_record = _neighbour(ordered, selected_record, sort_spec, after=True)
-        if previous_record is not None:
-            previous_page = _page_for_record(ordered, previous_record, sort_spec, filters.page_size)
+        if navigation is not None:
+            position, previous_id, next_id = navigation
+        else:
+            previous_id = next_id = None
+        if previous_id is not None:
             previous_url = _detail_url(
-                previous_record.id,
+                previous_id,
                 filters=filters,
-                page=previous_page,
+                page=(position - 2) // filters.page_size + 1,
                 list_url=list_url,
                 detail_url_name=detail_url_name,
             )
-        if next_record is not None:
-            next_page = _page_for_record(ordered, next_record, sort_spec, filters.page_size)
+        if next_id is not None:
             next_url = _detail_url(
-                next_record.id,
+                next_id,
                 filters=filters,
-                page=next_page,
+                page=position // filters.page_size + 1,
                 list_url=list_url,
                 detail_url_name=detail_url_name,
             )
@@ -578,7 +654,8 @@ def build_lead_workspace_v2(
         'filter_values': filters.query_params(),
         'quick_views': {
             'all_active': (
-                not filters.query
+                filters.view == 'active'
+                and not filters.query
                 and filters.stage == 'all'
                 and filters.language == 'all'
                 and filters.source == 'all'
@@ -608,7 +685,12 @@ def build_lead_workspace_v2(
         'list_url': _url_with_query(list_url, filters.query_params(page=page_obj.number)),
         'clear_filters_url': _url_with_query(
             list_url,
-            {'sort': 'sla', 'page': 1, 'page_size': filters.page_size},
+            {
+                **({'view': 'trash'} if filters.view == 'trash' else {}),
+                'sort': 'sla',
+                'page': 1,
+                'page_size': filters.page_size,
+            },
         ),
         'selected': selected,
         'selected_missing': lead_id is not None and selected_record is None,
@@ -1125,36 +1207,35 @@ def _active_filter_chips(
     return chips
 
 
-def _neighbour(
+def _record_navigation(
     queryset: QuerySet[LeadSubmission],
-    current: LeadSubmission,
+    record_id: int,
     spec: _SortSpec,
-    *,
-    after: bool,
-):
-    condition = _lexicographic_condition(current, spec, after=after)
-    return queryset.filter(condition).order_by(*_order_terms(spec, reverse=not after)).first()
+) -> tuple[int, int | None, int | None] | None:
+    """Locate the record and both neighbours in one scoped statement snapshot.
 
-
-def _page_for_record(
-    queryset: QuerySet[LeadSubmission],
-    record: LeadSubmission,
-    spec: _SortSpec,
-    page_size: int,
-) -> int:
-    records_before = queryset.filter(_lexicographic_condition(record, spec, after=False)).count()
-    return (records_before // page_size) + 1
-
-
-def _lexicographic_condition(current: LeadSubmission, spec: _SortSpec, *, after: bool) -> Q:
-    result = Q(pk__in=[])
-    equal_prefix = Q()
-    for field_name, direction in spec.fields:
-        value = getattr(current, field_name)
-        comparison = 'gt' if (direction == 'asc') == after else 'lt'
-        result |= equal_prefix & Q(**{f'{field_name}__{comparison}': value})
-        equal_prefix &= Q(**{field_name: value})
-    return result
+    Filtering the ORM queryset by id *before* the windows would rank only that
+    row. Compile the already authorised/filtered projection, then parameterise
+    the id predicate on the outer query. No client SQL, cached queue or list of
+    all record IDs is accepted or materialised in Python.
+    """
+    order = _order_terms(spec)
+    projection = queryset.order_by().values('id').annotate(
+        _v2_position=Window(RowNumber(), order_by=order),
+        _v2_previous_id=Window(Lag('id'), order_by=order),
+        _v2_next_id=Window(Lead('id'), order_by=order),
+    ).values('id', '_v2_position', '_v2_previous_id', '_v2_next_id')
+    try:
+        sql, params = projection.query.get_compiler(using=queryset.db).as_sql()
+    except EmptyResultSet:
+        return None
+    with connections[queryset.db].cursor() as cursor:
+        cursor.execute(
+            'SELECT "_v2_position", "_v2_previous_id", "_v2_next_id" '
+            f'FROM ({sql}) AS v2_navigation WHERE "id" = %s',
+            (*params, record_id),
+        )
+        return cursor.fetchone()
 
 
 def _order_terms(spec: _SortSpec, *, reverse: bool = False) -> list:

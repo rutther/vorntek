@@ -68,7 +68,10 @@ from .access import (
     ROLE_SALES,
     ROLE_SALES_MANAGER,
     ROLE_SYSTEM_ADMIN,
+    SALES_ROLES,
     SYSTEM_ROLES,
+    active_lead_queryset,
+    active_task_queryset,
     assignee_queryset_for_user,
     lead_queryset_for_user,
     primary_role_label,
@@ -120,6 +123,7 @@ from .marketing_services import (
     transition_privacy_request,
 )
 from .navigation import build_navigation
+from .commit_authorization import CommitAuthorizationError, current_actor_for_commit
 from .payloads import PUBLIC_PREVIEW_BASE_URL, admin_locale_label, assets_payload, default_site_locale, make_page, marketing_payload, releases_payload
 from .privacy_forms import (
     PRIVACY_TYPE_CHOICES,
@@ -664,15 +668,19 @@ def sales_team_snapshot(team) -> dict:
 def sales_team_usage(team, *, lock=False) -> dict[str, int]:
     querysets = {
         'active_members': SalesTeamMember.objects.filter(team=team, user__is_active=True),
-        'open_leads': LeadSubmission.objects.filter(team=team).exclude(
+        'open_leads': active_lead_queryset(LeadSubmission.objects.filter(team=team)).exclude(
             stage__in=['won', 'lost', 'spam']
         ),
-        'actionable_tasks': Task.objects.filter(team=team, status__in=['open', 'in_progress']),
+        'actionable_tasks': active_task_queryset(Task.objects.filter(team=team, status__in=['open', 'in_progress'])),
         'open_opportunities': Opportunity.objects.filter(team=team).exclude(stage__in=['won', 'lost']),
     }
     if lock:
-        for queryset in querysets.values():
-            list(queryset.select_for_update().values_list('pk', flat=True))
+        for key, queryset in querysets.items():
+            # Active-task filtering joins a nullable submission. PostgreSQL
+            # cannot lock that outer-joined side; lock the task itself, while
+            # preserving the existing lock scope for the other usage checks.
+            locked = queryset.select_for_update(of=('self',)) if key == 'actionable_tasks' else queryset.select_for_update()
+            list(locked.values_list('pk', flat=True))
     return {key: queryset.count() for key, queryset in querysets.items()}
 
 
@@ -686,12 +694,14 @@ def sales_team_usage_queryset(queryset):
         ),
         open_lead_count=Count(
             'lead_submissions',
-            filter=~Q(lead_submissions__stage__in=['won', 'lost', 'spam']),
+            filter=Q(lead_submissions__trashed_at__isnull=True) & ~Q(lead_submissions__stage__in=['won', 'lost', 'spam']),
             distinct=True,
         ),
         actionable_task_count=Count(
             'crm_tasks',
-            filter=Q(crm_tasks__status__in=['open', 'in_progress']),
+            filter=Q(crm_tasks__status__in=['open', 'in_progress']) & (
+                Q(crm_tasks__submission_id__isnull=True) | Q(crm_tasks__submission__trashed_at__isnull=True)
+            ),
             distinct=True,
         ),
         open_opportunity_count=Count(
@@ -2274,9 +2284,9 @@ def lead_submission_edit(request, submission_id: int):
     site, locale = default_site_locale(requested_locale_code(request))
     submission = get_object_or_404(
         lead_queryset_for_user(
-            LeadSubmission.objects.select_related(
+            active_lead_queryset(LeadSubmission.objects.select_related(
                 'form', 'locale', 'route', 'cta', 'assignee', 'team', 'duplicate_of'
-            ),
+            )),
             request.user,
         ),
         id=submission_id,
@@ -2399,40 +2409,43 @@ def lead_submission_bulk_stage(request):
 
     submissions = list(
         lead_queryset_for_user(
-            LeadSubmission.objects.filter(site=site, id__in=ids),
+            active_lead_queryset(LeadSubmission.objects.filter(site=site, id__in=ids)),
             request.user,
         )
     )
     updated = 0
-    for submission in submissions:
-        before = lead_submission_snapshot(submission)
-        record_audit(
-            actor=request.user,
-            action='lead_bulk_stage_requested',
-            entity_table='lead_submission',
-            entity_id=submission.id,
-            before=before,
-            request=request,
-            metadata={'target_stage': stage},
-        )
-        update_submission_stage(
-            submission=submission,
-            stage=stage,
-            buyer_value=submission.buyer_value,
-            buyer_currency=submission.buyer_currency or 'USD',
-        )
-        record_audit(
-            actor=request.user,
-            action='lead_bulk_stage_updated',
-            entity_table='lead_submission',
-            entity_id=submission.id,
-            before=before,
-            after=lead_submission_snapshot(submission),
-            request=request,
-        )
+    unavailable = 0
+    for index, submission in enumerate(submissions):
+        try:
+            with transaction.atomic():
+                actor = current_actor_for_commit(request.user.pk, request.session.session_key, SALES_ROLES)
+                current = lead_queryset_for_user(active_lead_queryset(
+                    LeadSubmission.objects.select_for_update(of=('self',)).filter(site=site, pk=submission.pk)), actor).first()
+                if current is None:
+                    unavailable += 1
+                    continue
+                before = lead_submission_snapshot(current)
+                record_audit(
+                    actor=actor, action='lead_bulk_stage_requested', entity_table='lead_submission',
+                    entity_id=current.id, before=before, request=request, metadata={'target_stage': stage},
+                )
+                current, _queued, _attempted, _succeeded = update_submission_stage(
+                    submission=current, stage=stage, buyer_value=current.buyer_value,
+                    buyer_currency=current.buyer_currency or 'USD',
+                )
+                record_audit(
+                    actor=actor, action='lead_bulk_stage_updated', entity_table='lead_submission',
+                    entity_id=current.id, before=before, after=lead_submission_snapshot(current), request=request,
+                )
+        except CommitAuthorizationError:
+            messages.warning(request, f'已更新 {updated} 条；登录或操作权限已变化，剩余 {len(submissions)-index} 条未执行。请重新登录后核对。')
+            return redirect(next_url)
         updated += 1
 
-    messages.success(request, f'已批量更新 {updated} 条线索。')
+    if unavailable:
+        messages.warning(request, f'已批量更新 {updated} 条线索；{unavailable} 条记录状态或范围已变化，未执行。')
+    else:
+        messages.success(request, f'已批量更新 {updated} 条线索。')
     return redirect(next_url)
 
 

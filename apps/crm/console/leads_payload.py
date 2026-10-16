@@ -6,6 +6,7 @@ from django.urls import reverse
 from leads.models import LeadEventOutbox, LeadFormDefinition, LeadSubmission
 
 from .error_redaction import redact_event_error
+from .access import active_lead_queryset
 from .payloads import (
     admin_locale_label,
     badge,
@@ -57,8 +58,9 @@ def locale_filter_options() -> list[dict[str, str]]:
 def leads_payload(locale_code: str | None = None) -> dict:
     site, _locale = default_site_locale(locale_code)
     forms_qs = LeadFormDefinition.objects.filter(site=site).select_related('locale').order_by('category', 'code')[:120]
+    active_submissions = active_lead_queryset(LeadSubmission.objects.filter(site=site))
     submissions_qs = (
-        LeadSubmission.objects.filter(site=site)
+        active_submissions
         .select_related('form', 'locale', 'route', 'cta')
         .order_by('-submitted_at', '-id')[:200]
     )
@@ -68,7 +70,7 @@ def leads_payload(locale_code: str | None = None) -> dict:
         .order_by('-created_at', '-id')[:200]
     )
 
-    stage_counts = LeadSubmission.objects.filter(site=site).aggregate(
+    stage_counts = active_submissions.aggregate(
         total=Count('id'),
         new=Count('id', filter=Q(stage='new')),
         contacted=Count('id', filter=Q(stage='contacted')),

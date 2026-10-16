@@ -2,7 +2,11 @@
 {% load static %}
 
 {% block title %}线索工作区 · {{ brand_name }}{% endblock %}
-{% block body_class %}{% if workspace.selected and workspace.can_write %}nc-has-actionbar{% endif %}{% endblock %}
+{% block body_class %}nc-leads-page {% if workspace.selected and workspace.can_write %}nc-has-actionbar{% endif %}{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'console/v2/lead-workspace.css' %}?v=20261015-1">
+{% endblock %}
 
 {% block breadcrumb %}
     <a href="{% url 'console:lead_workspace_v2' %}">销售</a>
@@ -15,11 +19,11 @@
 {% endblock %}
 
 {% block extra_scripts %}
-    <script src="{% static 'console/v2/leads.js' %}"></script>
+    <script src="{% static 'console/v2/leads.js' %}?v=20261015-1"></script>
 {% endblock %}
 
 {% block content %}
-<div class="nc-lead-workspace" data-nc-lead-workspace data-nc-user-id="{{ request.user.pk }}" data-nc-site-id="{{ workspace.site.pk }}" data-nc-selected-record="{{ workspace.selected.id|default:'' }}" data-nc-list-url="{{ workspace.list_url }}" data-nc-bulk-url="{{ workspace.bulk.url|default:'' }}" data-nc-bulk-max="{{ workspace.bulk.max_records|default:0 }}">
+<div class="nc-lead-workspace" data-nc-lead-workspace data-nc-user-id="{{ request.user.pk }}" data-nc-site-id="{{ workspace.site.pk }}" data-nc-selected-record="{{ workspace.selected.id|default:'' }}" data-nc-list-url="{{ workspace.list_url }}" data-nc-bulk-url="{{ workspace.bulk.url|default:'' }}" data-nc-bulk-trash-url="{{ workspace.bulk.trash_url|default:'' }}" data-nc-bulk-restore-url="{{ workspace.bulk.restore_url|default:'' }}" data-nc-queue-view="{{ workspace.filters.view }}" data-nc-bulk-max="{{ workspace.bulk.max_records|default:0 }}">
     {% if workspace.assignment_readiness.blocked %}
         <div class="alert alert-warning m-3 mb-0" role="alert" data-nc-assignment-readiness>
             <strong>负责人配置未就绪。</strong> {{ workspace.assignment_readiness.message }}
@@ -47,6 +51,11 @@
             <a class="{% if workspace.filters.stage == 'new' %}is-active{% endif %}" href="{% url 'console:lead_workspace_v2' %}?stage=new&amp;sort=newest">
                 <span>新提交</span><strong>{{ workspace.stats.new }}</strong>
             </a>
+            {% if workspace.bulk.can_trash or workspace.bulk.can_restore %}
+            <a class="{% if workspace.is_trash_view %}is-active{% endif %}" href="{% url 'console:lead_workspace_v2' %}?view=trash&amp;sort=newest">
+                <span>回收站</span><i data-lucide="trash-2" aria-hidden="true"></i>
+            </a>
+            {% endif %}
         </nav>
 
         <section class="nc-saved-views" aria-labelledby="saved-views-title">
@@ -76,6 +85,7 @@
         </section>
 
         <form class="nc-rail-filter" action="{% url 'console:lead_workspace_v2' %}" method="get">
+            <input type="hidden" name="view" value="{{ workspace.filters.view }}">
             <input type="hidden" name="q" value="{{ workspace.filters.query }}">
             <input type="hidden" name="sort" value="{{ workspace.filters.sort }}">
             <input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
@@ -143,6 +153,7 @@
                 <input type="hidden" name="sla" value="{{ workspace.filters.sla }}">
                 <input type="hidden" name="sort" value="{{ workspace.filters.sort }}">
                 <input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
+                <input type="hidden" name="view" value="{{ workspace.filters.view }}">
             </form>
             <button class="nc-icon-button nc-filter-button" type="button" data-bs-toggle="offcanvas" data-bs-target="#lead-filters" aria-controls="lead-filters" aria-label="筛选线索">
                 <i data-lucide="list-filter" aria-hidden="true"></i>
@@ -160,7 +171,7 @@
 
         <div class="nc-list-subbar">
             <div class="nc-list-count">
-                {% if workspace.bulk.can_assign and workspace.rows %}
+                {% if workspace.bulk.can_select and workspace.rows %}
                     <label class="nc-select-page" for="lead-select-page">
                         <input id="lead-select-page" type="checkbox" data-nc-select-page aria-describedby="lead-select-page-note">
                         <span>选择本页</span>
@@ -171,6 +182,7 @@
                 {% endif %}
             </div>
             <form action="{% url 'console:lead_workspace_v2' %}" method="get">
+                <input type="hidden" name="view" value="{{ workspace.filters.view }}">
                 <input type="hidden" name="q" value="{{ workspace.filters.query }}">
                 <input type="hidden" name="stage" value="{{ workspace.filters.stage }}">
                 <input type="hidden" name="language" value="{{ workspace.filters.language }}">
@@ -189,8 +201,8 @@
 
         <ul class="nc-lead-list" aria-label="线索结果">
             {% for row in workspace.rows %}
-                <li class="{% if workspace.bulk.can_assign %}nc-selectable-row{% endif %}" data-nc-record-row data-nc-record-id="{{ row.id }}">
-                    {% if workspace.bulk.can_assign %}
+                <li class="{% if workspace.bulk.can_select %}nc-selectable-row{% endif %}" data-nc-record-row data-nc-record-id="{{ row.id }}">
+                    {% if workspace.bulk.can_select %}
                         <label class="nc-row-select">
                             <input type="checkbox" name="record_ids" value="{{ row.id }}" aria-label="选择 {{ row.title }}" data-nc-record-select>
                             <span class="visually-hidden">选择 {{ row.title }}</span>
@@ -214,8 +226,11 @@
                 </li>
             {% empty %}
                 <li class="nc-empty-state">
-                    <span class="nc-empty-icon"><i data-lucide="search-x" aria-hidden="true"></i></span>
-                    {% if workspace.stats.total %}
+                    <span class="nc-empty-icon"><i data-lucide="{% if workspace.is_trash_view %}trash-2{% else %}search-x{% endif %}" aria-hidden="true"></i></span>
+                    {% if workspace.is_trash_view %}
+                        <strong>回收站为空</strong>
+                        <p>移入回收站的线索会在这里等待恢复。</p>
+                    {% elif workspace.stats.total %}
                         <strong>没有匹配的线索</strong>
                         <p>调整搜索词，或清除当前筛选条件。</p>
                         <a class="btn btn-outline-secondary btn-sm" href="{{ workspace.clear_filters_url }}">清除筛选</a>
@@ -235,12 +250,13 @@
             </nav>
         {% endif %}
 
-        {% if workspace.bulk.can_assign and workspace.rows %}
+        {% if workspace.bulk.can_select and workspace.rows %}
             <section class="nc-bulk-bar" aria-label="本页线索批量操作" aria-hidden="true" data-nc-bulk-bar>
                 <div class="nc-bulk-summary">
                     <strong><span data-nc-selected-count aria-live="polite">0</span> 条已选</strong>
                     <span>仅处理当前页已勾选的线索</span>
                 </div>
+                {% if workspace.bulk.can_assign %}
                 <label class="nc-bulk-owner" for="lead-bulk-owner">
                     <span class="visually-hidden">批量分配负责人</span>
                     <select id="lead-bulk-owner" data-nc-bulk-owner>
@@ -249,6 +265,9 @@
                     </select>
                 </label>
                 <button class="btn btn-primary btn-sm" type="button" data-nc-bulk-assign disabled>批量分配</button>
+                {% endif %}
+                {% if workspace.bulk.can_trash %}<button class="btn btn-outline-danger btn-sm" type="button" data-nc-bulk-trash disabled>移入回收站</button>{% endif %}
+                {% if workspace.bulk.can_restore %}<button class="btn btn-primary btn-sm" type="button" data-nc-bulk-restore disabled>恢复所选</button>{% endif %}
                 <button class="btn btn-ghost-secondary btn-sm nc-bulk-clear" type="button" data-nc-bulk-clear>清除</button>
                 <div class="nc-bulk-failures" role="status" aria-live="polite" data-nc-bulk-failures hidden>
                     <details data-nc-bulk-failure-details>
@@ -631,6 +650,7 @@
             <a href="{% url 'console:lead_workspace_v2' %}?owner=unassigned&amp;sort=sla"><span>未分配</span><strong>{{ workspace.stats.unassigned }}</strong></a>
             <a href="{% url 'console:lead_workspace_v2' %}?sla=overdue&amp;sort=sla"><span>超时跟进</span><strong class="is-danger">{{ workspace.stats.overdue }}</strong></a>
             <a href="{% url 'console:lead_workspace_v2' %}?owner=mine&amp;sort=sla"><span>我的跟进</span><strong>{{ workspace.stats.mine }}</strong></a>
+            {% if workspace.bulk.can_trash or workspace.bulk.can_restore %}<a class="{% if workspace.is_trash_view %}is-active{% endif %}" href="{% url 'console:lead_workspace_v2' %}?view=trash&amp;sort=newest"><span>回收站</span><i data-lucide="trash-2" aria-hidden="true"></i></a>{% endif %}
         </nav>
         <section class="nc-saved-views nc-saved-views-drawer" aria-labelledby="saved-views-drawer-title">
             <div class="nc-saved-views-heading"><span id="saved-views-drawer-title">保存的视图</span></div>
@@ -642,7 +662,7 @@
             <button class="nc-save-view-button" type="button" data-bs-toggle="modal" data-bs-target="#lead-save-view-modal"><i data-lucide="bookmark-plus" aria-hidden="true"></i> 保存当前视图</button>
         </section>
         <form class="nc-drawer-filter" action="{% url 'console:lead_workspace_v2' %}" method="get">
-            <input type="hidden" name="q" value="{{ workspace.filters.query }}"><input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
+            <input type="hidden" name="view" value="{{ workspace.filters.view }}"><input type="hidden" name="q" value="{{ workspace.filters.query }}"><input type="hidden" name="page_size" value="{{ workspace.filters.page_size }}">
             <label><span>阶段</span><select name="stage">{% for option in workspace.options.stages %}<option value="{{ option.value }}" {% if workspace.filters.stage == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
             <label><span>来源</span><select name="source">{% for option in workspace.options.sources %}<option value="{{ option.value }}" {% if workspace.filters.source == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
             <label><span>负责人</span><select name="owner">{% for option in workspace.options.owners %}<option value="{{ option.value }}" {% if workspace.filters.owner == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
@@ -653,6 +673,30 @@
         </form>
     </div>
 </div>
+
+{% if workspace.bulk.can_trash %}
+<div class="modal fade" id="lead-trash-confirm-modal" tabindex="-1" aria-labelledby="lead-trash-confirm-title" aria-describedby="lead-trash-confirm-description" aria-hidden="true" data-nc-trash-modal>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title" id="lead-trash-confirm-title">将所选线索移入回收站？</h2>
+                    <p id="lead-trash-confirm-description">本次选择 <strong data-nc-trash-count>0</strong> 条，仅处理当前页已勾选的线索。这不是永久删除。线索、活动和任务会保留，之后可以从回收站恢复；已转换的线索不会被移入。</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body nc-save-view-form">
+                <label class="is-full" for="lead-trash-reason"><span>移入原因（可选）</span><textarea id="lead-trash-reason" rows="3" maxlength="500" data-nc-trash-reason placeholder="例如：重复测试线索"></textarea></label>
+                <p class="nc-form-help is-full">成功项会从当前队列移走；失败项继续保持勾选，并逐条显示原因。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" data-nc-confirm-trash><i data-lucide="trash-2" aria-hidden="true"></i>移入回收站</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="modal fade" id="lead-save-view-modal" tabindex="-1" aria-labelledby="lead-save-view-title" aria-hidden="true" data-nc-save-view-modal>
     <div class="modal-dialog modal-dialog-centered">

@@ -131,6 +131,7 @@ def append_activity(
     )
 
 
+@transaction.atomic
 def create_task(
     *,
     site,
@@ -153,6 +154,10 @@ def create_task(
 ) -> Task:
     """Create a Task only after its complete relationship scope is proven."""
 
+    if submission is not None:
+        submission = LeadSubmission.objects.select_for_update(of=('self',)).select_related('team').get(pk=submission.pk)
+        if submission.trashed_at is not None:
+            raise ValidationError('线索已在回收站，恢复后才能创建任务。', code='lead_trashed')
     relationship_scope = validate_crm_relationship_targets(
         site=site,
         submission=submission,
@@ -262,6 +267,8 @@ def convert_qualified_lead(
     )
     if locked_submission_authorizer is not None:
         locked_submission_authorizer(submission)
+    if submission.trashed_at is not None:
+        raise ValidationError('线索已移入回收站，请先恢复后再操作。', code='lead_trashed')
     existing = (
         LeadConversion.objects.select_related('company', 'contact', 'opportunity')
         .filter(submission=submission)
@@ -616,11 +623,18 @@ def synchronize_submission_next_follow_up(*, submission_id: int | None):
 def _close_task(*, task_id: int, actor, target_status: str, outcome: str = '') -> Task:
     if target_status not in TERMINAL_TASK_STATUSES:
         raise ValidationError('任务终结状态无效。')
+    submission_id = Task.objects.values_list('submission_id', flat=True).get(pk=task_id)
+    if submission_id is not None:
+        submission = LeadSubmission.objects.select_for_update(of=('self',)).get(pk=submission_id)
+        if submission.trashed_at is not None:
+            raise ValidationError('线索已在回收站，恢复后才能处理任务。', code='lead_trashed')
     task = (
         Task.objects.select_for_update(of=('self',))
         .select_related('site', 'submission', 'company', 'contact', 'opportunity')
         .get(pk=task_id)
     )
+    if task.submission_id != submission_id:
+        raise ValidationError('任务关联已更改，请刷新后重试。', code='task_target_changed')
     if task.status == target_status:
         synchronize_submission_next_follow_up(submission_id=task.submission_id)
         return task

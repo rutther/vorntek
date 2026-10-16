@@ -1206,6 +1206,36 @@ def update_submission_stage(
     buyer_value: Decimal | None,
     buyer_currency: str,
 ) -> tuple[LeadSubmission, int, int, int]:
+    # Resolve the current row under the same lock as the write. A stale editor
+    # object must not mutate a lead after another operator has trashed it.
+    with transaction.atomic():
+        submission = (
+            LeadSubmission.objects.select_for_update(of=('self',))
+            .select_related('form', 'site', 'locale')
+            .get(pk=submission.pk)
+        )
+        if submission.trashed_at is not None:
+            raise LeadCaptureError('线索已移入回收站，请先恢复后再操作。', code='lead_trashed')
+        queued_outbox = _prepare_submission_stage(
+            submission=submission, stage=stage, buyer_value=buyer_value, buyer_currency=buyer_currency,
+        )
+    # Keep platform I/O outside this command's transaction and lead row lock.
+    attempted = 0
+    succeeded = 0
+    for outbox in queued_outbox:
+        attempted += 1
+        if dispatch_outbox_event(outbox):
+            succeeded += 1
+    return submission, len(queued_outbox), attempted, succeeded
+
+
+def _prepare_submission_stage(
+    *,
+    submission: LeadSubmission,
+    stage: str,
+    buyer_value: Decimal | None,
+    buyer_currency: str,
+) -> list[LeadEventOutbox]:
     qualification_score = int(getattr(submission, 'qualification_score', 0) or 0)
     qualification_overridden = bool(getattr(submission, 'qualification_overridden', False))
     if stage in {'qualified', 'won'} and qualification_score < 80 and not qualification_overridden:
@@ -1248,8 +1278,6 @@ def update_submission_stage(
     )
 
     queued_outbox: list[LeadEventOutbox] = []
-    attempted = 0
-    succeeded = 0
     event_specs: list[tuple[str, str]] = []
     if stage_changed and stage in {'contacted', 'qualified', 'won'}:
         if stage == 'contacted' or contacted_was_missing:
@@ -1267,8 +1295,4 @@ def update_submission_stage(
                     event_name=event_name,
                 )
             )
-        for outbox in queued_outbox:
-            attempted += 1
-            if dispatch_outbox_event(outbox):
-                succeeded += 1
-    return submission, len(queued_outbox), attempted, succeeded
+    return queued_outbox

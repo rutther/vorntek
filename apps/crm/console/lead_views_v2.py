@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -19,14 +20,18 @@ from leads.lead_workflow_services import (
     LeadOptimisticLockError,
     NextTaskInput,
     QualificationInput,
-    dispose_lead,
     assign_lead_owner,
+    dispose_lead,
+    move_lead_to_trash,
+    restore_lead_from_trash,
 )
 from leads.models import LeadSubmission, SavedView
 from leads.crm_services import validate_conversion_identity
 
 from .access import (
+    ROLE_SALES_MANAGER,
     ROLE_SYSTEM_ADMIN,
+    active_lead_queryset,
     assignee_queryset_for_user,
     assignable_assignee_queryset_for_lead,
     lead_queryset_for_user,
@@ -35,6 +40,7 @@ from .access import (
     user_has_any_role,
 )
 from .capabilities import SalesCapability, can_sales, require_sales
+from .commit_authorization import CommitAuthorizationError,current_actor_for_commit
 from .lead_workspace_v2 import (
     QUERY_KEYS,
     build_lead_workspace_v2,
@@ -102,7 +108,10 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
         lead_id=lead_id,
         list_url=list_url,
         detail_url_name='console:lead_workspace_detail_v2',
+        canonicalize=True,
     )
+    if workspace.get('redirect_url'):
+        return {'workspace': workspace}
     if workspace['selected_missing']:
         raise Http404('当前队列中没有这条线索。')
 
@@ -119,7 +128,12 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
         (choice for choice in assignment_choices if choice.id == selected_record.assignee_id),
         None,
     ) if selected_record else None
-    can_bulk_assign = can_sales(request.user, SalesCapability.ASSIGN)
+    is_trash_view = workspace['filters'].view == 'trash'
+    can_bulk_assign = bool(
+        not is_trash_view
+        and can_sales(request.user, SalesCapability.ASSIGN)
+    )
+    can_bulk_trash = can_sales(request.user, SalesCapability.TRASH)
     bulk_owner_records = (
         list(assignee_queryset_for_user(request.user, site=site))
         if can_bulk_assign
@@ -139,7 +153,8 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
         except ValidationError:
             conversion_eligible = False
     can_convert = bool(
-        conversion_eligible
+        not is_trash_view
+        and conversion_eligible
         and can_sales(request.user, SalesCapability.CONVERT, record=selected_record)
     )
     conversion_opportunity_name = ''
@@ -161,12 +176,15 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
             'locale': locale,
             'owners': assignment_choices,
             'selected_owner': selected_owner,
+            'is_trash_view': is_trash_view,
             'can_write': bool(
-                selected_record
+                not is_trash_view
+                and selected_record
                 and can_sales(request.user, SalesCapability.WRITE, record=selected_record)
             ),
             'can_assign': bool(
-                selected_record
+                not is_trash_view
+                and selected_record
                 and can_sales(request.user, SalesCapability.ASSIGN, record=selected_record)
             ),
             # This flag deliberately combines authorization and domain
@@ -185,8 +203,13 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
                 else ''
             ),
             'bulk': {
+                'can_select': can_bulk_trash or can_bulk_assign,
                 'can_assign': can_bulk_assign,
                 'url': reverse('console:lead_bulk_assign_v2'),
+                'can_trash': bool(can_bulk_trash and not is_trash_view),
+                'can_restore': bool(can_bulk_trash and is_trash_view),
+                'trash_url': reverse('console:lead_bulk_trash_v2'),
+                'restore_url': reverse('console:lead_bulk_restore_v2'),
                 'max_records': 100,
                 'owners': [
                     {'id': owner.id, 'label': owner.get_full_name() or owner.get_username()}
@@ -221,9 +244,9 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
 @login_required
 @require_GET
 def lead_workspace_v2(request):
+    require_sales(request.user, SalesCapability.READ)
+    site, _locale = default_site_locale(_requested_locale_code(request))
     if not any(key in request.GET for key in QUERY_KEYS):
-        require_sales(request.user, SalesCapability.READ)
-        site, _locale = default_site_locale(_requested_locale_code(request))
         default_view = (
             SavedView.objects.filter(
                 site=site,
@@ -249,10 +272,11 @@ def lead_workspace_v2(request):
                 # The canonical URL always contains page/sort/page_size, so
                 # the next request cannot re-enter this default-view branch.
                 return redirect(payload['apply_url'])
+    target = build_lead_workspace_v2(request, site=site, list_url=reverse('console:lead_workspace_v2'),
+        redirect_only=True)['redirect_url']
+    if target:
+        return redirect(target)
     context = _page_context(request)
-    rows = context['workspace']['rows']
-    if rows:
-        return redirect(rows[0]['detail_url'])
     return render(request, 'console/v2/pages/leads.html', context)
 
 
@@ -261,17 +285,8 @@ def lead_workspace_v2(request):
 def lead_workspace_detail_v2(request, submission_id: int):
     context = _page_context(request, lead_id=submission_id)
     workspace = context['workspace']
-    selected_page = workspace['selected_page']
-    if selected_page and selected_page != workspace['filters'].page:
-        # The record may move when `updated`/SLA ordering changes after a write.
-        # Canonicalize the routed detail to the page that actually contains it;
-        # rebuilding from the parsed filter object also strips unknown or
-        # attacker-controlled query keys and prevents redirect loops.
-        params = workspace['filters'].query_params(page=selected_page)
-        canonical_url = reverse('console:lead_workspace_detail_v2', args=[submission_id])
-        if params:
-            canonical_url = f'{canonical_url}?{urlencode(params)}'
-        return redirect(canonical_url)
+    if workspace.get('redirect_url'):
+        return redirect(workspace['redirect_url'])
     return render(
         request,
         'console/v2/pages/leads.html',
@@ -649,15 +664,17 @@ def lead_bulk_assign_v2(request):
     assignee_id = int(raw_assignee_id)
     site, _locale = default_site_locale(_requested_locale_code(request))
     scoped_ids = set(
-        lead_queryset_for_user(
-            LeadSubmission.objects.filter(site=site, pk__in=record_ids),
-            request.user,
+        active_lead_queryset(
+            lead_queryset_for_user(
+                LeadSubmission.objects.filter(site=site, pk__in=record_ids),
+                request.user,
+            )
         ).values_list('pk', flat=True)
     )
 
     records = []
     failures = []
-    for record_id in record_ids:
+    for index,record_id in enumerate(record_ids):
         if record_id not in scoped_ids:
             failures.append({
                 'id': record_id,
@@ -667,8 +684,8 @@ def lead_bulk_assign_v2(request):
             continue
 
         def authorize_locked_submission(locked_lead):
-            if locked_lead.site_id != site.id or not can_sales(
-                request.user,
+            if locked_lead.trashed_at is not None or locked_lead.site_id != site.id or not can_sales(
+                actor,
                 SalesCapability.ASSIGN,
                 record=locked_lead,
             ):
@@ -676,7 +693,7 @@ def lead_bulk_assign_v2(request):
 
         def authorize_locked_assignee(locked_lead, target_assignee_id):
             if not assignable_assignee_queryset_for_lead(
-                request.user,
+                actor,
                 locked_lead,
             ).filter(pk=target_assignee_id).exists():
                 raise LeadWorkflowError(
@@ -685,14 +702,21 @@ def lead_bulk_assign_v2(request):
                 )
 
         try:
-            result = assign_lead_owner(
-                submission_id=record_id,
-                actor=request.user,
-                assignee_id=assignee_id,
-                request=request,
-                locked_submission_authorizer=authorize_locked_submission,
-                locked_assignee_authorizer=authorize_locked_assignee,
-            )
+            with transaction.atomic():
+                actor=current_actor_for_commit(request.user.pk,request.session.session_key,
+                    {ROLE_SALES_MANAGER,ROLE_SYSTEM_ADMIN}, related_user_ids=(assignee_id,))
+                result = assign_lead_owner(
+                    submission_id=record_id,
+                    actor=actor,
+                    assignee_id=assignee_id,
+                    request=request,
+                    locked_submission_authorizer=authorize_locked_submission,
+                    locked_assignee_authorizer=authorize_locked_assignee,
+                )
+        except CommitAuthorizationError as exc:
+            failures.extend({'id':pending_id,'message':str(exc),'code':'authorization_changed'}
+                for pending_id in record_ids[index:])
+            break
         except (LeadSubmission.DoesNotExist, PermissionDenied):
             failures.append({
                 'id': record_id,
@@ -719,7 +743,7 @@ def lead_bulk_assign_v2(request):
             else '所选线索的负责人未变化，无需更新。'
         )
     else:
-        status = 404 if failures and all(
+        status = 403 if failures and failures[0]['code']=='authorization_changed' else 404 if failures and all(
             failure['code'] == 'not_found' for failure in failures
         ) else 400
         message = failures[0]['message'] if failures else '没有线索被更新。'
@@ -733,3 +757,172 @@ def lead_bulk_assign_v2(request):
         },
         status=status,
     )
+
+
+def _trash_record_payload(result) -> dict:
+    submission = result.submission
+    return {
+        'id': submission.pk,
+        'changed': result.changed,
+        'trashed_at': submission.trashed_at.isoformat() if submission.trashed_at else '',
+        'restored_at': submission.restored_at.isoformat() if submission.restored_at else '',
+        'current_updated_at': (
+            submission.updated_at.isoformat() if submission.updated_at else ''
+        ),
+    }
+
+
+def _bulk_trash_transition(request, *, restore: bool) -> JsonResponse:
+    action_label = '恢复' if restore else '移入回收站'
+    if not can_sales(request.user, SalesCapability.TRASH):
+        return JsonResponse(
+            {
+                'ok': False,
+                'updated': 0,
+                'records': [],
+                'failures': [],
+                'message': f'当前账号没有线索{action_label}权限。',
+            },
+            status=403,
+        )
+
+    raw_ids = request.POST.getlist('record_ids')
+    if not raw_ids:
+        return JsonResponse(
+            {
+                'ok': False,
+                'updated': 0,
+                'records': [],
+                'failures': [],
+                'message': '请至少选择一条线索。',
+            },
+            status=400,
+        )
+    record_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for raw_id in raw_ids:
+        value = str(raw_id or '').strip()
+        if not value.isdigit() or int(value) <= 0:
+            return JsonResponse(
+                {
+                    'ok': False,
+                    'updated': 0,
+                    'records': [],
+                    'failures': [],
+                    'message': '线索编号格式无效。',
+                },
+                status=400,
+            )
+        record_id = int(value)
+        if record_id not in seen_ids:
+            seen_ids.add(record_id)
+            record_ids.append(record_id)
+    if len(record_ids) > 100:
+        return JsonResponse(
+            {
+                'ok': False,
+                'updated': 0,
+                'records': [],
+                'failures': [],
+                'message': f'一次最多{action_label} 100 条线索。',
+            },
+            status=400,
+        )
+
+    site, _locale = default_site_locale(_requested_locale_code(request))
+    scoped_ids = set(
+        lead_queryset_for_user(
+            LeadSubmission.objects.filter(site=site, pk__in=record_ids),
+            request.user,
+        ).values_list('pk', flat=True)
+    )
+    records = []
+    failures = []
+    command = restore_lead_from_trash if restore else move_lead_to_trash
+    reason = str(request.POST.get('reason') or '').strip()
+
+    for index,record_id in enumerate(record_ids):
+        if record_id not in scoped_ids:
+            failures.append({
+                'id': record_id,
+                'message': f'线索不存在或不在可{action_label}范围内。',
+                'code': 'not_found',
+            })
+            continue
+
+        def authorize_locked_submission(locked_lead):
+            if locked_lead.site_id != site.id or not can_sales(
+                actor,
+                SalesCapability.TRASH,
+                record=locked_lead,
+            ):
+                raise PermissionDenied
+
+        command_kwargs = {
+            'submission_id': record_id,
+            'actor': request.user,
+            'request': request,
+            'locked_submission_authorizer': authorize_locked_submission,
+        }
+        if not restore:
+            command_kwargs['reason'] = reason
+        try:
+            with transaction.atomic():
+                actor=current_actor_for_commit(request.user.pk,request.session.session_key,
+                    {ROLE_SALES_MANAGER,ROLE_SYSTEM_ADMIN})
+                command_kwargs['actor']=actor
+                result = command(**command_kwargs)
+        except CommitAuthorizationError as exc:
+            failures.extend({'id':pending_id,'message':str(exc),'code':'authorization_changed'}
+                for pending_id in record_ids[index:])
+            break
+        except (LeadSubmission.DoesNotExist, PermissionDenied):
+            failures.append({
+                'id': record_id,
+                'message': f'线索不存在或不在可{action_label}范围内。',
+                'code': 'not_found',
+            })
+        except ValidationError as exc:
+            message, code = _validation_error(exc)
+            failures.append({'id': record_id, 'message': message, 'code': code})
+        else:
+            records.append(_trash_record_payload(result))
+
+    updated = sum(1 for record in records if record['changed'])
+    if records and failures:
+        status = 207
+        message = f'已{action_label} {updated} 条，{len(failures)} 条失败。'
+    elif records:
+        status = 200
+        message = (
+            f'已{action_label} {updated} 条线索。'
+            if updated
+            else f'所选线索状态未变化，无需再次{action_label}。'
+        )
+    else:
+        status = 403 if failures and failures[0]['code']=='authorization_changed' else 404 if failures and all(
+            failure['code'] == 'not_found' for failure in failures
+        ) else 400
+        message = failures[0]['message'] if failures else f'没有线索被{action_label}。'
+    return JsonResponse(
+        {
+            'ok': bool(records),
+            'updated': updated,
+            'records': records,
+            'failures': failures,
+            'message': message,
+        },
+        status=status,
+    )
+
+
+@login_required
+@require_POST
+def lead_bulk_trash_v2(request):
+    return _bulk_trash_transition(request, restore=False)
+
+
+@login_required
+@require_POST
+def lead_bulk_restore_v2(request):
+    return _bulk_trash_transition(request, restore=True)

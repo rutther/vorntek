@@ -133,7 +133,7 @@ SALES_VIEW_NAMES = frozenset({
     'company_update', 'contact_update', 'opportunity_update', 'crm_attachments',
     'crm_attachment_download', 'crm_attachment_archive',
     'lead_workspace_v2', 'lead_workspace_detail_v2', 'lead_disposition_v2',
-    'lead_bulk_assign_v2',
+    'lead_bulk_assign_v2', 'lead_bulk_trash_v2', 'lead_bulk_restore_v2',
     'opportunity_workspace_v2', 'opportunity_workspace_detail_v2',
     'company_workspace_v2', 'company_workspace_detail_v2',
     'contact_workspace_v2', 'contact_workspace_detail_v2',
@@ -223,6 +223,20 @@ def lead_queryset_for_user(queryset: QuerySet[LeadSubmission], user) -> QuerySet
     if ROLE_SALES in roles:
         return queryset.filter(assignee=user)
     return queryset.none()
+
+
+def active_lead_queryset(queryset: QuerySet[LeadSubmission]) -> QuerySet[LeadSubmission]:
+    """Keep recoverably trashed leads out of ordinary operational surfaces."""
+    return queryset.filter(trashed_at__isnull=True)
+
+
+def active_task_queryset(queryset: QuerySet[Task]) -> QuerySet[Task]:
+    """Exclude tasks paused by lead trash without deleting historical records."""
+    return queryset.filter(Q(submission_id__isnull=True) | Q(submission__trashed_at__isnull=True))
+
+
+def trashed_lead_queryset(queryset: QuerySet[LeadSubmission]) -> QuerySet[LeadSubmission]:
+    return queryset.filter(trashed_at__isnull=False)
 
 
 def whatsapp_conversation_queryset_for_user(

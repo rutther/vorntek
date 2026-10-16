@@ -66,6 +66,7 @@ def make_submission(*, updated_at=None, stage='new'):
         stage_updated_at=updated_at,
         updated_at=updated_at,
         config_json={},
+        trashed_at=None,
         save=Mock(),
     )
 

@@ -10,8 +10,9 @@ from urllib.parse import parse_qs, urlsplit
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.core import mail
 from django.db import IntegrityError, connection
-from django.test import TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -42,6 +43,10 @@ from leads.models import (
     CustomerSource,
     LeadConversion,
     LeadEventOutbox,
+    LeadEventAttempt,
+    LeadEventResult,
+    LeadInboundEvent,
+    LeadNotificationAttempt,
     LeadFormDefinition,
     LeadSubmission,
     Opportunity,
@@ -87,6 +92,7 @@ class LeadViewsV2ContractTests(TestCase):
         SalesTeamMember,
         SavedView,
         LeadSubmission,
+        LeadNotificationAttempt,
         ConsentRecord,
         Company,
         Contact,
@@ -98,6 +104,9 @@ class LeadViewsV2ContractTests(TestCase):
         Activity,
         Task,
         LeadEventOutbox,
+        LeadEventAttempt,
+        LeadEventResult,
+        LeadInboundEvent,
         AuditLog,
     )
 
@@ -1610,6 +1619,7 @@ class LeadViewsV2ContractTests(TestCase):
         self.assertNotIn('q=', redirect_url)
         self.assertEqual(self.client.get(redirect_url).status_code, 200)
 
+    @override_settings(VORNTEK_BRAND_NAME='Example Console')
     def test_list_and_detail_each_have_one_h1_and_only_the_v2_shell_assets(self):
         self.client.force_login(self.sales)
         responses = (
@@ -1628,6 +1638,7 @@ class LeadViewsV2ContractTests(TestCase):
             '/static/console/vendor/tabler/1.4.0/tabler.min.css',
             '/static/console/v2/vorntek-theme.css',
             '/static/console/v2/vorntek-v2.css',
+            '/static/console/v2/lead-workspace.css',
             '/static/console/vorntek-brand.css',
         ]
         expected_scripts = [
@@ -1640,11 +1651,12 @@ class LeadViewsV2ContractTests(TestCase):
         for response in responses:
             with self.subTest(path=response.request['PATH_INFO']):
                 self.assertEqual(response.status_code, 200)
+                self.assertContains(response, '<title>线索工作区 · Example Console</title>')
                 parser = _DocumentContractParser()
                 parser.feed(response.content.decode())
                 self.assertEqual(parser.h1_count, 1)
                 self.assertEqual([urlsplit(href).path for href in parser.stylesheets], expected_stylesheets)
-                self.assertEqual(parser.scripts, expected_scripts)
+                self.assertEqual([urlsplit(src).path for src in parser.scripts], expected_scripts)
                 rendered = response.content.decode()
                 self.assertNotIn('admin-shell.css', rendered)
                 self.assertNotIn('admin-shell.js', rendered)
@@ -2508,6 +2520,669 @@ class LeadViewsV2ContractTests(TestCase):
             ['1'],
         )
         self.assertEqual(self.client.get(moved_back_to_first_page.url).status_code, 200)
+
+    def test_lead_model_exposes_recoverable_trash_state(self):
+        field_names = {field.name for field in LeadSubmission._meta.fields}
+
+        self.assertTrue(
+            {
+                'trashed_at',
+                'trashed_by',
+                'trash_reason',
+                'restored_at',
+                'restored_by',
+            }.issubset(field_names)
+        )
+
+    def test_trash_and_restore_commands_are_idempotent_and_audited_once(self):
+        from leads import lead_workflow_services as workflow
+
+        move = getattr(workflow, 'move_lead_to_trash', None)
+        restore = getattr(workflow, 'restore_lead_from_trash', None)
+        self.assertTrue(callable(move))
+        self.assertTrue(callable(restore))
+
+        moved = move(
+            submission_id=self.owned_lead.pk,
+            actor=self.manager,
+            reason='Duplicate test inquiry',
+            clock=lambda: self.now,
+        )
+        replayed_move = move(
+            submission_id=self.owned_lead.pk,
+            actor=self.manager,
+            reason='Duplicate test inquiry',
+            clock=lambda: self.now + timedelta(minutes=1),
+        )
+
+        self.assertTrue(moved.changed)
+        self.assertFalse(replayed_move.changed)
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.trashed_at, self.now)
+        self.assertEqual(self.owned_lead.trashed_by_id, self.manager.pk)
+        self.assertEqual(self.owned_lead.trash_reason, 'Duplicate test inquiry')
+        self.assertEqual(Activity.objects.filter(
+            submission=self.owned_lead,
+            activity_type='system',
+        ).count(), 1)
+        self.assertEqual(AuditLog.objects.filter(
+            entity_table='lead_submission',
+            entity_id=self.owned_lead.pk,
+            action='lead_moved_to_trash',
+        ).count(), 1)
+
+        restored = restore(
+            submission_id=self.owned_lead.pk,
+            actor=self.manager,
+            clock=lambda: self.now + timedelta(minutes=2),
+        )
+        replayed_restore = restore(
+            submission_id=self.owned_lead.pk,
+            actor=self.manager,
+            clock=lambda: self.now + timedelta(minutes=3),
+        )
+
+        self.assertTrue(restored.changed)
+        self.assertFalse(replayed_restore.changed)
+        self.owned_lead.refresh_from_db()
+        self.assertIsNone(self.owned_lead.trashed_at)
+        self.assertIsNone(self.owned_lead.trashed_by_id)
+        self.assertEqual(self.owned_lead.trash_reason, '')
+        self.assertEqual(self.owned_lead.restored_at, self.now + timedelta(minutes=2))
+        self.assertEqual(self.owned_lead.restored_by_id, self.manager.pk)
+        self.assertEqual(AuditLog.objects.filter(
+            entity_table='lead_submission',
+            entity_id=self.owned_lead.pk,
+            action='lead_restored',
+        ).count(), 1)
+
+    def test_trash_rejects_converted_and_restore_rejects_privacy_deleted_lead(self):
+        from leads import lead_workflow_services as workflow
+
+        move = getattr(workflow, 'move_lead_to_trash', None)
+        restore = getattr(workflow, 'restore_lead_from_trash', None)
+        self.assertTrue(callable(move))
+        self.assertTrue(callable(restore))
+
+        company = Company.objects.create(
+            site=self.site,
+            owner_user=self.sales,
+            team=self.team,
+            name='Converted example organization',
+        )
+        LeadConversion.objects.create(
+            submission=self.owned_lead,
+            company=company,
+            converted_by_user=self.manager,
+        )
+        with self.assertRaises(ValidationError) as converted_error:
+            move(
+                submission_id=self.owned_lead.pk,
+                actor=self.manager,
+                reason='Should be handled in CRM',
+                clock=lambda: self.now,
+            )
+        self.assertEqual(converted_error.exception.code, 'lead_already_converted')
+        self.assertIsNone(LeadSubmission.objects.get(pk=self.owned_lead.pk).trashed_at)
+
+        move(
+            submission_id=self.other_lead.pk,
+            actor=self.manager,
+            reason='Candidate cleanup',
+            clock=lambda: self.now,
+        )
+        LeadSubmission.objects.filter(pk=self.other_lead.pk).update(
+            config_json={'privacy_deleted': True},
+        )
+        with self.assertRaises(ValidationError) as privacy_error:
+            restore(
+                submission_id=self.other_lead.pk,
+                actor=self.manager,
+                clock=lambda: self.now + timedelta(minutes=1),
+            )
+        self.assertEqual(privacy_error.exception.code, 'privacy_deleted')
+        self.assertIsNotNone(LeadSubmission.objects.get(pk=self.other_lead.pk).trashed_at)
+
+    def test_workspace_hides_trashed_leads_and_manager_can_open_trash_queue(self):
+        LeadSubmission.objects.filter(pk=self.owned_lead.pk).update(
+            trashed_at=self.now,
+            trashed_by=self.manager,
+            trash_reason='Duplicate inquiry',
+        )
+        self.client.force_login(self.manager)
+
+        active_response = self.client.get(
+            reverse('console:lead_workspace_v2'),
+            {'sort': 'newest'},
+            follow=True,
+        )
+        self.assertEqual(active_response.status_code, 200)
+        self.assertNotIn(
+            self.owned_lead.pk,
+            [row['id'] for row in active_response.context['workspace']['rows']],
+        )
+
+        trash_response = self.client.get(
+            reverse('console:lead_workspace_v2'),
+            {'view': 'trash', 'sort': 'newest'},
+            follow=True,
+        )
+        self.assertEqual(trash_response.status_code, 200)
+        trash_workspace = trash_response.context['workspace']
+        self.assertEqual(getattr(trash_workspace['filters'], 'view', None), 'trash')
+        self.assertEqual(
+            [row['id'] for row in trash_workspace['rows']],
+            [self.owned_lead.pk],
+        )
+
+    def _mark_owned_lead_trashed(self):
+        LeadSubmission.objects.filter(pk=self.owned_lead.pk).update(
+            trashed_at=self.now, trashed_by=self.manager, trash_reason='Operational isolation test',
+        )
+
+    def test_trash_operational_legacy_list_excludes_record_but_preserves_evidence(self):
+        from console.leads_workspace import _build_submissions_context
+
+        self._mark_owned_lead_trashed()
+        request = RequestFactory().get('/admin/leads/', {'tab': 'submissions'})
+        request.user = self.manager
+        context = _build_submissions_context(self.site, request, 'en', [])
+        self.assertEqual([int(row['id']) for row in context['table']['rows']], [self.other_lead.pk])
+        self.assertTrue(LeadSubmission.objects.filter(pk=self.owned_lead.pk).exists())
+
+    def test_trash_operational_sales_queue_excludes_record(self):
+        from console.sales_queries import build_workbench_context
+
+        self._mark_owned_lead_trashed()
+        context = build_workbench_context(site=self.site, user=self.manager, now=self.now)
+        ids = [int(row.entity_id) for row in context['action_queue'] if row.kind == 'lead']
+        self.assertEqual(ids, [self.other_lead.pk])
+
+    def test_trash_operational_role_workbench_excludes_record(self):
+        from console.workbench_queries import _build_sales_workbench
+
+        self._mark_owned_lead_trashed()
+        context = _build_sales_workbench(
+            site=self.site, user=self.manager, roles={ROLE_SALES_MANAGER},
+            variant='sales_manager', now=self.now, limit=40,
+        )
+        section = next(row for row in context['sections'] if row['key'] == 'leads')
+        self.assertEqual([int(row['id']) for row in section['items']], [self.other_lead.pk])
+
+    def test_trash_operational_task_search_and_target_resolution_reject_record(self):
+        from django.http import Http404
+        from console.task_views_v2 import _scoped_target
+
+        self._mark_owned_lead_trashed()
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('console:task_target_search_v2'), {'type': 'lead', 'q': 'Amina'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['items'], [])
+        with self.assertRaises(Http404):
+            _scoped_target(site=self.site, user=self.manager, target_type='lead', target_id=self.owned_lead.pk)
+        self.assertEqual(
+            _scoped_target(site=self.site, user=self.manager, target_type='lead', target_id=self.other_lead.pk)['submission'].pk,
+            self.other_lead.pk,
+        )
+
+    def test_trash_operational_legacy_editor_and_stage_post_cannot_change_record(self):
+        self._mark_owned_lead_trashed()
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('console:lead_submission_edit', args=[self.owned_lead.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.client.post(reverse('console:lead_submission_bulk_stage'), {
+            'submission_ids': [str(self.owned_lead.pk)], 'bulk_stage': 'lost',
+        })
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.stage, 'new')
+        self.assertFalse(AuditLog.objects.filter(
+            entity_table='lead_submission', entity_id=self.owned_lead.pk,
+            action='lead_bulk_stage_updated',
+        ).exists())
+
+    def test_trash_operational_team_counts_exclude_record(self):
+        from console.views import sales_team_usage, sales_team_usage_queryset
+
+        self._mark_owned_lead_trashed()
+        self.assertEqual(sales_team_usage(self.team)['open_leads'], 1)
+        annotated = sales_team_usage_queryset(SalesTeam.objects.filter(pk=self.team.pk)).get()
+        self.assertEqual(annotated.open_lead_count, 1)
+
+    def test_trash_operational_reminder_command_selects_only_active_records(self):
+        from io import StringIO
+        from django.test import override_settings
+        from leads.management.commands.send_lead_reminders import Command
+
+        self._mark_owned_lead_trashed()
+        LeadSubmission.objects.filter(pk__in=[self.owned_lead.pk, self.other_lead.pk]).update(
+            submitted_at=self.now - timedelta(days=2), notification_status='failed',
+        )
+        selected = []
+        def fake_send(submission, *, reminder=False):
+            selected.append((submission.pk, reminder))
+            return False
+        with (
+            override_settings(SITEOS_LEAD_REMINDER_HOURS=1, SITEOS_LEAD_REMINDER_REPEAT_HOURS=1),
+            patch('leads.management.commands.send_lead_reminders.email_delivery_configured', return_value=True),
+            patch('leads.management.commands.send_lead_reminders.send_submission_notification', side_effect=fake_send),
+        ):
+            Command(stdout=StringIO()).handle()
+        self.assertEqual(selected, [(self.other_lead.pk, False), (self.other_lead.pk, True)])
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.notification_status, 'failed')
+        self.assertIsNone(self.owned_lead.reminder_sent_at)
+
+    def test_trash_operational_stage_service_rechecks_stale_record(self):
+        from leads.services import LeadCaptureError, update_submission_stage
+
+        self._mark_owned_lead_trashed()
+        with self.assertRaises(LeadCaptureError) as error:
+            update_submission_stage(
+                submission=self.owned_lead, stage='lost', buyer_value=None, buyer_currency='USD',
+            )
+        self.assertEqual(error.exception.code, 'lead_trashed')
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.stage, 'new')
+
+    def test_trash_operational_owner_service_rechecks_locked_record(self):
+        from leads.lead_workflow_services import assign_lead_owner
+
+        self._mark_owned_lead_trashed()
+        with self.assertRaises(ValidationError) as error:
+            assign_lead_owner(
+                submission_id=self.owned_lead.pk, actor=self.manager, assignee_id=self.other_sales.pk,
+            )
+        self.assertEqual(error.exception.code, 'lead_trashed')
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.assignee_id, self.sales.pk)
+
+    def test_trash_operational_disposition_service_rejects_locked_record(self):
+        from leads.lead_workflow_services import dispose_lead
+
+        self._mark_owned_lead_trashed()
+        with self.assertRaises(ValidationError) as error:
+            dispose_lead(
+                submission_id=self.owned_lead.pk, actor=self.manager,
+                expected_updated_at=self.owned_lead.updated_at, stage='lost', qualification={},
+                activity={'activity_type': 'note', 'direction': 'internal', 'subject': 'Closed', 'body': 'Test'},
+                idempotency_token='trash-direct-disposition',
+            )
+        self.assertEqual(error.exception.code, 'lead_trashed')
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.stage, 'new')
+
+    def test_trash_operational_conversion_service_rejects_locked_record(self):
+        from leads.crm_services import convert_qualified_lead
+
+        self._prepare_conversion(self.owned_lead)
+        self._mark_owned_lead_trashed()
+        before = self._conversion_counts(self.owned_lead)
+        with self.assertRaises(ValidationError) as error:
+            convert_qualified_lead(submission_id=self.owned_lead.pk, actor=self.manager)
+        self.assertEqual(error.exception.code, 'lead_trashed')
+        self.assertEqual(self._conversion_counts(self.owned_lead), before)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_trash_operational_notification_rechecks_stale_record_before_smtp(self):
+        from leads.notifications import send_submission_notification
+
+        self.form.notify_emails = 'synthetic@example.invalid'
+        self.form.save(update_fields=['notify_emails'])
+        self._mark_owned_lead_trashed()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertFalse(send_submission_notification(self.owned_lead))
+            self.assertFalse(send_submission_notification(self.owned_lead, reminder=True))
+        self.assertEqual(len(mail.outbox), 0)
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.notification_status, 'sent')
+        self.assertIsNone(self.owned_lead.notified_at)
+        self.assertIsNone(self.owned_lead.reminder_sent_at)
+
+    def _delivery_outbox(self, *, stage_key='submitted', status='pending'):
+        integration = MarketingIntegration.objects.get(site=self.site, integration_type='pixel')
+        return LeadEventOutbox.objects.create(
+            submission=self.owned_lead, integration=integration, stage_key=stage_key,
+            event_name='Lead', event_id=f'restore-contract-{stage_key}', action_source='website',
+            payload_json={'event_id': f'restore-contract-{stage_key}', 'event_name': 'Lead'},
+            status=status, attempts=2 if status == 'sent' else 0,
+        )
+
+    def test_trash_outbox_worker_preserves_pending_and_sent_states(self):
+        from leads.services import dispatch_pending_outbox
+
+        pending = self._delivery_outbox()
+        sent = self._delivery_outbox(stage_key='contacted', status='sent')
+        self._mark_owned_lead_trashed()
+        with patch('leads.services.dispatch_meta_outbox_event') as delivery:
+            self.assertEqual(dispatch_pending_outbox(submission=self.owned_lead), (0, 0))
+            delivery.assert_not_called()
+        pending.refresh_from_db()
+        sent.refresh_from_db()
+        self.assertEqual((pending.status, pending.attempts), ('pending', 0))
+        self.assertEqual((sent.status, sent.attempts), ('sent', 2))
+
+    def test_trash_outbox_direct_send_rechecks_stale_record(self):
+        from leads.services import dispatch_outbox_event
+
+        pending = self._delivery_outbox()
+        self._mark_owned_lead_trashed()
+        with patch('leads.services.dispatch_meta_outbox_event') as delivery:
+            self.assertFalse(dispatch_outbox_event(pending))
+            delivery.assert_not_called()
+        pending.refresh_from_db()
+        self.assertEqual((pending.status, pending.attempts), ('pending', 0))
+
+    def test_trash_outbox_claimed_before_trash_returns_to_resumable_queue(self):
+        from leads.services import dispatch_claimed_outbox_event
+
+        claimed = self._delivery_outbox(status='sending')
+        self._mark_owned_lead_trashed()
+        with patch('leads.services.dispatch_meta_outbox_event') as delivery:
+            self.assertFalse(dispatch_claimed_outbox_event(claimed))
+            delivery.assert_not_called()
+        claimed.refresh_from_db()
+        self.assertEqual((claimed.status, claimed.attempts), ('pending', 0))
+
+    def test_restore_outbox_resumes_original_target_without_replaying_sent(self):
+        from io import BytesIO
+        from leads.lead_workflow_services import restore_lead_from_trash
+        from leads.services import dispatch_pending_outbox
+
+        pending = self._delivery_outbox()
+        sent = self._delivery_outbox(stage_key='contacted', status='sent')
+        original_payload = pending.payload_json.copy()
+        self._mark_owned_lead_trashed()
+        restore_lead_from_trash(submission_id=self.owned_lead.pk, actor=self.manager)
+        with (
+            patch('leads.services.resolve_meta_access_token', return_value='synthetic-only'),
+            patch('leads.services.urllib.request.urlopen') as transport,
+        ):
+            transport.return_value.__enter__.return_value = BytesIO(b'{"events_received":1}')
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(dispatch_pending_outbox(submission=self.owned_lead), (1, 0))
+            self.assertEqual(dispatch_pending_outbox(submission=self.owned_lead), (0, 0))
+            transport.assert_called_once()
+            self.assertIn('/1234567890/events', transport.call_args.args[0].full_url)
+        pending.refresh_from_db()
+        sent.refresh_from_db()
+        self.assertEqual((pending.status, pending.attempts), ('sent', 1))
+        self.assertEqual(pending.payload_json, original_payload)
+        self.assertEqual((sent.status, sent.attempts), ('sent', 2))
+
+    def test_trash_manual_retry_rejects_then_restore_reenables_original_retry(self):
+        from console.marketing_queries import outbox_retry_contract, retryable_outbox_q
+        from leads.lead_workflow_services import restore_lead_from_trash
+
+        failed = self._delivery_outbox(status='failed')
+        self._mark_owned_lead_trashed()
+        failed.refresh_from_db()
+        retryable, reason = outbox_retry_contract(failed)
+        self.assertFalse(retryable)
+        self.assertIn('回收', reason)
+        self.assertFalse(LeadEventOutbox.objects.filter(retryable_outbox_q(), pk=failed.pk).exists())
+        self.client.force_login(self.admin)
+        url = reverse('console:marketing_outbox_retry', args=[failed.pk])
+        with patch('console.marketing_views.dispatch_claimed_outbox_event') as delivery:
+            response = self.client.post(url)
+            self.assertEqual(response.status_code, 409)
+            delivery.assert_not_called()
+        failed.refresh_from_db()
+        self.assertEqual((failed.status, failed.attempts), ('failed', 0))
+        restore_lead_from_trash(submission_id=self.owned_lead.pk, actor=self.manager)
+        failed.refresh_from_db()
+        self.assertTrue(outbox_retry_contract(failed)[0])
+        self.assertTrue(LeadEventOutbox.objects.filter(retryable_outbox_q(), pk=failed.pk).exists())
+
+    def test_restore_does_not_override_revoked_delivery_qualification(self):
+        from leads.lead_workflow_services import restore_lead_from_trash
+        from leads.services import dispatch_pending_outbox
+
+        pending = self._delivery_outbox()
+        self._mark_owned_lead_trashed()
+        LeadSubmission.objects.filter(pk=self.owned_lead.pk).update(consent_json={'marketing': False})
+        restore_lead_from_trash(submission_id=self.owned_lead.pk, actor=self.manager)
+        with patch('leads.services.dispatch_meta_outbox_event') as delivery:
+            self.assertEqual(dispatch_pending_outbox(submission=self.owned_lead), (1, 0))
+            delivery.assert_not_called()
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, 'skipped')
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_restore_notification_resumes_failed_only_without_replaying_success(self):
+        from leads.lead_workflow_services import restore_lead_from_trash
+        from leads.notifications import send_submission_notification
+
+        self.form.notify_emails = 'synthetic@example.invalid'
+        self.form.save(update_fields=['notify_emails'])
+        LeadSubmission.objects.filter(pk=self.owned_lead.pk).update(notification_status='failed')
+        self._mark_owned_lead_trashed()
+        restore_lead_from_trash(submission_id=self.owned_lead.pk, actor=self.manager)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertFalse(send_submission_notification(self.owned_lead))
+            self.assertFalse(send_submission_notification(self.owned_lead))
+        self.assertEqual(len(mail.outbox), 1)
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.notification_status, 'sent')
+        self.assertIsNotNone(self.owned_lead.notified_at)
+
+    def test_sales_cannot_open_or_mutate_trash_queue(self):
+        from console import lead_views_v2 as views
+
+        self.assertTrue(callable(getattr(views, 'lead_bulk_trash_v2', None)))
+        self.assertTrue(callable(getattr(views, 'lead_bulk_restore_v2', None)))
+        self.client.force_login(self.sales)
+
+        queue_response = self.client.get(
+            reverse('console:lead_workspace_v2'),
+            {'view': 'trash', 'sort': 'newest'},
+        )
+        trash_response = self.client.post(
+            reverse('console:lead_bulk_trash_v2'),
+            {'record_ids': [str(self.owned_lead.pk)]},
+        )
+        restore_response = self.client.post(
+            reverse('console:lead_bulk_restore_v2'),
+            {'record_ids': [str(self.owned_lead.pk)]},
+        )
+
+        self.assertEqual(queue_response.status_code, 403)
+        self.assertEqual(trash_response.status_code, 403)
+        self.assertEqual(restore_response.status_code, 403)
+        self.owned_lead.refresh_from_db()
+        self.assertIsNone(self.owned_lead.trashed_at)
+
+    def test_bulk_trash_returns_partial_success_and_bulk_restore_is_idempotent(self):
+        from console import lead_views_v2 as views
+
+        self.assertTrue(callable(getattr(views, 'lead_bulk_trash_v2', None)))
+        self.assertTrue(callable(getattr(views, 'lead_bulk_restore_v2', None)))
+        secondary_team = SalesTeam.objects.create(
+            site=self.site,
+            code='secondary_trash',
+            name='Secondary trash',
+            enabled=True,
+        )
+        secondary_sales = get_user_model().objects.create_user(
+            username='secondary-trash-sales',
+            password='test-password',
+        )
+        SalesTeamMember.objects.create(
+            team=secondary_team,
+            user=secondary_sales,
+            membership_role='member',
+        )
+        private_lead = self._lead(full_name='Private trash lead', assignee=secondary_sales)
+        private_lead.team = secondary_team
+        private_lead.save(update_fields=['team'])
+        self.client.force_login(self.manager)
+
+        trash_response = self.client.post(
+            reverse('console:lead_bulk_trash_v2'),
+            {
+                'record_ids': [str(self.owned_lead.pk), str(private_lead.pk)],
+                'reason': 'Duplicate test inquiry',
+            },
+        )
+        self.assertEqual(trash_response.status_code, 207)
+        trash_payload = trash_response.json()
+        self.assertEqual(trash_payload['updated'], 1)
+        self.assertEqual(
+            [record['id'] for record in trash_payload['records']],
+            [self.owned_lead.pk],
+        )
+        self.assertEqual(trash_payload['failures'][0]['code'], 'not_found')
+        self.owned_lead.refresh_from_db()
+        private_lead.refresh_from_db()
+        self.assertIsNotNone(self.owned_lead.trashed_at)
+        self.assertIsNone(private_lead.trashed_at)
+
+        restore_response = self.client.post(
+            reverse('console:lead_bulk_restore_v2'),
+            {'record_ids': [str(self.owned_lead.pk)]},
+        )
+        replayed_restore = self.client.post(
+            reverse('console:lead_bulk_restore_v2'),
+            {'record_ids': [str(self.owned_lead.pk)]},
+        )
+        self.assertEqual(restore_response.status_code, 200)
+        self.assertEqual(restore_response.json()['updated'], 1)
+        self.assertEqual(replayed_restore.status_code, 200)
+        self.assertEqual(replayed_restore.json()['updated'], 0)
+        self.owned_lead.refresh_from_db()
+        self.assertIsNone(self.owned_lead.trashed_at)
+        self.assertEqual(AuditLog.objects.filter(
+            entity_table='lead_submission',
+            entity_id=self.owned_lead.pk,
+            action='lead_restored',
+        ).count(), 1)
+
+    def test_legacy_export_payload_and_sales_summary_hide_trashed_leads(self):
+        from console.lead_exports import lead_export_queryset
+        from console.leads_payload import leads_payload
+
+        LeadSubmission.objects.filter(pk=self.owned_lead.pk).update(
+            trashed_at=self.now,
+            trashed_by=self.manager,
+            trash_reason='Duplicate inquiry',
+        )
+        request = RequestFactory().get('/admin/leads/submissions/export.csv')
+        request.user = self.manager
+
+        export_ids = list(
+            lead_export_queryset(request, self.site).values_list('id', flat=True)
+        )
+        payload = leads_payload('en')
+        payload_row_ids = {
+            row['id'] for row in payload['views']['submissions']['table']['rows']
+        }
+        payload_total = next(
+            item['value']
+            for item in payload['views']['submissions']['summary']
+            if item['label'] == '线索总数'
+        )
+        self.assertEqual(export_ids, [self.other_lead.pk])
+        self.assertNotIn(f'lead-{self.owned_lead.pk}', payload_row_ids)
+        self.assertEqual(payload_total, 1)
+
+    def test_trashed_lead_cannot_be_reassigned_through_active_bulk_endpoint(self):
+        LeadSubmission.objects.filter(pk=self.owned_lead.pk).update(
+            trashed_at=self.now,
+            trashed_by=self.manager,
+            trash_reason='Duplicate inquiry',
+        )
+        self.client.force_login(self.manager)
+
+        response = self.client.post(
+            reverse('console:lead_bulk_assign_v2'),
+            {
+                'record_ids': [str(self.owned_lead.pk)],
+                'assignee_id': str(self.other_sales.pk),
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()['failures'][0]['code'], 'not_found')
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.assignee_id, self.sales.pk)
+
+    def test_bulk_assignment_rechecks_trash_state_after_row_lock(self):
+        from leads.lead_workflow_services import assign_lead_owner as real_assign
+
+        self.client.force_login(self.manager)
+
+        def trash_before_lock(**kwargs):
+            LeadSubmission.objects.filter(pk=kwargs['submission_id']).update(
+                trashed_at=self.now,
+                trashed_by=self.manager,
+                trash_reason='Concurrent cleanup',
+            )
+            return real_assign(**kwargs)
+
+        with patch(
+            'console.lead_views_v2.assign_lead_owner',
+            side_effect=trash_before_lock,
+        ):
+            response = self.client.post(
+                reverse('console:lead_bulk_assign_v2'),
+                {
+                    'record_ids': [str(self.owned_lead.pk)],
+                    'assignee_id': str(self.other_sales.pk),
+                },
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()['failures'][0]['code'], 'not_found')
+        self.owned_lead.refresh_from_db()
+        self.assertEqual(self.owned_lead.assignee_id, self.sales.pk)
+        # This hook writes on the request connection, inside its new item
+        # transaction, so rejection rolls that synthetic write back as well.
+        # A separately committed trash update is covered on real PostgreSQL by
+        # BatchCommitAuthorizationTests; it must survive the rejected assignment.
+        self.assertIsNone(self.owned_lead.trashed_at)
+
+    def test_lead_workspace_renders_one_bulk_selector_for_trash_and_restore(self):
+        self.client.force_login(self.manager)
+        active_response = self.client.get(
+            reverse('console:lead_workspace_v2'),
+            {'sort': 'newest'},
+            follow=True,
+        )
+        active_html = active_response.content.decode('utf-8')
+
+        self.assertIn(
+            f'data-nc-bulk-trash-url="{reverse("console:lead_bulk_trash_v2")}"',
+            active_html,
+        )
+        self.assertIn(
+            f'data-nc-bulk-restore-url="{reverse("console:lead_bulk_restore_v2")}"',
+            active_html,
+        )
+        self.assertIn('href="/admin/sales/leads/?view=trash&amp;sort=newest"', active_html)
+        self.assertIn('data-nc-bulk-trash', active_html)
+        self.assertIn('id="lead-trash-confirm-modal"', active_html)
+        self.assertEqual(active_html.count('data-nc-select-page'), 1)
+
+        LeadSubmission.objects.filter(pk=self.owned_lead.pk).update(
+            trashed_at=self.now,
+            trashed_by=self.manager,
+            trash_reason='Duplicate inquiry',
+        )
+        trash_response = self.client.get(
+            reverse('console:lead_workspace_v2'),
+            {'view': 'trash', 'sort': 'newest'},
+            follow=True,
+        )
+        trash_html = trash_response.content.decode('utf-8')
+        self.assertIn('data-nc-bulk-restore', trash_html)
+        self.assertNotIn('data-nc-bulk-assign disabled', trash_html)
+        self.assertEqual(trash_html.count('data-nc-select-page'), 1)
+
+        script = (
+            Path(__file__).parent / 'static' / 'console' / 'v2' / 'leads.js'
+        ).read_text(encoding='utf-8')
+        self.assertIn('postTrashTransition', script)
+        self.assertIn('data-nc-bulk-trash', script)
+        self.assertIn('data-nc-bulk-restore', script)
 
     def test_detail_get_canonicalizes_sla_sort_after_follow_up_deadline_changes(self):
         for index in range(20):

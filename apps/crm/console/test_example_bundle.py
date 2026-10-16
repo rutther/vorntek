@@ -120,6 +120,7 @@ class ExampleBundleLifecycleTests(TestCase):
         self.assertEqual(result['result'], 'IMPORTED')
         self.assertEqual(LeadFormDefinition.objects.filter(code__startswith='demo-').count(), 3)
         self.assertEqual(LeadSubmission.objects.count(), 9)
+        self.assertEqual(set(LeadSubmission.objects.values_list('notification_status', flat=True)), {'disabled'})
         self.assertEqual(Opportunity.objects.count(), 4)
         self.assertEqual(Task.objects.count(), 6)
         self.assertEqual(MarketingLoop.objects.count(), 3)
@@ -134,6 +135,9 @@ class ExampleBundleLifecycleTests(TestCase):
         self.assertEqual(set(Task.objects.values_list('status', flat=True)),
                          {'open', 'in_progress', 'completed', 'canceled'})
         self.assertTrue(LeadSubmission.objects.filter(trashed_at__isnull=False).exists())
+        trashed = LeadSubmission.objects.get(trashed_at__isnull=False)
+        self.assertEqual(Activity.objects.filter(submission=trashed,
+                         metadata_json__workflow='lead_trash_v2').count(), 1)
         self.assertEqual(ExampleDataBundle.objects.get().state, 'active')
 
     def test_repeated_import_adds_nothing_and_preserves_later_edits(self):

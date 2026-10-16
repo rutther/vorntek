@@ -12,7 +12,7 @@ from openpyxl.styles import Font, PatternFill
 
 from leads.models import LeadSubmission
 
-from .access import lead_attribution_queryset_for_user
+from .access import active_lead_queryset, lead_attribution_queryset_for_user
 
 
 EXPORT_COLUMNS = [
@@ -45,9 +45,13 @@ EXPORT_COLUMNS = [
 
 
 def lead_export_queryset(request, site) -> QuerySet[LeadSubmission]:
-    qs = lead_attribution_queryset_for_user(
-        LeadSubmission.objects.filter(site=site).select_related('form', 'locale', 'assignee', 'team'),
-        request.user,
+    qs = active_lead_queryset(
+        lead_attribution_queryset_for_user(
+            LeadSubmission.objects.filter(site=site).select_related(
+                'form', 'locale', 'assignee', 'team'
+            ),
+            request.user,
+        )
     ).order_by('-submitted_at', '-id')
     stage = request.GET.get('stage', 'all')
     locale = request.GET.get('lead_locale', 'all')

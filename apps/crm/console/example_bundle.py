@@ -24,7 +24,7 @@ from leads.crm_services import (cancel_task, change_opportunity_stage,
     complete_task, convert_qualified_lead, create_task, normalize_company_name, normalize_email,
     synchronize_submission_next_follow_up)
 from leads.form_schema import effective_form_fields
-from leads.lead_workflow_services import ActivityInput, QualificationInput, dispose_lead
+from leads.lead_workflow_services import ActivityInput, QualificationInput, dispose_lead, move_lead_to_trash
 from leads.models import (Activity, Company, CompanyContactPoint, CompanyPoolState, ConsentRecord,
     Contact, CustomerSource, LeadConversion, LeadFormDefinition, LeadSubmission, Opportunity,
     OpportunityStageHistory, SalesTeam, SalesTeamMember, Task)
@@ -266,7 +266,7 @@ def _create_examples(data, site, actor):
         lead = add(LeadSubmission, site=site, form=form, assignee=actor, team=team, **core,
             payload_json=row['payload'], source_url=site.base_url.rstrip('/')+'/contact/',
             source_channel='website', source_detail=data['notice'], submitted_at=now-timedelta(days=row['age_days']),
-            stage_updated_at=now, notification_status='skipped', consent_json={'contact':True, 'privacy_notice':True,
+            stage_updated_at=now, notification_status='disabled', consent_json={'contact':True, 'privacy_notice':True,
             'marketing':False}, config_json={'synthetic_pack':data['pack'], 'example_key':row['key']})
         relative_dates.append({'model':lead._meta.label_lower, 'pk':str(lead.pk),
                                'field':'submitted_at', 'days':-row['age_days']})
@@ -281,8 +281,8 @@ def _create_examples(data, site, actor):
                     subject='虚构示例阶段', body=data['notice']))
             lead = result.submission
         if row.get('trashed'):
-            lead.trashed_at, lead.trashed_by, lead.trash_reason = now, actor, data['notice']
-            lead.save(update_fields=['trashed_at', 'trashed_by', 'trash_reason', 'updated_at'])
+            lead = move_lead_to_trash(submission_id=lead.pk, actor=actor,
+                                     reason=data['notice'], clock=lambda:now).submission
         inquiries[row['key']] = lead
     opportunities = {}
     stages = ['discovery', 'solution', 'quotation', 'negotiation']

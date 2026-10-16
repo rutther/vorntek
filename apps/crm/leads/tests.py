@@ -1066,7 +1066,63 @@ class GoogleDataManagerPayloadTests(SimpleTestCase):
 
 
 
-class LeadStageTransitionTests(SimpleTestCase):
+class LeadStageTransitionTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from leads.models import LeadFormDefinition, LeadSubmission, SalesTeam
+        from marketing.models import CanonicalEvent
+        from sitecore.models import Cta, PageRoute, Site, SiteLocale
+
+        cls.created_models = []
+        existing = set(connection.introspection.table_names())
+        with connection.schema_editor() as editor:
+            for model in (Site, SiteLocale, PageRoute, Cta, CanonicalEvent, SalesTeam, LeadFormDefinition, LeadSubmission):
+                if model._meta.db_table not in existing:
+                    editor.create_model(model)
+                    cls.created_models.append(model)
+                    existing.add(model._meta.db_table)
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            super().tearDownClass()
+        finally:
+            with connection.schema_editor() as editor:
+                for model in reversed(cls.created_models):
+                    editor.delete_model(model)
+
+    def setUp(self):
+        from leads.models import LeadFormDefinition
+        from sitecore.models import Site, SiteLocale
+
+        self.site = Site.objects.create(
+            code='stage_transitions', name='Stage transitions', base_url='https://example.invalid',
+            default_locale='en', enabled=True, config_json={},
+        )
+        self.locale = SiteLocale.objects.create(
+            site=self.site, locale_code='en', label='English', enabled=True, is_default=True,
+        )
+        self.form = LeadFormDefinition.objects.create(
+            site=self.site, locale=self.locale, code='stage_transitions', name='Stage transitions',
+            category='sales', channel='website', scope_type='site', scope_value='*', status='active',
+            capi_enabled=True, contacted_event_name='contacted_lead', qualified_event_name='qualified_lead',
+            won_event_name='converted', form_schema={}, config_json={},
+        )
+
+    def _submission(self, **values):
+        from leads.models import LeadSubmission
+
+        defaults = {
+            'site': self.site, 'locale': self.locale, 'form': self.form,
+            'stage': 'new', 'qualification_score': 80,
+            'qualification_overridden': False, 'buyer_currency': 'USD',
+            'consent_json': {'marketing': True},
+            'submitted_at': timezone.now(), 'stage_updated_at': timezone.now(),
+        }
+        defaults.update(values)
+        return LeadSubmission.objects.create(**defaults)
+
     @patch('leads.services.dispatch_outbox_event', return_value=True)
     @patch('leads.services.queue_submission_event')
     def test_direct_won_transition_records_and_queues_full_b2b_funnel(
@@ -1078,27 +1134,7 @@ class LeadStageTransitionTests(SimpleTestCase):
         qualified_outbox = SimpleNamespace(id=2)
         won_outbox = SimpleNamespace(id=3)
         mocked_queue.side_effect = [[contacted_outbox], [qualified_outbox], [won_outbox]]
-        submission = SimpleNamespace(
-            stage='new',
-            qualification_score=80,
-            qualification_overridden=False,
-            stage_updated_at=None,
-            contacted_at=None,
-            qualified_at=None,
-            won_at=None,
-            lost_at=None,
-            buyer_value=None,
-            buyer_currency='USD',
-            updated_at=None,
-            consent_json={'marketing': True},
-            form=SimpleNamespace(
-                capi_enabled=True,
-                contacted_event_name='contacted_lead',
-                qualified_event_name='qualified_lead',
-                won_event_name='converted',
-            ),
-            save=lambda **kwargs: None,
-        )
+        submission = self._submission()
 
         _, queued, attempted, succeeded = update_submission_stage(
             submission=submission,
@@ -1107,6 +1143,7 @@ class LeadStageTransitionTests(SimpleTestCase):
             buyer_currency='USD',
         )
 
+        submission.refresh_from_db()
         self.assertIsNotNone(submission.qualified_at)
         self.assertEqual(submission.qualified_at, submission.won_at)
         self.assertEqual(
@@ -1132,27 +1169,7 @@ class LeadStageTransitionTests(SimpleTestCase):
         contacted_outbox = SimpleNamespace(id=1)
         qualified_outbox = SimpleNamespace(id=2)
         mocked_queue.side_effect = [[contacted_outbox], [qualified_outbox]]
-        submission = SimpleNamespace(
-            stage='new',
-            qualification_score=80,
-            qualification_overridden=False,
-            stage_updated_at=None,
-            contacted_at=None,
-            qualified_at=None,
-            won_at=None,
-            lost_at=None,
-            buyer_value=None,
-            buyer_currency='USD',
-            updated_at=None,
-            consent_json={'marketing': True},
-            form=SimpleNamespace(
-                capi_enabled=True,
-                contacted_event_name='contacted_lead',
-                qualified_event_name='qualified_lead',
-                won_event_name='converted',
-            ),
-            save=lambda **kwargs: None,
-        )
+        submission = self._submission()
 
         _, queued, attempted, succeeded = update_submission_stage(
             submission=submission,
@@ -1178,27 +1195,7 @@ class LeadStageTransitionTests(SimpleTestCase):
         converted_outbox = SimpleNamespace(id=3)
         mocked_queue.return_value = [converted_outbox]
         now = timezone.now()
-        submission = SimpleNamespace(
-            stage='qualified',
-            qualification_score=80,
-            qualification_overridden=False,
-            stage_updated_at=now,
-            contacted_at=now,
-            qualified_at=now,
-            won_at=None,
-            lost_at=None,
-            buyer_value=None,
-            buyer_currency='USD',
-            updated_at=now,
-            consent_json={'marketing': True},
-            form=SimpleNamespace(
-                capi_enabled=True,
-                contacted_event_name='contacted_lead',
-                qualified_event_name='qualified_lead',
-                won_event_name='converted',
-            ),
-            save=lambda **kwargs: None,
-        )
+        submission = self._submission(stage='qualified', stage_updated_at=now, contacted_at=now, qualified_at=now)
 
         _, queued, attempted, succeeded = update_submission_stage(
             submission=submission,
@@ -1220,27 +1217,7 @@ class LeadStageTransitionTests(SimpleTestCase):
     def test_contacted_transition_queues_contacted_lead_event(self, mocked_queue, mocked_dispatch):
         outbox = SimpleNamespace(id=1)
         mocked_queue.return_value = [outbox]
-        submission = SimpleNamespace(
-            stage='new',
-            qualification_score=0,
-            qualification_overridden=False,
-            stage_updated_at=None,
-            contacted_at=None,
-            qualified_at=None,
-            won_at=None,
-            lost_at=None,
-            buyer_value=None,
-            buyer_currency='USD',
-            updated_at=None,
-            consent_json={'marketing': True},
-            form=SimpleNamespace(
-                capi_enabled=True,
-                contacted_event_name='contacted_lead',
-                qualified_event_name='qualified_lead',
-                won_event_name='converted',
-            ),
-            save=lambda **kwargs: None,
-        )
+        submission = self._submission(qualification_score=0)
 
         _, queued, attempted, succeeded = update_submission_stage(
             submission=submission,
@@ -1260,11 +1237,7 @@ class LeadStageTransitionTests(SimpleTestCase):
     @patch('leads.services.dispatch_outbox_event', return_value=True)
     @patch('leads.services.queue_submission_event')
     def test_unqualified_lead_cannot_bypass_stage_gate(self, mocked_queue, mocked_dispatch):
-        submission = SimpleNamespace(
-            stage='new',
-            qualification_score=60,
-            qualification_overridden=False,
-        )
+        submission = self._submission(qualification_score=60)
 
         with self.assertRaisesRegex(LeadCaptureError, '至少四项'):
             update_submission_stage(
