@@ -5,6 +5,17 @@
 This branch is an in-progress integration, not a deployed product release.
 The earlier observations below describe the prior public source baseline.
 
+- Formal deployment preparation found the base HTTP proxy loses verified client
+  addresses and the TLS protocol behind a host edge. An opt-in exact-peer renderer
+  now preserves both without trusting arbitrary forwarding headers. Standalone
+  native Nginx/HTTP tests reproduced the old failure and passed trusted/untrusted
+  peer, spoofed-header and two-client checks; original containers and host Nginx
+  remained unchanged. This is not actual final TLS/Docker ingress acceptance.
+  Default HTTP configuration remains unchanged; see [HTTPS proxy](HTTPS_PROXY.md).
+- English/Chinese entry documentation and the rollout checklist now describe the
+  neutral product and optional example packs, rather than prescribing the older
+  seven-industry demonstration. Prior release/CI evidence is explicitly historical.
+
 - The original Vorntek application's protected paired backup and independent
   original-version restoration have now been exercised, including its six
   accounts, encrypted vault, files and normal login after restart. The original

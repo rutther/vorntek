@@ -1,42 +1,46 @@
 # Vorntek
 
-A self-hosted industrial-company website and CRM, with PostgreSQL, Docker Compose,
-inquiry capture, customer management, roles, import/export and recovery tooling.
+A self-hosted, industry-neutral website and business-management system, with
+PostgreSQL, Docker Compose, configurable inquiries, CRM, marketing workflows,
+content delivery, roles and recovery tooling.
 
 [中文说明](README.zh-CN.md)
 
-**Public pre-release — not a production-readiness certification.** Vorntek now runs on the
-authorized isolated test instance with 200 seeded fictional customers plus one
-synthetic customer converted during sales acceptance. Initial public
-website/inquiry checks passed; full release acceptance is still in progress.
-See [deployment evidence](docs/VORNTEK_DEPLOYMENT.md) and [current status](docs/IMPLEMENTATION_STATUS.md).
+**Integration candidate — not a completed production release.** Current work
+preserves the full application while removing customer and industry coupling.
+Independent installation, upgrade and runtime checks do not by themselves prove
+the public deployment is complete. See [current status](docs/IMPLEMENTATION_STATUS.md).
 
-The complete source and [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1)
-are public. Both [release CI jobs](https://github.com/rutther/vorntek/actions/runs/34712023363)
-passed; independent clone installation, inquiry/login and restart checks passed.
-See [delivery evidence and remaining limits](docs/PUBLIC_DELIVERY.md).
+The public [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1),
+[release CI](https://github.com/rutther/vorntek/actions/runs/34712023363) and
+[earlier delivery evidence](docs/PUBLIC_DELIVERY.md) describe the earlier release,
+not this branch or the current server state. This integration has not been pushed
+or published as a new GitHub release.
 The current development version is recorded in [`VERSION`](VERSION) and returned
 by `/healthz/`; it is not a release until the acceptance ledger is complete.
 
 ## Included
 
-- English/Chinese website: 15 pages, seven industrial business lines, an original
-  AI logo and AI-generated product/workshop concepts.
-- One inquiry controller for homepage and contact page, preserving business area,
-  requirements and application context in the CRM.
+- English/Chinese website with configurable example content and catalogue entries;
+  no fixed industry or seven-category requirement.
+- Shared inquiry handling with configurable fields, requirements and backend
+  validation. Personal, organization and support scenarios use real CRM storage.
 - Staff accounts/roles, leads, customer pool, assignments, tasks, opportunities,
   import templates, strict 21-column customer-pool CSV round trips and background
   XLSX exports.
 - Canonical SQL installation, persistent database/files, health checks, guarded
   backup/restore and a default-paused integration scheduler.
+- Platform connections, acquisition plans, multiple workflow instances and Pixels,
+  flow diagrams, step illustrations, configuration and separate runtime evidence.
+- Private article previews, frozen website candidates, explicit deployment and
+  website-pointer recovery independent of draft content edits.
 - Optional measurement contracts. Meta, Google advertising measurement, email and
   WhatsApp are disabled by default. Real Meta deduplication is not verified here.
 
-Vorntek is a **fictional Chinese company** covering circulating-water control,
-liquid control, water-quality sensors, gas sensors, compact propane heaters, small
-turbojet engines and industrial analytics. The chart/CSV uses deterministic
-synthetic data, not live equipment. AI images are exterior concepts, not engineering
-drawings, certified products, tested specifications or safety assurances.
+Vorntek content and optional business examples are **fictional and synthetic**,
+not a real company history, customer portfolio, product certification or fixed
+industry model. Installation does not require importing example business data.
+Examples are editable records, not hard-coded success states or live equipment data.
 
 ## Isolated quick start
 
@@ -67,9 +71,14 @@ the application network or change unrelated host services.
 
 ## Configuration and upgrades
 
-For an optional 200-customer fictional dataset, preview with
-`docker compose exec crm python manage.py seed_vorntek_demo`.
-The guarded opt-in write and its limits are in [demo data](docs/DEMO_DATA.md).
+Use the optional, independently versioned [synthetic example packs](docs/EXAMPLE_DATA.md)
+for coherent inquiries, companies, contacts, opportunities, tasks, workflow
+instances, content and files. The default plan commands do not write data:
+`docker compose exec crm python manage.py seed_example_bundle` and
+`docker compose exec crm python manage.py seed_content_examples`.
+Explicit import requires a synthetic target and an existing administrator. Repeat
+import preserves later edits; bounded reset is not a purge. The older
+[200-customer demo](docs/DEMO_DATA.md) is historical/optional, not a product default.
 Never use the old schema-reset helper.
 
 `scripts/configure.py` creates `.env` and four unique file-backed secrets in
@@ -83,8 +92,10 @@ Fresh Compose projects/images use Vorntek names. Existing `NEWCROWN_*` settings,
 identifiers**, not customer branding. Never rename an existing Compose project or
 reset volumes to change branding: that can select a different database.
 
-The industrial form category is `industrial`. Bootstrap only creates missing
-configuration, not silently converts existing forms. See the
+New installations create a `general` inquiry form. The historical form code
+`project-inquiry` is a compatibility identifier, not an industry requirement.
+Bootstrap only creates missing configuration, not silently converts existing forms.
+Configure existing field requirements explicitly through the form editor. See the
 [rollout checklist](docs/VORNTEK_ROLLOUT.md). Applied SQL is not rewritten. Partial
 legacy migration ledgers are refused; never delete ledger rows or run old demo
 reset helpers to bypass this guard.
@@ -98,6 +109,11 @@ installation's real HTTPS public origin. The example value is intentionally
 non-live. Preview is authenticated, never activates the public site, and its
 remaining asset/version limits are documented in the
 [article delivery architecture](docs/ARTICLE_DELIVERY.md).
+
+For a TLS edge in front of the website container, use the explicit, verified-peer
+[HTTPS proxy procedure](docs/HTTPS_PROXY.md). The default HTTP configuration does
+not trust incoming forwarding headers; enabling secure cookies alone is not a
+complete two-proxy deployment.
 
 ## Development and verification
 

@@ -22,6 +22,11 @@ certifications.
 
 ### Added
 
+- An opt-in, exact-peer HTTPS edge proxy renderer with standalone real Nginx
+  spoofing/client-identity checks; no automatic host configuration changes.
+- Updated bilingual neutral-product installation and rollout guidance, separating
+  optional example packs and historical release evidence from current delivery.
+
 - A canonical `VERSION` file and runtime version reporting in `/healthz/`.
 - A read-only `release_preflight` command for version, migration ledger, storage
   and outbound-writer readiness, enforced by container CI.

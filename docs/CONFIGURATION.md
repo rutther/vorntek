@@ -76,10 +76,19 @@ collapses proxied traffic to the proxy IP, including rate limits. Do not publish
 a proxied installation before verifying this chain. Invalid/default-route ranges
 refuse startup; broad internet trust is not a workaround.
 
+When a host TLS edge precedes the website container, use the explicit
+[HTTPS proxy procedure](HTTPS_PROXY.md) and its native HTTP fixture. Only the
+verified original edge peer may provide client/protocol headers; CRM separately
+trusts the website peer. The default HTTP image remains suitable for private
+direct access and does not automatically enable that extra trust hop.
+
 客户端身份默认只取连接对端。仅对端位于明确可信代理范围时，才从转发链右侧向左
 核对可信跳点；自带Nginx用直接连接对端覆盖转发头，不透传任意客户端前缀。每次
 部署按实际代理地址配置并验证，网络变化后复核。留空适合直连/本机，但代理后的
 访问会共用代理IP及限流，公网代理部署前必须解决；不得用全网段代替验证。
+
+主机 HTTPS 入口位于网站容器之前时，按[两跳代理说明](HTTPS_PROXY.md)生成显式配置，
+并验证原始可信对端；默认镜像不会自动信任额外一跳。CRM 仍须单独核实网站容器对端。
 
 All `/admin/` and `/console/` responses, including redirects, permission errors
 and streams, are private/no-store; public static/API policies are left intact.

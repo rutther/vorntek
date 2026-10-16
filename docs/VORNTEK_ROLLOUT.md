@@ -1,20 +1,19 @@
 # Vorntek rollout / 替换部署检查表
 
-The first isolated Vorntek deployment is now verified; see
-[actual deployment evidence](VORNTEK_DEPLOYMENT.md). Full release acceptance and
-GitHub publication are incomplete. This checklist is not execution evidence.
+This is the current integration rollout checklist, not execution evidence.
+[Earlier isolated deployment evidence](VORNTEK_DEPLOYMENT.md) describes an older
+baseline and must not be used to certify this candidate or its public HTTPS route.
 
 ## Intended result
 
-The user explicitly replaced the original-company demonstration with fictional
-Vorntek, across website, CRM branding, sample content and GitHub distribution.
-Use seven industrial business lines and newly generated AI imagery. Preserve the
-working CRM capabilities and its visual language. No real customers or original
-company media belong in this public demo. Original production stays untouched.
+Preserve the full working website, CRM, marketing workflows and effective visual
+language while removing customer identity, fixed industry fields and deployment
+coupling. Vorntek examples are explicitly fictional and optional, not seven
+mandatory industrial business lines. Source production stays untouched; target
+accounts, secrets, configuration and later business data remain protected.
 
-The GitHub account was observed in the user's signed-in Edge session as `rutther`.
-Intended repository: `rutther/vorntek`; project license: MIT. Creation, upload,
-source/history review and public access remain separate unverified steps.
+This stage delivers the authorized Vorntek installation. GitHub push, tags and
+formal distribution are a later stage, not an implicit deployment side effect.
 
 ## Upgrade the authorized isolated instance
 
@@ -24,23 +23,31 @@ source/history review and public access remain separate unverified steps.
    separate storage. Record site/form metadata for rollback.
 3. Build reviewed source. Keep existing project/volume names and secrets. Do not
    reinitialize, truncate, rename or drop the database to change branding.
-4. In a transaction with row locks, verify expected `siteos_demo` and
-   `project-inquiry` metadata. Change only the intended site display name, form
-   display name/category (`industrial`) and explicitly reviewed locale settings.
-   Preserve business records, ownership, roles and integration configuration.
-5. Deploy website/backend together; keep all external I/O, browser measurement,
-   email and WhatsApp off. Do not change domains or unrelated shared-host services.
-6. Verify all 15 public routes, images, EN/ZH and mobile layouts, login, seven
-   business areas through HTTP -> database -> CRM display, failures, deduplication,
-   role permissions and persistence after restart.
+4. Preserve existing site/form metadata during append-only schema upgrade.
+   Explicitly configure the target's intended neutral form fields through the
+   existing editor; verify public display, backend requirements and saved detail
+   agree. For the bundled shared-base website, review `articleDelivery` settings:
+   legacy sites may need explicit `baseRouteMode=shared`, preserving other settings.
+   Do not silently rewrite every existing site or user-defined form.
+5. Deploy website/backend together using the verified [HTTPS proxy contract](HTTPS_PROXY.md).
+   Preserve verified original switches; new synthetic integrations remain silent.
+   Restore temporarily paused services to the intended recorded state. Do not
+   change unrelated shared-host applications or borrow source production secrets.
+6. Verify every configured public route and image, language/navigation and normal
+   public mobile access. Admin verification is PC-only. Exercise two configurable
+   neutral inquiry scenarios through HTTP -> database -> CRM, assignment/tasks,
+   bulk trash/restore, roles, multiple same-kind loops, diagrams/step figures,
+   content preview/publication/rollback, errors and persistence after restart.
 7. Record source tree, images, address, evidence and limitations. On failure,
    restore the recorded code/metadata only; do not discard new submissions or files.
 
-Fresh installations receive `industrial` automatically. Existing forms are not
-silently converted by bootstrap. Legacy environment, SQL and site identifiers are
-technical compatibility contracts, not public-facing company branding.
+Fresh installations receive a `general` form with configurable field requirements.
+Existing forms are not silently converted by bootstrap. Optional
+[example packs](EXAMPLE_DATA.md) require explicit guarded imports; repeated imports
+must not overwrite later work or multiply rows. Legacy environment, SQL and site
+identifiers are technical compatibility contracts, not public-facing branding.
 
-## Public release gates
+## Later public release gates
 
 - Original-company content is excluded from the reviewed public tree; AI hashes
   and third-party notices match shipped bytes.
@@ -51,3 +58,8 @@ technical compatibility contracts, not public-facing company branding.
 - Both README flows work from clean source, then from the actual public clone.
 - Public repository/tag/image and deployed version correspond; record actual CI.
 - Do not declare completion while any required gate remains unverified.
+
+For the current server-delivery stage, record the actual entry point, source/image
+identity, switches, backup/recovery procedure and observed limitations. Software
+verification and external-provider observations are separate; do not invent real
+Meta acceptance or block unrelated delivery solely for missing provider accounts.

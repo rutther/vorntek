@@ -86,6 +86,15 @@ Never edit an applied SQL file, delete ledger rows or run `down -v` as an upgrad
 
 ## 5. Start and verify / 启动与验收
 
+For an HTTPS installation, complete the verified two-hop
+[proxy contract](HTTPS_PROXY.md) before enabling public traffic. Keep the host
+port loopback-only and preserve the existing Compose project, volume identities,
+secret files and outbound switches. A new source directory is not permission to
+create a replacement database or restore an old dump over later business data.
+
+HTTPS 安装须先完成两跳代理核验；保留原项目、卷、秘密和开关。换源码目录不等于换库，
+也不允许用旧备份覆盖更新后产生的业务。
+
 ```sh
 docker compose up -d
 docker compose ps -a
