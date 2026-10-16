@@ -8,6 +8,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core import mail
@@ -112,6 +113,10 @@ class LeadViewsV2ContractTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Independent role rows per test need real hashes, not fresh repeated
+        # expensive encodings. Reuse one normal-strength synthetic password
+        # encoding; this does not change the application/native/browser hasher.
+        cls.fixture_password = make_password('test-password')
         existing = set(connection.introspection.table_names())
         cls.created_models = []
         try:
@@ -143,34 +148,34 @@ class LeadViewsV2ContractTests(TestCase):
         marketing_group = Group.objects.create(name=GROUP_BY_ROLE[ROLE_MARKETING_OPS])
         manager_group = Group.objects.create(name=GROUP_BY_ROLE[ROLE_SALES_MANAGER])
         admin_group = Group.objects.create(name=GROUP_BY_ROLE[ROLE_SYSTEM_ADMIN])
-        self.sales = get_user_model().objects.create_user(
+        self.sales = get_user_model().objects.create(
             username='lead-v2-sales',
             email='lead-v2-sales@example.com',
-            password='test-password',
+            password=self.fixture_password,
         )
         self.sales.groups.add(sales_group)
-        self.other_sales = get_user_model().objects.create_user(
+        self.other_sales = get_user_model().objects.create(
             username='lead-v2-other-sales',
             email='lead-v2-other-sales@example.com',
-            password='test-password',
+            password=self.fixture_password,
         )
         self.other_sales.groups.add(sales_group)
-        self.marketing = get_user_model().objects.create_user(
+        self.marketing = get_user_model().objects.create(
             username='lead-v2-marketing',
             email='lead-v2-marketing@example.com',
-            password='test-password',
+            password=self.fixture_password,
         )
         self.marketing.groups.add(marketing_group)
-        self.manager = get_user_model().objects.create_user(
+        self.manager = get_user_model().objects.create(
             username='lead-v2-manager',
             email='lead-v2-manager@example.com',
-            password='test-password',
+            password=self.fixture_password,
         )
         self.manager.groups.add(manager_group)
-        self.admin = get_user_model().objects.create_user(
+        self.admin = get_user_model().objects.create(
             username='lead-v2-admin',
             email='lead-v2-admin@example.com',
-            password='test-password',
+            password=self.fixture_password,
         )
         self.admin.groups.add(admin_group)
 
