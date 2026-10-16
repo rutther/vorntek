@@ -76,6 +76,7 @@ EXPECTED_CONTENT_ROUTE_CAPABILITIES = {
     'three_d_asset_detail': frozenset({ASSETS_READ}),
     'three_d_profile_create': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'three_d_profile_edit': frozenset({ASSETS_READ, ASSETS_WRITE}),
+    'three_d_profile_preview': frozenset({ASSETS_READ}),
     'three_d_placement_create': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'three_d_placement_edit': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'asset_upload': frozenset({ASSETS_READ, ASSETS_WRITE}),
@@ -120,6 +121,7 @@ CONTENT_ROUTE_CASES = (
     ('three_d_asset_detail', (999_996,), 'get'),
     ('three_d_profile_create', (), 'get'),
     ('three_d_profile_edit', (999_997,), 'get'),
+    ('three_d_profile_preview', (999_997,), 'get'),
     ('three_d_placement_create', (), 'get'),
     ('three_d_placement_edit', (999_998,), 'get'),
     ('asset_upload', (), 'get'),
@@ -149,7 +151,7 @@ class ContentRoutePolicyContractTests(SimpleTestCase):
         }
         self.assertEqual(normalized, EXPECTED_CONTENT_ROUTE_CAPABILITIES)
         self.assertEqual(set(normalized), set(CONTENT_VIEW_NAMES))
-        self.assertEqual(len(normalized), 30)
+        self.assertEqual(len(normalized), 31)
 
     def test_every_policy_entry_resolves_to_the_named_console_route(self):
         route_cases = {name: args for name, args, _method in CONTENT_ROUTE_CASES}

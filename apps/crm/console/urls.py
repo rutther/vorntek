@@ -145,6 +145,7 @@ urlpatterns = [
     path('assets/3d/assets/<int:asset_id>/', views.three_d_asset_detail, name='three_d_asset_detail'),
     path('assets/3d/profiles/new/', views.three_d_profile_create, name='three_d_profile_create'),
     path('assets/3d/profiles/<int:profile_id>/', views.three_d_profile_edit, name='three_d_profile_edit'),
+    path('assets/3d/profiles/<int:profile_id>/preview/', views.three_d_profile_preview, name='three_d_profile_preview'),
     path('assets/3d/placements/new/', views.three_d_placement_create, name='three_d_placement_create'),
     path('assets/3d/placements/<int:placement_id>/', views.three_d_placement_edit, name='three_d_placement_edit'),
     path('assets/upload/', views.asset_upload, name='asset_upload'),

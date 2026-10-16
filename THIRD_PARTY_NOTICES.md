@@ -14,6 +14,20 @@ over website photographs, trademarks, customer material or unrelated content.
 | Tabler core | 1.4.0 | Package declares MIT; [existing notice](apps/crm/console/static/console/vendor/tabler/1.4.0/LICENSE) retained |
 | Bootstrap, bundled by Tabler | 5.3.7 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/BOOTSTRAP_LICENSE) |
 | Popper core, bundled by Tabler | 2.11.8 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/POPPER_LICENSE) |
+| Google model-viewer, authenticated local draft preview only | 4.4.0 | [Apache-2.0 license, original bundle notices and dependency notices](apps/crm/console/static/console/vendor/model-viewer/4.4.0/) |
+
+The model-viewer package is self-hosted, not fetched by a visitor from a CDN.
+`scripts/vendor_model_viewer.py` reproduces its original minified artifact and
+license from the pinned npm archive, checking SHA-512 without running scripts.
+Its [provenance](apps/crm/console/static/console/vendor/model-viewer/4.4.0/provenance.json)
+also records the immutable v4.4.0 upstream lock hash and verified package sources
+for Three.js/MIT, Lit/BSD-3-Clause, gainmap-js/MIT and meshoptimizer/MIT notices.
+The embedded fflate banner names 0.8.2; that version's full MIT notice is retained
+separately rather than relabeling the root lock's 0.8.3 dependency as bundled.
+Unchanged upstream copyright/SPDX banners remain in the minified module. This
+does not assert that every dependency in the upstream development lock is shipped.
+The preview refuses external-resource and optional-decoder model dependencies;
+AR/cloud entry points are not enabled. This is not a new binary-image release.
 
 Downloaded package archives were checked against their registry SHA-512 integrity
 metadata **without executing package scripts**. Lucide JS and its full license,

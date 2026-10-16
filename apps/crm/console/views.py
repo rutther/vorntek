@@ -202,6 +202,7 @@ CONTENT_ROUTE_CAPABILITIES: dict[str, frozenset[str]] = {
     'three_d_asset_detail': frozenset({ASSETS_READ}),
     'three_d_profile_create': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'three_d_profile_edit': frozenset({ASSETS_READ, ASSETS_WRITE}),
+    'three_d_profile_preview': frozenset({ASSETS_READ}),
     'three_d_placement_create': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'three_d_placement_edit': frozenset({ASSETS_READ, ASSETS_WRITE}),
     'asset_upload': frozenset({ASSETS_READ, ASSETS_WRITE}),
@@ -1247,7 +1248,7 @@ def three_d_profile_edit(request, profile_id: int):
     preview_url = (
         preview_public_url(build_splat_viewer_url(profile), request=request)
         if profile.asset.file_ext in {'.sog', '.ply'}
-        else preview_public_url(profile.asset.public_path, request=request)
+        else reverse('console:three_d_profile_preview', args=[profile.pk])
     )
     placement = ThreeDPlacement.objects.filter(site=site, profile=profile).order_by('sort_order', 'id').first()
     return render_form_console(
@@ -1268,6 +1269,39 @@ def three_d_profile_edit(request, profile_id: int):
 
 
 @login_required
+@require_GET
+def three_d_profile_preview(request, profile_id: int):
+    from .three_d_preview import inspect_model, ModelPreviewError
+    site, _locale, _capabilities = content_site_scope(request, 'three_d_profile_preview')
+    profile = get_object_or_404(ThreeDViewProfile.objects.select_related('asset'),
+                               pk=profile_id, site=site, asset__site=site)
+    error = ''
+    try:
+        inspect_model(profile.asset)
+    except ModelPreviewError as exc:
+        error = str(exc)
+    response = render(request, 'console/three_d_model_preview.html', {
+        'profile': profile, 'preview_error': error,
+        'preview_config': {'src': reverse('console:asset_file', args=[profile.asset_id]),
+                           'title': profile.asset.title or profile.asset.original_name,
+                           'background': profile.background_color,
+                           'position': [float(profile.camera_position_x), float(profile.camera_position_y), float(profile.camera_position_z)],
+                           'target': [float(profile.camera_target_x), float(profile.camera_target_y), float(profile.camera_target_z)],
+                           'fov': float(profile.fov), 'interaction': profile.allow_interaction,
+                           'showUi': profile.show_ui, 'autoRotate': bool((profile.config_json or {}).get('autoRotate', True)),
+                           'duration': (profile.config_json or {}).get('autoRotateDuration', 20)},
+    })
+    for header, value in private_file_response_headers().items():
+        response[header] = value
+    response['Content-Security-Policy'] = (
+        "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; "
+        "connect-src 'self' data: blob:; img-src 'self' data: blob:; worker-src blob:; "
+        "frame-ancestors 'self'; base-uri 'none'; form-action 'none'; object-src 'none'")
+    response['X-Frame-Options'] = 'SAMEORIGIN'
+    return response
+
+
+@login_required
 @require_http_methods(['GET', 'POST'])
 def three_d_placement_edit(request, placement_id: int):
     site, _locale, _capabilities = content_site_scope(request, 'three_d_placement_edit')
@@ -1285,7 +1319,8 @@ def three_d_placement_edit(request, placement_id: int):
         form = ThreeDPlacementForm(site=site, placement=placement)
 
     preview = placement_public_config(placement)
-    preview_url = preview_public_url(str(preview.get('viewerUrl') or preview.get('modelUrl') or ''), request=request)
+    preview_url = (reverse('console:three_d_profile_preview', args=[placement.profile_id])
+                   if preview.get('modelUrl') else preview_public_url(str(preview.get('viewerUrl') or ''), request=request))
     return render_form_console(
         request,
         section_key='assets',

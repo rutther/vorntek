@@ -89,7 +89,7 @@ CONTENT_VIEW_NAMES = frozenset({
     'article_locale_enable', 'article_locale_disable', 'article_locale_make_default',
     'article_categories', 'category_create', 'category_edit', 'article_create',
     'article_edit', 'assets', 'assets_three_d', 'three_d_asset_detail',
-    'three_d_profile_create', 'three_d_profile_edit', 'three_d_placement_create',
+    'three_d_profile_create', 'three_d_profile_edit', 'three_d_profile_preview', 'three_d_placement_create',
     'three_d_placement_edit', 'asset_upload', 'asset_import_path', 'asset_file',
     'releases', 'release_build_preview', 'article_release_preview',
     'article_preview_file', 'website_candidate_build', 'website_candidate_select',

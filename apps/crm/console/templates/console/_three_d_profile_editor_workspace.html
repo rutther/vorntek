@@ -199,6 +199,7 @@
 
                 <section class="three-d-sidebox">
                     <h3>生效流程</h3>
+                    <p>右侧是登录后的编辑预览；修改视角后先保存配置。它不会启用槽位或把模型公开发布。</p>
                     <ol class="three-d-steps">
                         <li><span>1</span>保存配置到数据库</li>
                         <li><span>2</span>返回 3D 展示管理生成预览产物</li>
@@ -281,10 +282,11 @@
 
     refreshButton?.addEventListener('click', refreshPreview);
     captureButton?.addEventListener('click', () => {
-        frame.contentWindow?.postMessage({ type: 'siteos:getCamera' }, '*');
+        frame.contentWindow?.postMessage({ type: 'siteos:getCamera' }, new URL(frame.src, window.location.href).origin);
     });
 
     window.addEventListener('message', (event) => {
+        if (event.source !== frame.contentWindow || event.origin !== new URL(frame.src, window.location.href).origin) return;
         const data = event.data || {};
         if (data.type !== 'siteos:camera') return;
         const camera = data.camera || {};

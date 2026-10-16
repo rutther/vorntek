@@ -2,6 +2,20 @@
 
 ## Integration candidate — 2026-10-16
 
+- Current public app is `67202e3`; its exact-preview handoff was exercised on the
+  public hostname and reused the correct existing candidate. A subsequent draft
+  3D inspection reproduced a real model-URL 404. The new authenticated GLB/glTF
+  preview is now source-fixed and locally exercised: actual render, drag, camera
+  capture, ordinary save and reload preserve the view with the profile disabled.
+  This new preview is **not deployed yet**; exact-source native PG/image and
+  final-host checks remain. Legacy splat/PLY/public-slot rendering is not claimed
+  by this local GLB verification. See [preview boundaries](THREE_D_PREVIEW.md).
+- A paired snapshot of the currently public app/database/files/configuration and
+  immutable images was created and verified; its four current writer services
+  resumed after a 10.23-second freeze. Independent restoration of that latest
+  snapshot and final operational cleanup remain pending. Earlier restore drills
+  below must not be relabeled as restoration of the latest package.
+
 - Public app candidate `48ef086` and whole-site candidate 17 are now deployed.
   Editable select choices, rejected empty selects, corrected phone validation,
   actual public inquiry persistence, Pixel draft/reload and both source-analysis

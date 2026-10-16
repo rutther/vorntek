@@ -11,7 +11,8 @@ COPY apps/website/inquiry-form.js /build/apps/website/inquiry-form.js
 COPY apps/website/app.js /build/apps/website/app.js
 COPY apps/website/styles.css /build/apps/website/styles.css
 COPY scripts/test_website_pixel_runtime.mjs /build/scripts/test_website_pixel_runtime.mjs
-RUN node --test /build/scripts/test_website_pixel_runtime.mjs && npm test && npm run build
+COPY scripts/test_three_d_camera.mjs /build/scripts/test_three_d_camera.mjs
+RUN node --test /build/scripts/test_website_pixel_runtime.mjs /build/scripts/test_three_d_camera.mjs && npm test && npm run build
 
 FROM ${PYTHON_IMAGE} AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1

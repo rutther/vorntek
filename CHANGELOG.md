@@ -2,6 +2,12 @@
 
 ## Integration completeness follow-up
 
+- Authenticated GLB/glTF draft preview reads the scoped stored asset instead of
+  a not-yet-published public URL. The self-hosted renderer supports actual
+  drag/camera capture and ordinary save/reopen without enabling a public slot.
+  Missing/changed, external-resource and optional-decoder models show explicit
+  failure states, with no remote decoder or cloud runtime requests.
+
 - Article preview now hands off its exact current/reused record to candidate
   construction instead of making operators guess the newest history row.
   Draft-only, missing-translation and preview-only permission boundaries remain.
