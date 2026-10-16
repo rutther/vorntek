@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import os
-import secrets
-import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -33,17 +32,13 @@ from marketing.management.commands.export_release_snapshot import atomic_write_j
 
 class ReleasePipelinePathSecurityTests(SimpleTestCase):
     def setUp(self):
-        self.test_root = Path(__file__).resolve().parent / '.test-release-pipeline'
-        self.test_root.mkdir(exist_ok=True)
-        self.root = (self.test_root / secrets.token_hex(12)).resolve()
-        self.root.mkdir()
+        directory = tempfile.TemporaryDirectory(prefix='siteos-release-pipeline-')
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name).resolve()
         self.storage = self.root / 'private-assets'
         self.storage.mkdir()
         for site_code in ('alpha', 'beta'):
             (self.root / site_code / 'apps' / 'web').mkdir(parents=True)
-
-    def tearDown(self):
-        shutil.rmtree(self.root, ignore_errors=True)
 
     def configured(self):
         return self.settings(
@@ -332,19 +327,15 @@ class ReleasePipelineDatabaseSecurityTests(TestCase):
                     editor.delete_model(model)
 
     def setUp(self):
-        self.test_root = Path(__file__).resolve().parent / '.test-release-pipeline'
-        self.test_root.mkdir(exist_ok=True)
-        self.root = (self.test_root / secrets.token_hex(12)).resolve()
-        self.root.mkdir()
+        directory = tempfile.TemporaryDirectory(prefix='siteos-release-pipeline-db-')
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name).resolve()
         self.storage = self.root / 'private-assets'
         self.storage.mkdir()
         for site_code in ('alpha', 'beta'):
             (self.root / site_code / 'apps' / 'web').mkdir(parents=True)
         self.alpha = self._site('alpha')
         self.beta = self._site('beta')
-
-    def tearDown(self):
-        shutil.rmtree(self.root, ignore_errors=True)
 
     def _site(self, code: str) -> Site:
         return Site.objects.create(
@@ -364,7 +355,8 @@ class ReleasePipelineDatabaseSecurityTests(TestCase):
         create_source: bool = True,
         stored_digest: str | None = None,
     ) -> tuple[MediaAsset, Path]:
-        source = self.storage / 'images' / name
+        relative = f'images/2026/10/0123456789abcdef-{name}'
+        source = self.storage / relative
         if create_source:
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_bytes(content)
@@ -378,8 +370,8 @@ class ReleasePipelineDatabaseSecurityTests(TestCase):
             file_ext='.png',
             file_size_bytes=len(content),
             sha256=digest,
-            storage_path=f'storage/assets/images/{name}',
-            public_path=f'/assets/images/{name}',
+            storage_path=f'storage/assets/{relative}',
+            public_path=f'/assets/{relative}',
             status='active',
         )
         return asset, source
