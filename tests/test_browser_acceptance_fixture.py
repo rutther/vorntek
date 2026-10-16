@@ -39,6 +39,7 @@ class BrowserAcceptanceFixtureTests(unittest.TestCase):
         self.assertIn('secrets.token_urlsafe(24)', source)
         self.assertIn("credential_path.unlink(missing_ok=True)", source)
         self.assertIn("membership_role='member'", source)
+        self.assertIn("MarketingProvider.objects.get_or_create(", source)
         self.assertIn("'not PostgreSQL acceptance'", source)
         self.assertNotIn('BROWSER_PASSWORD', source)
         self.assertNotIn('0.0.0.0', source)
