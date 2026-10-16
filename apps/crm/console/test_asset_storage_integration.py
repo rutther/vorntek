@@ -5,7 +5,6 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404
 from django.db import connection
@@ -45,9 +44,9 @@ class AssetStorageIntegrationTests(TestCase):
         self.site=Site.objects.create(code='asset_unit',name='Synthetic storage integration',default_locale='en')
         # Candidate-local temporary roots avoid reading or mutating production
         # assets and make the required allowlists explicit in every test.
-        self.storage_directory = TemporaryDirectory(dir=settings.BASE_DIR)
-        self.import_directory = TemporaryDirectory(dir=settings.BASE_DIR)
-        self.outside_directory = TemporaryDirectory(dir=settings.BASE_DIR)
+        self.storage_directory = TemporaryDirectory(prefix='vorntek-asset-storage-')
+        self.import_directory = TemporaryDirectory(prefix='vorntek-asset-import-')
+        self.outside_directory = TemporaryDirectory(prefix='vorntek-asset-outside-')
         self.storage_root = Path(self.storage_directory.name).resolve()
         self.import_root = Path(self.import_directory.name).resolve()
         self.outside_root = Path(self.outside_directory.name).resolve()
