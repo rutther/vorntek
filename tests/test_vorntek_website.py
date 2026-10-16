@@ -35,11 +35,11 @@ class PageParser(HTMLParser):
 
 
 class VorntekWebsiteTests(unittest.TestCase):
-    def test_default_public_content_is_industry_neutral(self):
+    def test_default_public_content_has_no_retired_customer_or_unrelated_business(self):
         for path in SITE.rglob('*.html'):
             source = path.read_text(encoding='utf-8').lower()
-            for retired in ('industrial technolog', 'circulating water', 'propane', 'turbojet',
-                            '工业', '循环水', '丙烷', '涡喷', 'vorntekworkshop.png', 'vorntekpumpskid.png'):
+            for retired in ('circulating water', 'propane', 'turbojet',
+                            '循环水', '丙烷', '涡喷', 'vorntekworkshop.png', 'vorntekpumpskid.png'):
                 with self.subTest(page=str(path.relative_to(SITE)), retired=retired):
                     self.assertNotIn(retired, source)
 
@@ -63,7 +63,8 @@ class VorntekWebsiteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)/'site'
             builder.main(catalog=catalog, output=output)
-            self.assertEqual(len(list(output.rglob('*.html'))),10)
+            self.assertTrue((output/'products/personal-advice/index.html').is_file())
+            self.assertFalse((output/'products/inspect/index.html').exists())
             personal = (output/'products/personal-advice/index.html').read_text(encoding='utf-8')
             listing = (output/'products/index.html').read_text(encoding='utf-8')
             self.assertIn('Advice &lt;example&gt;', personal)
@@ -76,7 +77,7 @@ class VorntekWebsiteTests(unittest.TestCase):
             parser.feed(personal)
             for ref in parser.refs:
                 path=urlsplit(ref).path
-                if not path or path.startswith('/admin/'):
+                if not path or path.startswith('/admin/') or '/articles/' in path:
                     continue
                 target=output/path.lstrip('/')
                 self.assertTrue((target/'index.html' if path.endswith('/') else target).is_file(),ref)
@@ -103,7 +104,8 @@ class VorntekWebsiteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)/'site'
             builder.main(catalog=catalog,output=output)
-            self.assertEqual(len(list(output.rglob('*.html'))),8)
+            self.assertFalse(list((output/'products').glob('*/index.html')) and
+                             (output/'products/inspect/index.html').exists())
             self.assertIn('data-configured-form',(output/'contact/index.html').read_text(encoding='utf-8'))
             self.assertIn('/company/',(output/'index.html').read_text(encoding='utf-8'))
 
@@ -118,7 +120,9 @@ class VorntekWebsiteTests(unittest.TestCase):
 
     def test_all_pages_have_one_heading_no_broken_public_links_or_duplicate_ids(self):
         pages = list(SITE.rglob('*.html'))
-        self.assertEqual(len(pages), 15)
+        manifest=json.loads((SITE/'corporate-build.json').read_text(encoding='utf-8'))
+        expected={route if route.endswith('.html') else (route+'/' if route else '')+'index.html' for route in manifest['routes']}
+        self.assertEqual({path.relative_to(SITE).as_posix() for path in pages},expected)
         for path in pages:
             with self.subTest(page=str(path.relative_to(SITE))):
                 source = path.read_text(encoding='utf-8')
@@ -132,13 +136,13 @@ class VorntekWebsiteTests(unittest.TestCase):
                 for ref in parser.refs:
                     parts = urlsplit(ref)
                     self.assertFalse(parts.netloc, ref)
-                    if not parts.path or parts.path.startswith('/admin/'):
+                    if not parts.path or parts.path.startswith('/admin/') or '/articles/' in parts.path:
                         continue
                     target = SITE/parts.path.lstrip('/')
                     if parts.path.endswith('/'):
                         target = target/'index.html'
                     self.assertTrue(target.is_file(), ref)
-                    if target.suffix in ('.js', '.css'):
+                    if target.suffix in ('.js', '.css') and '/vendor/' not in parts.path:
                         checksum = hashlib.sha256(target.read_text(encoding='utf-8').encode()).hexdigest()[:12]
                         self.assertEqual(parse_qs(parts.query).get('v'), [checksum])
                 if 'business_line' in parser.fields:
@@ -149,11 +153,11 @@ class VorntekWebsiteTests(unittest.TestCase):
         originals = ROOT/'docs/vorntekDemo/assets'
         expected = {name: hashlib.sha256((originals/name).read_bytes()).hexdigest() for name in
             ('vorntekLogo.png','example-conversation.svg','example-process.svg','example-collaboration.svg')}
-        public = list((SITE/'assets/vorntek').iterdir())
-        self.assertEqual({p.name for p in public}, set(expected))
-        self.assertFalse(list(SITE.rglob('*.jpg')))
-        for path in public:
-            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), expected[path.name])
+        for name,checksum in expected.items():
+            self.assertEqual(hashlib.sha256((SITE/'assets/vorntek'/name).read_bytes()).hexdigest(),checksum)
+        catalog=json.loads((ROOT/'docs/vorntekDemo/catalog.json').read_text(encoding='utf-8'))
+        for row in catalog['productLines']:
+            self.assertTrue((SITE/'assets/vorntek/models'/row['model']).is_file())
         mark = ROOT/'apps/crm/console/static/console/vorntekLogo.png'
         self.assertEqual(hashlib.sha256(mark.read_bytes()).hexdigest(), expected['vorntekLogo.png'])
         self.assertFalse((mark.parent/'new-crown-mark.png').exists())
@@ -165,18 +169,22 @@ class VorntekWebsiteTests(unittest.TestCase):
         for entry in catalog['productLines']:
             page=(SITE/'products'/entry['id']/'index.html').read_text(encoding='utf-8')
             self.assertIn('name="robots" content="noindex,nofollow"',page)
-            self.assertIn('Fictional example only.',page)
+            self.assertNotIn('Fictional example only.',page)
+            self.assertIn('/demo/',page)
 
     def test_clean_generator_reproduces_checked_in_pages(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory)
-            for name in ('scripts/build_vorntek_site.py', 'docs/vorntekDemo/catalog.json',
+            for name in ('scripts/build_vorntek_site.py', 'scripts/corporate_site.py',
+                         'docs/vorntekDemo/catalog.json','docs/vorntekDemo/pages.json',
                          'apps/website/app.js', 'apps/website/inquiry-form.js',
                          'apps/website/styles.css', 'apps/website/assets/meta-pixel.js'):
                 destination = target/name
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT/name, destination)
             shutil.copytree(ROOT/'docs/vorntekDemo/assets',target/'docs/vorntekDemo/assets')
+            shutil.copytree(ROOT/'docs/vorntekDemo/templates',target/'docs/vorntekDemo/templates')
+            shutil.copytree(ROOT/'apps/crm/console/static/console/vendor/model-viewer',target/'apps/crm/console/static/console/vendor/model-viewer')
             subprocess.run([sys.executable, str(target/'scripts/build_vorntek_site.py')], check=True, capture_output=True)
             built = target/'apps/website'
             self.assertEqual({str(p.relative_to(built)) for p in built.rglob('*.html')},

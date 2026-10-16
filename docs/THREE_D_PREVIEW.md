@@ -2,6 +2,17 @@
 
 ## Public candidate integration / 公开候选整合
 
+Corporate-site source may additionally declare page-specific positions in
+`three-d-slots.json`. Each declaration has a bounded code, local HTML path and
+human label. Product IDs stay in the content package; backend forms read the
+registry without fixed industrial categories. An enabled profile replaces only
+the matching start/end anchor on that page during immutable publication.
+Unknown positions, unsafe/private/CMS-owned paths, duplicate declarations and
+missing anchors block a candidate. Packaged models provide the default view;
+editing a database profile still requires a new candidate and explicit deployment.
+Exact pinned viewer bytes may be shared between packaged views and profiles;
+different bytes and all non-viewer upload collisions remain rejected.
+
 New source now freezes enabled `homepage_hero` and `homepage_equipment_preview`
 placements into whole-site candidates, including only their active, site-owned
 models, saved camera/settings and self-hosted renderer dependencies. A disabled

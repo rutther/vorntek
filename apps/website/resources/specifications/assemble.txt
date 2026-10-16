@@ -1,0 +1,12 @@
+VORNTEK
+Assemble modular workstation / Assemble 模块化装配台
+
+Concept envelope W × D × H / 设计外形 宽×深×高: 1600 × 800 × 2000 mm
+Worktop height / 工作台高度: 900 mm
+Frame / 框架: Coated steel sections / 涂装型钢
+Configuration / 配置: Tool panel, overhead rail, lower shelf / 工具板、顶部支架、底层板
+
+Final configuration and acceptance are defined for the application.
+最终配置与验收根据具体应用确定。
+
+/products/assemble/

@@ -42,11 +42,12 @@ jobs:
       - name: Deterministic source release manifest
         run: python scripts/release_manifest.py --require-clean
       - name: Browser script contracts (no real platform requests)
-        run: node --test scripts/test_measurement.mjs scripts/test_website_pixel_runtime.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs scripts/test_three_d_camera.mjs scripts/test_three_d_load_state.mjs scripts/test_three_d_preview_config.mjs
+        run: |
+          npm ci --prefix apps/crm/flow-ui --no-audit --no-fund
+          node --test scripts/test_measurement.mjs scripts/test_website_pixel_runtime.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_corporate_interactions.mjs scripts/test_three_d_camera.mjs scripts/test_three_d_load_state.mjs scripts/test_three_d_preview_config.mjs
       - name: Complete guided-loop interactions and source build
         working-directory: apps/crm/flow-ui
         run: |
-          npm ci --no-audit --no-fund
           npm test
           npm run build
       - name: Complete synthetic SQLite compatibility regression

@@ -1,0 +1,26 @@
+{
+  "contentKey": "syntheticWorkflowGuide",
+  "slug": "synthetic-workflow-guide",
+  "author": "Vorntek Engineering",
+  "cover": "/assets/vorntek/inspection-application.png",
+  "versions": [
+    {
+      "locale": "en",
+      "title": "Planning an inspection station around the component",
+      "excerpt": "Practical considerations for samples, workholding, lighting and the inspection decision.",
+      "body": "## Begin with the inspection decision\n\nAn inspection station needs a defined question: is a feature present, is an assembly complete, or is a dimension within an agreed boundary? Describe the result the next operation needs before selecting a camera or sensor.\n\n## Prepare representative samples\n\nInclude accepted components, known defects and normal variations in finish, colour and orientation. Record the drawing revision and how borderline results should be reviewed. A sample set is more useful than a single ideal component.\n\n## Control how the component is presented\n\nWorkholding should locate the relevant features consistently while leaving loading and unloading practical. Review reflections, shadows, access for cleaning and changes between product variants. Lighting and presentation are part of the inspection method, not accessories added at the end.\n\n## Define the complete station sequence\n\nConsider loading, settling, triggering, inspection, result transfer and unloading. Agree what happens after an unreadable result or an interrupted cycle. The camera exposure time alone does not describe the full station cycle.\n\n## Prepare the engineering discussion\n\nBring drawings, sample variations, the expected handling sequence and available installation space. These inputs help compare an [Inspect vision station](/products/inspect/) with a [Measure dimensional bench](/products/measure/) and identify the interfaces that need further work.\n\nSee the [inspection application](/solutions/component-inspection/) for a coordinated equipment approach, or [discuss your production requirement](/contact/)."
+    },
+    {
+      "locale": "zh",
+      "title": "围绕工件，规划一台检测工作站",
+      "excerpt": "从样件、定位、照明与检测判断出发，准备一次有效的工程讨论。",
+      "body": "## 先写清检测需要作出的判断\n\n检测工作站首先要回答一个明确问题：某个特征是否存在、装配是否完整，或尺寸是否落在约定范围内。选择相机或传感器之前，应先写清下一道工序需要什么结果。\n\n## 准备有代表性的样件\n\n样件应包括良品、已知缺陷，以及表面、颜色和朝向的正常变化。记录图纸版本，并约定临界结果如何复核。一组有代表性的样件，比单个理想工件更有助于讨论方案。\n\n## 控制工件的呈现方式\n\n工装需要稳定定位相关特征，同时方便上料和下料。应核对反光、阴影、清洁空间，以及不同产品之间的换型方式。照明与工件呈现属于检测方法的一部分，不应留到最后再补充。\n\n## 定义完整的工位顺序\n\n把上料、稳定、触发、检测、结果传输和下料一起考虑，同时约定无法判读或周期中断后的处理方式。相机曝光时间不能单独代表整个工位周期。\n\n## 为工程讨论准备资料\n\n带上图纸、代表性样件、预期搬运顺序与可用安装空间。这些资料有助于比较 [Inspect 视觉检测工作站](/products/inspect/)与 [Measure 尺寸测量台](/products/measure/)，并找出需要进一步确认的接口。\n\n可继续查看[零部件检测应用](/solutions/component-inspection/)，或[沟通你的生产需求](/contact/)。"
+    },
+    {
+      "locale": "ar",
+      "title": "تخطيط محطة الفحص انطلاقاً من القطعة",
+      "excerpt": "اعتبارات عملية للعينات والتثبيت والإضاءة والقرار المطلوب من الفحص.",
+      "body": "## ابدأ بتحديد قرار الفحص\n\nتحتاج محطة الفحص إلى سؤال واضح: هل توجد سمة معينة، وهل اكتمل التجميع، أم هل يقع البعد ضمن حدود متفق عليها؟ حدّد النتيجة التي تحتاجها العملية التالية قبل اختيار الكاميرا أو المستشعر.\n\n## جهّز عينات تمثل ظروف الإنتاج\n\nاستخدم قطعاً مقبولة وعيوباً معروفة وتغيرات طبيعية في السطح واللون والاتجاه. سجّل إصدار الرسم وطريقة مراجعة النتائج القريبة من الحدود. مجموعة عينات مناسبة أكثر فائدة من قطعة مثالية واحدة.\n\n## اضبط طريقة تقديم القطعة\n\nينبغي أن تثبّت التجهيزة السمات المهمة بصورة متكررة، مع إبقاء التحميل والتفريغ عمليين. راجع الانعكاسات والظلال وإمكانية التنظيف وتغيير نوع المنتج. الإضاءة وتقديم القطعة جزء من طريقة الفحص نفسها.\n\n## عرّف دورة المحطة كاملة\n\nراجع التحميل والاستقرار وإشارة البدء والفحص ونقل النتيجة والتفريغ. اتفق على التعامل مع نتيجة غير قابلة للقراءة أو دورة متوقفة. زمن تعريض الكاميرا وحده لا يصف زمن دورة المحطة.\n\n## حضّر المناقشة الهندسية\n\nجهّز الرسومات والعينات وتسلسل المناولة المتوقع والمساحة المتاحة. تساعد هذه المعلومات على مقارنة [محطة Inspect للفحص البصري](/products/inspect/) مع [منضدة Measure لقياس الأبعاد](/products/measure/)، وتحديد الواجهات التي تحتاج إلى مراجعة.\n\nاطّلع على [تطبيق فحص المكونات](/solutions/component-inspection/)، أو [ناقش متطلبات الإنتاج](/contact/). صفحات المعدات الأساسية متاحة بالإنجليزية والصينية."
+    }
+  ]
+}

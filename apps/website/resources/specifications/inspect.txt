@@ -1,0 +1,13 @@
+VORNTEK
+Inspect vision station / Inspect 视觉检测工作站
+
+Concept envelope W × D × H / 设计外形 宽×深×高: 1000 × 800 × 1800 mm
+Working surface height / 工作面高度: 900 mm
+Layout / 结构布局: Guarded upper cell / lower control cabinet / 上部防护单元 / 下部控制柜
+Optics & lighting / 光学与照明: Selected against inspection samples / 依据检测样件选配
+Cycle & acceptance / 节拍与验收: Application validation required / 结合应用验证
+
+Final configuration and acceptance are defined for the application.
+最终配置与验收根据具体应用确定。
+
+/products/inspect/

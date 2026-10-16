@@ -498,7 +498,8 @@
     injectConsentStyles();
     var language = getLanguage();
     var text = copy[language] || copy.en;
-    var footerLinks = document.querySelector(".site-footer .footer-links, .locale-footer nav, .footer-main");
+    var footerLinks = document.querySelector(".site-footer .footer-links, .locale-footer nav") ||
+      document.querySelector(".footer-main");
 
     if (footerLinks && !footerLinks.querySelector("[data-privacy-settings]")) {
       var button = document.createElement("button");

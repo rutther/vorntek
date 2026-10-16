@@ -1,0 +1,12 @@
+VORNTEK
+Connect data acquisition unit / Connect 数据采集单元
+
+Concept cabinet W × D × H / 设计柜体 宽×深×高: 600 × 400 × 1200 mm
+Operator interface / 操作界面: Front-mounted display / 前置显示面板
+Controller & terminals / 控制与端子: Project-specific allocation / 按项目分配
+Protocols & access / 协议与访问: Agreed with equipment and IT owners / 与设备及IT负责人确认
+
+Final configuration and acceptance are defined for the application.
+最终配置与验收根据具体应用确定。
+
+/products/connect/

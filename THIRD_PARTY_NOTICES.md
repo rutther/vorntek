@@ -16,6 +16,7 @@ over website photographs, trademarks, customer material or unrelated content.
 | Popper core, bundled by Tabler | 2.11.8 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/POPPER_LICENSE) |
 | Google model-viewer, scoped draft and enabled public GLB slots | 4.4.0 | [Apache-2.0 license, original bundle notices and dependency notices](apps/crm/console/static/console/vendor/model-viewer/4.4.0/) |
 | SuperSplat Viewer / bundled PlayCanvas engine | 1.37.0 / 2.23.0 | [MIT notices, unchanged upstream bytes and documented local camera API extension](apps/crm/console/static/console/vendor/supersplat/1.37.0/) |
+| Manrope Latin variable font | Google Fonts distribution v20 | [SIL Open Font License 1.1](docs/vorntekDemo/assets/fonts/OFL.txt); self-hosted WOFF2, not a browser CDN request |
 
 The public splat runtime uses the original self-contained browser bundle from
 the exact official npm package. `scripts/vendor_splat_viewer.py` verifies both
@@ -80,15 +81,19 @@ of those future image contents or a license-compatibility opinion.
 
 ## Fonts, photographs, brand and historical evidence
 
-- No standalone `.woff`, `.woff2`, `.ttf` or `.otf` files were found in the staged
-  tree. Narrow CSS/HTML searches did not identify Google Fonts/rsms imports. This
-  is a source observation, not a complete runtime network/resource inventory.
+- The industrial corporate content package adds self-hosted Manrope Latin WOFF2
+  with its complete OFL notice. Chinese uses available CJK system fonts. Earlier
+  pre-release statements that the tree contained no standalone fonts no longer
+  describe this candidate. Provenance is recorded in
+  [ASSET_PROVENANCE.md](docs/vorntekDemo/ASSET_PROVENANCE.md).
 - The old website image tree and CRM brand mark were moved into a private,
   ignored local archive before Vorntek replacement. They must not enter the final
   staged tree or container context. This operation did not alter the original site.
-- Current Vorntek website images comprise eight original AI-generated PNGs;
-  the CRM uses a copy of that logo. Prompts, hashes and the fictional-company
-  disclosure are in [the demo pack](docs/vorntekDemo/README.md). The project
+- The industrial package adds three generated context photographs and catalogue
+  renders and clips from six original equipment models. The retained Vorntek logo
+  is also used by CRM. Asset origins and production recipes are recorded in
+  [ASSET_PROVENANCE.md](docs/vorntekDemo/ASSET_PROVENANCE.md); historical demo assets
+  remain documented in [the demo pack](docs/vorntekDemo/README.md). The project
   offers its generated demo assets for reuse to the extent it can grant rights;
   this is not trademark clearance, third-party likeness clearance or a guarantee
   of copyright protection or exclusive ownership in generated images.

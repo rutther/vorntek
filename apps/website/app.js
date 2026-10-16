@@ -1,125 +1,102 @@
+/* Corporate presentation; configured inquiry and measurement have separate owners. */
 (() => {
   'use strict';
-  const businessLines = ['circulatingWaterControl','liquidControl','waterQualitySensors','gasSensors','propaneMicroHeaters','smallTurbojetEngines','industrialDataAnalysis'];
-  const hints = [
-    ['Application, existing pumps and control needs.','应用、现有泵组与控制需求。'],
-    ['Liquid medium, process step and installation environment.','液体介质、工艺环节与安装环境。'],
-    ['Measurement need, sampling arrangement and integration.','测量需求、采样安排与系统对接。'],
-    ['Target gas, installation environment and safety-critical use.','目标气体、安装环境及是否涉及安全关键用途。'],
-    ['Intended use, installation constraints and destination market.','用途、安装限制与目标市场。'],
-    ['Civilian use, test facilities and project stage.','民用用途、试验设施与项目阶段。'],
-    ['Data sources, user roles and the questions to analyse.','数据来源、使用角色与需要分析的问题。']
-  ];
-  const readSaved = () => { try { return localStorage.getItem('vorntekLang'); } catch { return null; } };
-  let lang = new URLSearchParams(location.search).get('lang') || readSaved() || 'en';
-  if (!['en','zh'].includes(lang)) lang = 'en';
-  try {localStorage.setItem('vorntekLang',lang);} catch {}
-  const language = document.querySelector('#language');
-  function translate() {
-    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
-    document.querySelectorAll('[data-en][data-zh]').forEach(node => { node.textContent = node.dataset[lang]; });
-    if(language) language.value = lang;
-    updateHint();
-    document.dispatchEvent(new CustomEvent('nc:language-changed',{detail:{language:lang}}));
+  const saved=()=>{try{return localStorage.getItem('vorntekLang');}catch{return null;}};
+  let language=new URLSearchParams(location.search).get('lang')||saved()||'en';
+  if(!['en','zh'].includes(language))language='en';
+  const select=document.querySelector('#language');
+  function translate(){
+    document.documentElement.lang=language==='zh'?'zh-CN':'en';
+    document.querySelectorAll('[data-en][data-zh]').forEach(node=>{
+      if(node.tagName==='META')node.content=node.dataset[language];
+      else node.textContent=node.dataset[language];
+    });
+    document.querySelectorAll('[data-alt-en][data-alt-zh]').forEach(node=>{node.setAttribute('alt',language==='zh'?node.dataset.altZh:node.dataset.altEn);});
+    document.querySelectorAll('[data-aria-en][data-aria-zh]').forEach(node=>{node.setAttribute('aria-label',language==='zh'?node.dataset.ariaZh:node.dataset.ariaEn);});
+    const title=document.querySelector('title[data-title-en]');
+    if(title)document.title=language==='zh'?title.dataset.titleZh:title.dataset.titleEn;
+    if(select)select.value=language;
+    try{localStorage.setItem('vorntekLang',language);}catch{}
+    document.querySelectorAll('a[href]').forEach(link=>{
+      const href=link.getAttribute('href');
+      if(!href?.startsWith('/')||href.startsWith('//')||href.startsWith('/assets/')||href.startsWith('/admin/'))return;
+      const url=new URL(href,location.origin);
+      // Article locale paths have their own authoritative switcher.
+      if(/^\/(?:zh\/)?articles\/$/.test(url.pathname)){
+        link.setAttribute('href',language==='zh'?'/zh/articles/':'/articles/');return;
+      }
+      if(url.pathname.includes('/articles/'))return;
+      url.searchParams.set('lang',language);link.setAttribute('href',url.pathname+url.search+url.hash);
+    });
+    document.dispatchEvent(new CustomEvent('nc:language-changed',{detail:{language}}));
   }
-  language?.addEventListener('change', () => {
-    lang = language.value;
-    try {localStorage.setItem('vorntekLang',lang);} catch {}
-    const url = new URL(location.href); url.searchParams.set('lang',lang); history.replaceState(null,'',url);
-    translate(); renderData();
+  select?.addEventListener('change',()=>{
+    language=select.value;const url=new URL(location.href);url.searchParams.set('lang',language);
+    history.replaceState(null,'',url);translate();
   });
-  const menu = document.querySelector('.menu-button');
-  menu?.addEventListener('click', () => { const opened = document.querySelector('#site-nav').classList.toggle('open'); menu.setAttribute('aria-expanded',String(opened)); });
-  const candidateForm = document.querySelector('#project-form');
-  // New publications use the shared definition-driven controller. Only older
-  // explicitly unmarked documents retain this historical form contract.
-  const form = candidateForm?.dataset?.configuredForm !== undefined ? null : candidateForm;
-  const status = document.querySelector('#form-status');
-  const businessSelect = form?.elements.business_line;
-  const selected = new URLSearchParams(location.search).get('business');
-  if(businessSelect && businessLines.includes(selected)) businessSelect.value=selected;
-  function updateHint() {
-    if(!businessSelect) return;
-    const entry=hints[businessLines.indexOf(businessSelect.value)];
-    document.querySelector('#business-help').textContent=entry ? entry[lang==='zh'?1:0] : '';
+  const menu=document.querySelector('.menu-button');
+  menu?.addEventListener('click',()=>{
+    const expanded=menu.getAttribute('aria-expanded')!=='true';
+    menu.setAttribute('aria-expanded',String(expanded));document.querySelector('#site-nav')?.classList.toggle('open',expanded);
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='Escape')return;
+    document.querySelectorAll('.product-menu[open]').forEach(node=>node.removeAttribute('open'));
+    if(menu?.getAttribute('aria-expanded')==='true'){menu.click();menu.focus();}
+  });
+  const tabs=[...document.querySelectorAll('[data-family-tab]')];
+  function activate(tab){
+    tabs.forEach(item=>{const active=item===tab;item.setAttribute('aria-selected',String(active));item.tabIndex=active?0:-1;});
+    document.querySelectorAll('[data-family-panel]').forEach(panel=>{panel.hidden=panel.dataset.familyPanel!==tab.dataset.familyTab;});
   }
-  businessSelect?.addEventListener('change',updateHint);
-  function setStatus(kind,message){if(status){status.dataset.kind=kind;status.textContent=message;}}
-  function validateForm(){
-    if(!form.checkValidity()){form.reportValidity();setStatus('error',lang==='zh'?'请检查必填项和邮箱格式。':'Check the required fields and email format.');return false;}
-    if(!form.elements.email.value.trim()&&!form.elements.phone.value.trim()){setStatus('error',lang==='zh'?'邮箱或电话至少填写一项。':'Provide an email address or phone number.');form.elements.email.focus();return false;}
-    if(!businessLines.includes(businessSelect.value)){setStatus('error',lang==='zh'?'请选择业务方向。':'Choose a business area.');return false;}
-    for(const name of ['full_name','company','country','message']){if(form.elements[name].value.trim().length<2){setStatus('error',lang==='zh'?'姓名、公司、地区和项目说明至少填写两个字符。':'Use at least two characters for name, company, region and project requirement.');form.elements[name].focus();return false;}}
-    return true;
-  }
-  let submitting=false, formStarted=false, startedAt=new Date().toISOString(), eventId='', fingerprint='';
-  function uuid(){if(globalThis.crypto?.randomUUID)return crypto.randomUUID();const b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;return [...b].map((x,i)=>([4,6,8,10].includes(i)?'-':'')+x.toString(16).padStart(2,'0')).join('');}
-  function startForm(event){
-    if(!submitting)setStatus('idle','');
-    if(formStarted || !event.isTrusted || event.target?.name==='website')return;
-    formStarted=true;
-    document.dispatchEvent(new CustomEvent('nc:form-started',{detail:{formCode:'project-inquiry',inquiryType:businessSelect.value,productCategory:businessSelect.selectedOptions[0]?.dataset.en||''}}));
-  }
-  form?.addEventListener('input',startForm,{passive:true});
-  form?.addEventListener('change',startForm,{passive:true});
-  form?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (submitting) return;
-    setStatus('idle', '');
-    if (!validateForm()) return;
-    const formData = new FormData(form);
-    const fields=Object.fromEntries(formData.entries());
-    const current=JSON.stringify(fields);
-    if(current!==fingerprint){eventId=uuid();fingerprint=current;}
-    const marketing=typeof window.ncPrivacyConsentGranted==='function' && window.ncPrivacyConsentGranted();
-    const attribution=marketing&&typeof window.ncAdAttribution==='function'?window.ncAdAttribution():{};
-    const identifiers=marketing&&typeof window.ncMetaIdentifiers==='function'?window.ncMetaIdentifiers():{};
-    const utm={};for(const key of ['utm_source','utm_medium','utm_campaign','utm_content','utm_term']){if(attribution[key])utm[key]=attribution[key];}
-    const payload={full_name:fields.full_name.trim(),company:fields.company.trim(),country:fields.country.trim(),email:fields.email.trim(),phone:fields.phone.trim(),message:fields.message.trim(),website:fields.website||'',source_url:location.href,referrer_url:document.referrer,source_channel:'website',route_path:location.pathname,client_event_id:eventId,form_started_at:startedAt,extra_fields:{business_line:fields.business_line,product_category:businessSelect.selectedOptions[0].dataset.en,application_context:fields.application_context.trim()},consent:{contact:true,privacy_notice:true,marketing:Boolean(marketing),recorded_at:new Date().toISOString()},utm,...identifiers,gclid:attribution.gclid||'',gbraid:attribution.gbraid||'',wbraid:attribution.wbraid||'',google_session_attributes:marketing&&typeof window.ncGoogleSessionAttributes==='function'?window.ncGoogleSessionAttributes():''};
-    const submit=form.querySelector('[type=submit]');
-    const abort=new AbortController();const timer=setTimeout(()=>abort.abort(),25000);
-    submitting=true;submit.disabled=true;setStatus('pending',lang==='zh'?'正在提交…':'Submitting…');
+  tabs.forEach((tab,index)=>{
+    tab.addEventListener('click',()=>activate(tab));
+    tab.addEventListener('keydown',event=>{
+      let next;if(event.key==='ArrowRight')next=(index+1)%tabs.length;
+      if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;
+      if(event.key==='Home')next=0;if(event.key==='End')next=tabs.length-1;
+      if(next!==undefined){event.preventDefault();activate(tabs[next]);tabs[next].focus();}
+    });
+  });
+  if(tabs.length)activate(tabs[0]);
+  document.querySelectorAll('[data-gallery]').forEach(gallery=>{
+    const main=gallery.querySelector('.gallery-main');
+    gallery.querySelectorAll('[data-gallery-src]').forEach(button=>button.addEventListener('click',()=>{
+      main.src=button.dataset.gallerySrc;
+      gallery.querySelectorAll('[data-gallery-src]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));
+    }));
+  });
+  document.querySelectorAll('[data-product-model]').forEach(root=>{
+    const model=root.querySelector('model-viewer'),button=root.querySelector('[data-load-model]'),status=root.querySelector('[data-model-status]');
+    let timer;
+    const message=(en,zh)=>{status.textContent=language==='zh'?zh:en;};
+    button?.addEventListener('click',()=>{
+      button.disabled=true;message('Loading the equipment view…','正在加载设备视图…');
+      model.src=model.dataset.modelSrc;
+      clearTimeout(timer);timer=setTimeout(()=>{button.disabled=false;message('The view is taking longer to load. You can retry or continue with the pictures and specifications.','视图加载较慢，可重试或继续查看图片与规格。');},20000);
+    });
+    model.addEventListener('load',()=>{clearTimeout(timer);button.hidden=true;button.disabled=false;message('Drag to rotate. Scroll or pinch to zoom.','拖动旋转，滚轮或双指缩放。');});
+    model.addEventListener('error',()=>{clearTimeout(timer);button.disabled=false;message('The 3D view is unavailable. The pictures and specifications remain available.','三维视图暂时不可用，仍可查看图片与规格。');});
+  });
+  document.querySelectorAll('[data-print]').forEach(button=>button.addEventListener('click',()=>window.print()));
+  async function addInquiryContext(){
+    const region=document.querySelector('[data-inquiry-context]'),form=document.querySelector('form[data-configured-form]');
+    const id=new URLSearchParams(location.search).get('product');
+    if(!region||!form||!id||!/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id))return;
     try{
-      payload.measurement_context=marketing&&typeof window.ncMeasurementContext==='function'?await window.ncMeasurementContext():'';
-      const response=await fetch('/admin/api/leads/forms/project-inquiry/submit/',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),signal:abort.signal});
-      const result=await response.json();
-      if(!response.ok||!result.ok)throw new Error(response.status===429?'rate':'rejected');
-      setStatus('success',lang==='zh'?(result.duplicate?'此询盘已接收，未重复创建记录。':'询盘已存入演示CRM。'):(result.duplicate?'This inquiry was already received. No duplicate was created.':'Inquiry received in the demo CRM.'));
-      if(result.measurement?.shouldTrack||!result.duplicate)document.dispatchEvent(new CustomEvent('nc:lead-accepted',{detail:{measurement:result.measurement,eventId:result.measurement?.eventId||eventId,formCode:'project-inquiry',inquiryType:fields.business_line,productCategory:payload.extra_fields.product_category}}));
-      form.reset();updateHint();fingerprint='';eventId='';formStarted=false;startedAt=new Date().toISOString();
-    }catch(error){setStatus('error',lang==='zh'?(error.message==='rate'?'提交较频繁，请稍后再试；内容已保留。':'提交未确认成功，内容已保留，请稍后重试。'):(error.message==='rate'?'Too many attempts. Your entries are preserved; try later.':'Submission was not confirmed. Your entries are preserved; please retry.'));}
-    finally{clearTimeout(timer);submitting=false;submit.disabled=false;}
-  });
-  let demoRows=[];
-  function renderData(){
-    const chart=document.querySelector('#data-chart');if(!chart)return;
-    const hours=Number(document.querySelector('#data-window').value);
-    if(document.querySelector('[data-demo-kind="requests"]')){
-      const rows=Array.from({length:hours},(_,hour)=>({hour,
-        requests:12+Math.round(Math.sin(hour*.34)*3),
-        followups:7+Math.round(Math.sin(hour*.24)*2)}));
-      const points=rows.map((row,i)=>`${(i/(hours-1)*780+10).toFixed(1)},${(190-row.requests*6).toFixed(1)}`).join(' ');
-      chart.innerHTML=`<line x1="10" y1="100" x2="790" y2="100" stroke="#dce2e9"/><polyline points="${points}" fill="none" stroke="#2375b8" stroke-width="3"/>`;
-      const total=rows.reduce((sum,row)=>sum+row.requests,0);
-      document.querySelector('#data-metrics').innerHTML=`<div><b>${total}</b><span>${lang==='zh'?'合成请求数':'Synthetic requests'}</span></div><div><b>${hours}</b><span>${lang==='zh'?'合成采样点':'Synthetic samples'}</span></div><div><b>0</b><span>${lang==='zh'?'连接的真实数据源':'Live sources connected'}</span></div>`;
-      document.querySelector('#data-description').textContent=lang==='zh'?'趋势及CSV均由同一份确定性合成数据生成，不代表实际业务表现。':'The chart and CSV use the same deterministic synthetic dataset, not actual business performance.';
-      const csv='synthetic_hour,synthetic_requests,synthetic_followups\n'+rows.map(row=>`${row.hour},${row.requests},${row.followups}`).join('\n')+'\n';
-      const download=document.querySelector('#data-export');
-      download.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-      download.download=`vorntekSyntheticData${hours}h.csv`;
-      return;
-    }
-    demoRows=Array.from({length:hours},(_,i)=>({hour:i,temperature:Number((26+Math.sin(i*.34)*2+.5*Math.cos(i*.13)).toFixed(2)),load:Number((58+Math.cos(i*.24)*11).toFixed(1))}));
-    const points=demoRows.map((r,i)=>`${(i/(hours-1)*780+10).toFixed(1)},${(190-(r.temperature-22)*22).toFixed(1)}`).join(' ');
-    chart.innerHTML=`<line x1="10" y1="100" x2="790" y2="100" stroke="#dce2e9"/><polyline points="${points}" fill="none" stroke="#2375b8" stroke-width="3"/>`;
-    const mean=demoRows.reduce((a,r)=>a+r.temperature,0)/hours;
-    document.querySelector('#data-metrics').innerHTML=`<div><b>${mean.toFixed(1)} °C</b><span>${lang==='zh'?'平均温度（模拟）':'Mean temperature (synthetic)'}</span></div><div><b>${hours}</b><span>${lang==='zh'?'合成采样点':'Synthetic samples'}</span></div><div><b>0</b><span>${lang==='zh'?'连接的真实设备':'Real devices connected'}</span></div>`;
-    document.querySelector('#data-description').textContent=lang==='zh'?'趋势及CSV均由同一份确定性合成数据生成，仅用于功能演示。':'The chart and CSV use the same deterministic synthetic dataset. Demonstration only.';
-    const csv='synthetic_hour,synthetic_temperature_c,synthetic_load_percent\n'+demoRows.map(r=>`${r.hour},${r.temperature},${r.load}`).join('\n')+'\n';
-    const download=document.querySelector('#data-export');
-    download.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-    download.download=`vorntekSyntheticData${hours}h.csv`;
+      const response=await fetch('/catalogue-context.json',{credentials:'same-origin'});if(!response.ok)return;
+      const data=await response.json();const entry=data.products?.find(row=>row.id===id);if(!entry)return;
+      const context=language==='zh'?'咨询设备：'+entry.nameZh:'Equipment of interest: '+entry.name;
+      region.textContent=context;region.hidden=false;
+      const apply=()=>{
+        const field=form.querySelector('[name="message"]');if(!field)return false;
+        if(!field.value.trim())field.value=context+'\n';return true;
+      };
+      if(!apply()){
+        const observer=new MutationObserver(()=>{if(apply()){observer.disconnect();clearTimeout(expiry);}});
+        observer.observe(form,{childList:true,subtree:true});const expiry=setTimeout(()=>observer.disconnect(),30000);
+      }
+    }catch{/* Inquiry remains usable if optional catalogue context cannot load. */}
   }
-  document.querySelector('#data-window')?.addEventListener('change',renderData);
-  translate();renderData();
+  translate();addInquiryContext();
 })();

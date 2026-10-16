@@ -96,6 +96,30 @@ class ThreeDPublicationTests(FileLifecycleFixture,TestCase):
             {'homepage_equipment_preview':'<iframe title="Synthetic"></iframe>'})
         self.assertEqual(result,'<main><iframe title="Synthetic"></iframe></main>')
 
+    def test_registered_product_slot_freezes_profile_and_replaces_only_its_page(self):
+        source=self.root/'corporate-source';source.mkdir()
+        registry={'schemaVersion':1,'slots':[{'code':'product_inspect','path':'products/inspect/index.html','label':'产品检测视图'}]}
+        (source/'three-d-slots.json').write_text(json.dumps(registry),encoding='utf-8')
+        self.slot.slot_code='product_inspect';self.slot.save(update_fields=['slot_code'])
+        with override_settings(SITEOS_WEBSITE_SOURCE_ROOT=str(source)):
+            result=publication.build_three_d_publication(self.site)
+        self.assertIn('product_inspect',result['slots'])
+        documents={'index.html':b'<main>Home unchanged</main>',
+                   'three-d-slots.json':json.dumps(registry).encode(),
+                   'products/inspect/index.html':b'<main><!--siteos:slot:product_inspect--><div>Packaged model</div><!--siteos:end:product_inspect--></main>'}
+        output=publication.inject_site_slots(documents,result['slots'])
+        self.assertEqual(output['index.html'],documents['index.html'])
+        self.assertIn(b'<iframe',output['products/inspect/index.html'])
+        self.assertNotIn(b'Packaged model',output['products/inspect/index.html'])
+
+    def test_product_slot_registry_cannot_target_a_parent_or_private_path(self):
+        source=self.root/'corporate-source';source.mkdir()
+        self.slot.slot_code='product_inspect';self.slot.save(update_fields=['slot_code'])
+        for path in ('../secret.html','/admin/users/index.html','admin/users/index.html','products/%2e%2e/secret.html'):
+            (source/'three-d-slots.json').write_text(json.dumps({'schemaVersion':1,'slots':[{'code':'product_inspect','path':path,'label':'Slot'}]}),encoding='utf-8')
+            with override_settings(SITEOS_WEBSITE_SOURCE_ROOT=str(source)):
+                with self.assertRaises(ArticleDeliveryError):publication.build_three_d_publication(self.site)
+
     def test_sog_external_texture_reference_is_refused_before_publication(self):
         stream=io.BytesIO()
         with zipfile.ZipFile(stream,'w') as bundle:

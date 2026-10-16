@@ -29,6 +29,7 @@ _ALLOWED_SUFFIXES = frozenset({
     '.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.svg',
     '.woff', '.woff2',
     '.glb', '.sog', '.ply',
+    '.webm',
 })
 _DYNAMIC_PREFIXES = ('/admin/', '/api/', '/console/', '/static/', '/healthz/')
 _CSS_URL = re.compile(
@@ -344,8 +345,8 @@ class WebsiteReleaseStore:
         )
         files = {**base_files, **article_files}
         if home_slots:
-            from .three_d_publication import inject_home_slots
-            files['index.html']=inject_home_slots(files['index.html'].decode('utf-8'),home_slots).encode('utf-8')
+            from .three_d_publication import inject_site_slots
+            files=inject_site_slots(files,home_slots)
         uploads = {} if asset_files is None else asset_files
         if not isinstance(uploads,dict):
             raise ArticleDeliveryError('website_upload_input_invalid')
@@ -359,6 +360,10 @@ class WebsiteReleaseStore:
                     or not allowed or not isinstance(raw,bytes) or len(raw)>_file_limit(name)):
                 raise ArticleDeliveryError('website_upload_input_invalid')
             if name.casefold() in folded:
+                # A packaged product view and a configured profile can share
+                # the exact same pinned viewer runtime. Never replace bytes.
+                if name.startswith('assets/3d/vendor/') and files.get(name)==raw:
+                    continue
                 raise ArticleDeliveryError('website_upload_conflict')
             folded.add(name.casefold())
             files[name] = raw

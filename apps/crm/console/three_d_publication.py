@@ -12,6 +12,7 @@ from sitecore.models import ThreeDPlacement
 from .article_delivery import ArticleDeliveryError
 from .storage_security import resolve_storage_asset_path, StorageSecurityError
 from .three_d_preview import inspect_model, ModelPreviewError, MAX_MODEL_BYTES
+from .three_d_slots import slot_registry, parse_slot_registry
 
 SLOTS={'homepage_hero','homepage_equipment_preview'}
 STATIC=Path(__file__).parent/'static/console'
@@ -114,11 +115,11 @@ def _vendor_files(name,version):
 def build_three_d_publication(site):
     rows=ThreeDPlacement.objects.select_related('profile','profile__asset').filter(
         site=site,enabled=True,profile__status='active').order_by('sort_order','slot_code')
-    files={};slots={}
+    files={};slots={};registered=slot_registry()
     try:
         for slot in rows:
             profile=slot.profile
-            if slot.slot_code not in SLOTS or profile.site_id!=site.pk:
+            if slot.slot_code not in registered or profile.site_id!=site.pk:
                 raise ArticleDeliveryError('three_d_slot_unavailable')
             raw=read_public_3d_asset(profile.asset,site)
             files[profile.asset.public_path.lstrip('/')]=raw
@@ -152,3 +153,24 @@ def inject_home_slots(document,slots):
             continue
         document=document.replace(marker,fragment)
     return document
+
+
+def inject_site_slots(documents,slots):
+    result=dict(documents)
+    registry=parse_slot_registry(documents.get('three-d-slots.json'))
+    home={code:fragment for code,fragment in slots.items() if code in SLOTS}
+    if home:
+        result['index.html']=inject_home_slots(result['index.html'].decode('utf-8'),home).encode('utf-8')
+    for code,fragment in slots.items():
+        if code in SLOTS:continue
+        if code not in registry or not isinstance(fragment,str):raise ArticleDeliveryError('three_d_slot_unavailable')
+        path=registry[code]['path']
+        if path not in result:raise ArticleDeliveryError('three_d_slot_anchor_missing')
+        document=result[path].decode('utf-8')
+        start='<!--siteos:slot:'+code+'-->';end='<!--siteos:end:'+code+'-->'
+        if document.count(start)!=1 or document.count(end)!=1:raise ArticleDeliveryError('three_d_slot_anchor_missing')
+        before,remainder=document.split(start,1)
+        if end not in remainder:raise ArticleDeliveryError('three_d_slot_anchor_missing')
+        _,after=remainder.split(end,1)
+        result[path]=(before+fragment+after).encode('utf-8')
+    return result

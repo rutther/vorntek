@@ -160,10 +160,17 @@ class ArticleRenderingTests(unittest.TestCase):
             base_route_mode='shared',
         )
         text = render_article_documents(release)['zh/articles/guide/index.html']
-        self.assertIn('href="/company/"', text)
-        self.assertIn('href="/products/">Product', text)
+        self.assertIn('href="/company/?lang=zh"', text)
+        self.assertIn('href="/products/?lang=zh">Product', text)
+        self.assertIn('href="/contact/?lang=zh"', text)
+        self.assertIn('href="/?lang=zh"', text)
         self.assertIn('href="/zh/articles/"', text)
         self.assertNotIn('href="/zh/company/"', text)
+
+    def test_shared_body_links_preserve_their_query_fragment_and_current_language(self):
+        text = render_markdown('[Drawing](/products/inspect/?ref=guide#dimensions)',
+                               locale='zh', default_locale='en', base_route_mode='shared')
+        self.assertIn('href="/products/inspect/?ref=guide&amp;lang=zh#dimensions"', text)
 
     def test_title_and_schema_json_cannot_break_out_of_script(self):
         release = build_article_release(

@@ -82,7 +82,9 @@ class WebsiteReleaseStoreTests(unittest.TestCase):
         manifest = self.website_store.verify(version)
 
         self.assertEqual(manifest['articleVersion'], article_input['version'])
-        self.assertEqual(len(manifest['files']), 29)
+        base_names={path.relative_to(WEBSITE_ROOT).as_posix() for path in WEBSITE_ROOT.rglob('*') if path.is_file()}
+        self.assertTrue(base_names.issubset(manifest['files']))
+        self.assertIn('products/inspect/index.html',manifest['files'])
         self.assertIn('app.js', manifest['files'])
         self.assertIn('inquiry-form.js', manifest['files'])
         self.assertEqual(self.website_store.read_version_file(version, 'inquiry-form.js'),
@@ -102,6 +104,23 @@ class WebsiteReleaseStoreTests(unittest.TestCase):
                       {'assets/vorntek/vorntekLogo.png':b'override'}, {'assets/image.png':'not bytes'}):
             with self.subTest(paths=list(files)), self.assertRaises(ArticleDeliveryError):
                 self.website_store.stage(base_root=WEBSITE_ROOT,article_input=article_input,asset_files=files)
+
+    def test_pinned_shared_viewer_can_be_reused_but_never_replaced(self):
+        name='assets/3d/vendor/model-viewer/4.4.0/model-viewer.min.js'
+        raw=(WEBSITE_ROOT/name).read_bytes()
+        version=self.website_store.stage(base_root=WEBSITE_ROOT,article_input=self.article_input(),asset_files={name:raw})
+        self.assertEqual(self.website_store.read_version_file(version,name),raw)
+        with self.assertRaisesRegex(ArticleDeliveryError,'website_upload_conflict'):
+            self.website_store.stage(base_root=WEBSITE_ROOT,article_input=self.article_input(),asset_files={name:raw+b'changed'})
+
+    def test_packaged_video_is_part_of_a_frozen_source_not_a_private_upload_override(self):
+        source=Path(self.temporary.name)/'video-source';shutil.copytree(WEBSITE_ROOT,source)
+        path=source/'assets/vorntek/videos/structure.webm';path.parent.mkdir(parents=True,exist_ok=True)
+        raw=bytes.fromhex('1a45dfa3')+b'original synthetic video fixture';path.write_bytes(raw)
+        version=self.website_store.stage(base_root=source,article_input=self.article_input())
+        self.assertEqual(self.website_store.read_version_file(version,'assets/vorntek/videos/structure.webm'),raw)
+        with self.assertRaises(ArticleDeliveryError):
+            self.website_store.stage(base_root=source,article_input=self.article_input(),asset_files={'assets/vorntek/videos/private.webm':raw})
 
     def test_source_changes_do_not_change_an_existing_bundle(self):
         source = Path(self.temporary.name) / 'source'

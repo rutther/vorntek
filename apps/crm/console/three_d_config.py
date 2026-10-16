@@ -15,7 +15,8 @@ MODEL_EXTENSIONS = {'.glb', '.gltf'}
 
 
 def slot_label(slot_code: str) -> str:
-    mapping = dict(THREE_D_SLOT_CHOICES)
+    from .three_d_slots import slot_registry
+    mapping = {code:row['label'] for code,row in slot_registry().items()}
     return mapping.get(slot_code, slot_code)
 
 
