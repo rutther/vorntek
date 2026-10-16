@@ -2,6 +2,15 @@
 
 ## Integration candidate — 2026-10-16
 
+- Final event-workspace native validation exposed an implicit test dependency on
+  the outer runner enabling external I/O. The same seven failures reproduce in
+  the isolated local runner when quiet mode is set. Retry-contract fixtures now
+  explicitly enable only their synthetic dispatch branch; separate quiet-mode
+  cases verify that the UI offers no retry and neither outbound attempts nor
+  stale inbound claims change. Production flags and dispatch guards are unchanged.
+  The previous native candidate is failed, not deployable; a new exact-source
+  native gate is required before replacing the currently public application.
+
 - The single fresh whole-branch review found two important form defects:
   uneditable/empty select choices and discarded public validation feedback.
   Both are fixed in source with observed RED→GREEN tests. Current local results

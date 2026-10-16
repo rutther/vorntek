@@ -6,7 +6,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import DatabaseError, connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -39,7 +39,10 @@ from marketing.models import (
 from sitecore.models import Cta, PageRoute, Site, SiteLocale
 
 
+@override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
 class MarketingEventWorkspaceTests(TestCase):
+    # Retry contract cases explicitly opt into dispatch inside a credential-free,
+    # transport-blocked test process; do not depend on the runner's quiet default.
     unmanaged_models = (
         Site,
         SiteLocale,
@@ -474,6 +477,40 @@ class MarketingEventWorkspaceTests(TestCase):
             {row['id'] for row in due_only.context['workspace']['rows']},
             {null_due.id, past_due.id},
         )
+
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False)
+    def test_quiet_environment_hides_retry_and_preserves_outbox_on_attempt(self):
+        outbox = self._outbox(suffix='quiet-outbound')
+        response = self._get()
+        workspace = response.context['workspace']
+        retry_metric = next(item for item in workspace['summary'] if item['label'] == '可安全重试')
+        self.assertEqual(retry_metric['value'], 0)
+        row = next(item for item in workspace['rows'] if item['id'] == outbox.id)
+        self.assertEqual(row['action']['kind'], 'manual')
+        self.assertNotContains(response, 'aria-label="精确重试 Outbox #')
+
+        self.client.force_login(self.marketing)
+        with patch('console.marketing_views.dispatch_claimed_outbox_event') as dispatch:
+            rejected = self.client.post(reverse('console:marketing_outbox_retry', args=[outbox.id]))
+        self.assertEqual(rejected.status_code, 409)
+        outbox.refresh_from_db()
+        self.assertEqual((outbox.status, outbox.attempts), ('failed', 1))
+        dispatch.assert_not_called()
+
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False)
+    def test_quiet_worker_preserves_stale_inbound_claim_without_processing(self):
+        stale = self._inbound(
+            suffix='quiet-worker-stale', status='processing', submission=self.lead, payload={},
+        )
+        original_updated_at = self.now - timedelta(minutes=16)
+        LeadInboundEvent.objects.filter(id=stale.id).update(updated_at=original_updated_at)
+        with patch('leads.inbound.process_claimed_inbound_receipt') as process:
+            result = retry_inbound_events(limit=100, max_attempts=8)
+        self.assertEqual(result, (0, 0))
+        stale.refresh_from_db()
+        self.assertEqual((stale.status, stale.attempts), ('processing', 1))
+        self.assertEqual(stale.updated_at, original_updated_at)
+        process.assert_not_called()
 
     def test_exact_outbound_retry_claims_only_requested_due_id(self):
         requested = self._outbox(suffix='requested')
