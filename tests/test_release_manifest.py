@@ -20,10 +20,10 @@ class ReleaseManifestTests(unittest.TestCase):
         self.assertEqual(manifest['format'], 'vorntek-source-release-v1')
         self.assertEqual(manifest['version'], (ROOT / 'VERSION').read_text().strip())
         self.assertRegex(manifest['git_commit'], r'^[a-f0-9]{40}$')
-        self.assertEqual(manifest['migrations']['count'], 42)
+        self.assertEqual(manifest['migrations']['count'], 43)
         self.assertEqual(
             manifest['migrations']['tip'],
-            '0042_crm_attachment_cleanup.sql',
+            '0043_site_example_bundle.sql',
         )
         # Includes the real configurable inquiry controller introduced alongside
         # the existing legacy form compatibility script.
