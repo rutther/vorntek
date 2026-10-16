@@ -952,6 +952,35 @@ class MarketingEventWorkspaceTests(TestCase):
         self.assertContains(failed, '事件队列暂时无法读取', status_code=503)
         self.assertContains(failed, '重新载入', status_code=503)
 
+    def test_source_analysis_is_aggregate_only_and_explains_its_actual_basis(self):
+        self.client.force_login(self.marketing)
+        self.client.raise_request_exception = False
+        response = self.client.get(reverse('console:marketing_attribution'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'console/v2/pages/marketing_sources.html')
+        self.assertContains(response, 'source_channel')
+        self.assertContains(response, '不是广告平台归因报告')
+        self.assertNotContains(response, self.lead.email)
+        self.assertEqual(response.context['overview']['funnel']['total'], 1)
+        self.assertNotContains(response, '平台与归因')
+
+    def test_source_analysis_failure_is_not_presented_as_zero_leads(self):
+        self.client.force_login(self.marketing)
+        with patch('console.marketing_source_views.build_marketing_overview', side_effect=DatabaseError('private-sql')):
+            response = self.client.get(reverse('console:marketing_attribution'))
+        self.assertEqual(response.status_code, 503)
+        self.assertContains(response, '来源数据暂时无法读取', status_code=503)
+        self.assertNotContains(response, 'private-sql', status_code=503)
+
+    def test_source_website_link_uses_configured_public_origin(self):
+        self.client.force_login(self.marketing)
+        self.client.raise_request_exception = False
+        self.site.base_url = 'https://public.example.invalid'
+        self.site.save(update_fields=['base_url'])
+        with patch('console.marketing_source_views.PUBLIC_PREVIEW_BASE_URL', 'https://public.example.invalid'):
+            response = self.client.get(reverse('console:marketing_attribution'))
+        self.assertContains(response, 'href="https://public.example.invalid/?lang=en"')
+
     def test_template_has_named_table_controls_and_redacts_sensitive_errors(self):
         self._outbox(
             suffix='secret',

@@ -207,7 +207,7 @@ def _integration_state(integration: MarketingIntegration, outboxes, inbound_even
     }
 
 
-def build_marketing_overview(*, site) -> dict:
+def build_marketing_overview(*, site, include_operations=True) -> dict:
     leads = LeadSubmission.objects.filter(site=site)
     outboxes = LeadEventOutbox.objects.filter(
         submission__site=site,
@@ -218,7 +218,7 @@ def build_marketing_overview(*, site) -> dict:
         MarketingIntegration.objects.select_related('provider')
         .filter(site=site)
         .order_by('provider__code', 'integration_type', 'id')
-    )
+    ) if include_operations else []
 
     funnel = leads.aggregate(
         total=Count('id'),
@@ -264,6 +264,15 @@ def build_marketing_overview(*, site) -> dict:
             'won_value': value_summary['label'],
             'won_value_by_currency': value_summary['items'],
         })
+
+    if not include_operations:
+        return {
+            'generated_at': timezone.now(),
+            'site': {'id': site.id, 'code': site.code, 'name': site.name},
+            'funnel': {**funnel, 'won_value': funnel_value['label'], 'won_value_by_currency': funnel_value['items']},
+            'sources': sources,
+            'matching_completeness': _matching_completeness(leads),
+        }
 
     attempted = outboxes.exclude(status__in=['pending', 'skipped']).count()
     failed = outboxes.filter(status='failed').count()

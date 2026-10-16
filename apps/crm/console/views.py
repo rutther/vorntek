@@ -837,9 +837,8 @@ def home(request):
 @login_required
 @require_GET
 def marketing_attribution(request):
-    """Canonical GET-only alias for the current attribution renderer."""
-
-    return marketing(request)
+    from .marketing_source_views import source_analysis
+    return source_analysis(request)
 
 
 @login_required
@@ -1366,7 +1365,17 @@ def asset_import_path(request):
 
 @login_required
 def marketing(request):
-    return render_console(request, section_key='marketing', page_payload=marketing_payload())
+    tab = request.GET.get('tab', '')
+    if tab == 'integrations':
+        return redirect_get_preserving_query(request, 'console:marketing_integrations', drop=('tab',))
+    if tab not in {'ctas', 'rules', 'mappings'}:
+        return redirect_get_preserving_query(request, 'console:marketing_attribution')
+    payload = marketing_payload()
+    payload.update(title='高级追踪配置', description='维护既有 CTA、追踪规则与事件映射；不替代获客方案。',
+                   workspaceLabel='高级追踪配置', workspaceMeta='沿用既有配置与发布方式。', initialTab=tab)
+    payload['tabs'] = [item for item in payload['tabs'] if item['key'] in {'ctas', 'rules', 'mappings'}]
+    payload['views'] = {key: value for key, value in payload['views'].items() if key in {'ctas', 'rules', 'mappings'}}
+    return render_console(request, section_key='marketing_attribution', page_payload=payload)
 
 
 @login_required

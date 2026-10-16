@@ -2,6 +2,16 @@
 
 ## Integration candidate — 2026-10-16
 
+- Public candidate `477b9c3` is now running after an accepted app-only update;
+  its exact-origin regression was verified through a new public HTTPS inquiry.
+  The existing site's canonical origin was updated using the guarded command,
+  retaining all other site settings. No database restore or migration occurred.
+- Final reference comparison then exposed a missing Pixel scope-save module and
+  an older source-analysis renderer. These are now restored in source with their
+  original behavior and regression tests, but still await their own accepted
+  image and actual deployed-page verification. Do not claim final completeness
+  from the public-origin fix alone.
+
 This branch is deployed to the authorized Vorntek installation and remains
 an in-progress integration, not a completed product release.
 The earlier observations below describe the prior public source baseline.

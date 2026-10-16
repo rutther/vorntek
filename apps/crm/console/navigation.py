@@ -418,7 +418,7 @@ def build_navigation(active_key: str, user) -> list[dict[str, object]]:
                 ('marketing_events', '事件运营', 'console:marketing_events', '平台事件收发、失败恢复与证据'),
                 ('marketing_forms', '获客表单', 'console:marketing_forms', '公开表单、字段、通知与回传'),
                 ('marketing_privacy', '隐私请求', 'console:marketing_privacy', '登记、核验与处理数据主体请求'),
-                ('marketing', '平台与归因', 'console:marketing', '来源漏斗、平台接入与归因规则'),
+                ('marketing_attribution', '来源分析', 'console:marketing_attribution', 'CRM来源汇总、销售阶段与字段完整率'),
             )
             item['children'] = [
                 {

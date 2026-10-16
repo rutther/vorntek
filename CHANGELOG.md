@@ -1,5 +1,13 @@
 # Changelog
 
+## Integration completeness follow-up
+
+- Restore the existing Pixel scope save sub-operation and its original version,
+  placement, consent and transaction guards; saving does not activate delivery.
+- Restore the current CRM source-analysis page and matching-field completeness
+  view, with aggregate-only queries, explicit failure feedback and preserved
+  legacy advanced-tracking links. No advertising-attribution result is implied.
+
 All notable changes to Vorntek are recorded here. The project follows
 [Semantic Versioning](https://semver.org/); development versions are not release
 certifications.
