@@ -116,9 +116,10 @@ def main():
     parser.add_argument('--http', action='store_true', help='Also exercise website-to-CRM HTTP using synthetic accounts.')
     parser.add_argument('--review-seconds', type=int, default=0, help='Keep the isolated HTTP server available briefly for browser review (max 900s).')
     args = parser.parse_args()
+    candidate_commit = None
     if args.baseline_checkout:
         from test_release_upgrade import validate_baseline_checkout
-        validate_baseline_checkout(args.baseline_checkout,ROOT)
+        _,_,candidate_commit=validate_baseline_checkout(args.baseline_checkout,ROOT)
     if not 0 <= args.review_seconds <= 900 or (args.review_seconds and not args.http):
         parser.error('--review-seconds requires --http and must be between 0 and 900.')
     if (CRM / '.env').exists():
@@ -161,6 +162,8 @@ def main():
     report = {'started_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
               'scope': 'unique local cluster; synthetic data only; no external integrations',
               'runtime_directory': str(runtime), 'checks': []}
+    if candidate_commit:
+        report['candidate_commit'] = candidate_commit
 
     def run(
         command,
@@ -794,6 +797,7 @@ for username,role in [('local-admin','system_admin'),('local-sales','sales')]:
             conn.execute('CREATE DATABASE newcrown_native_test OWNER newcrown_app')
         manage('initialize_database','--apply',db='newcrown_native_test')
         native_tests='''import os, socket, django
+os.environ['DJANGO_SETTINGS_MODULE']='siteos_admin.settings'
 from unittest.mock import patch
 from django.conf import settings
 assert settings.DATABASES['default']['NAME']=='newcrown_native_test'

@@ -61,6 +61,7 @@ class IndustrialLifecycleTests(FileLifecycleFixture,TestCase):
     def test_import_creates_actual_assets_drafts_and_disabled_profiles(self):
         before=get_user_model().objects.filter(pk=self.actor.pk).values().get()
         site_before=type(self.site).objects.filter(pk=self.site.pk).values().get()
+        integrations_before=MarketingIntegration.objects.count()
         self.assertEqual(self.command()['result'],'IMPORTED')
         self.assertEqual(MediaAsset.objects.filter(asset_type='model3d').count(),6)
         self.assertEqual(MediaAsset.objects.filter(asset_type='image').count(),9)
@@ -76,7 +77,7 @@ class IndustrialLifecycleTests(FileLifecycleFixture,TestCase):
         self.assertEqual(SiteLocale.objects.get(site=self.site,locale_code='ar').direction,'rtl')
         self.assertEqual(get_user_model().objects.filter(pk=self.actor.pk).values().get(),before)
         self.assertEqual(type(self.site).objects.filter(pk=self.site.pk).values().get(),site_before)
-        self.assertEqual(MarketingIntegration.objects.count(),0)
+        self.assertEqual(MarketingIntegration.objects.count(),integrations_before)
 
     def test_repeat_retains_later_edits_and_existing_data(self):
         self.command()
@@ -122,7 +123,9 @@ class IndustrialLifecycleTests(FileLifecycleFixture,TestCase):
 
     def test_active_integration_or_non_admin_refuses(self):
         provider,_=MarketingProvider.objects.get_or_create(code='meta',defaults={'name':'Meta'})
-        integration=MarketingIntegration.objects.create(site=self.site,provider=provider,enabled=True)
+        integration=MarketingIntegration.objects.create(
+            site=self.site,provider=provider,name='Synthetic active integration',
+            integration_type='leadgen',public_id='synthetic-active',enabled=True)
         with self.assertRaisesRegex(CommandError,'integrations'):
             self.command()
         integration.delete()

@@ -2,8 +2,10 @@ import hashlib
 from pathlib import Path
 import tempfile
 import unittest
+import subprocess
+from unittest.mock import patch
 
-from scripts.test_release_upgrade import validate_migration_prefix, preserved_original_rows
+from scripts.test_release_upgrade import validate_baseline_checkout, validate_migration_prefix, preserved_original_rows
 
 
 class ReleaseUpgradeInputTests(unittest.TestCase):
@@ -22,6 +24,14 @@ class ReleaseUpgradeInputTests(unittest.TestCase):
             (directory/'SHA256SUMS').write_text(''.join(
                 hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n'
                 for p in sorted(directory.glob('*.sql'))))
+
+    def initialize_git_checkout(self, root):
+        subprocess.run(['git','init','-q'],cwd=root,check=True)
+        subprocess.run(['git','add','.'],cwd=root,check=True)
+        subprocess.run(
+            ['git','-c','user.name=Release Test','-c','user.email=release@example.invalid',
+             'commit','-qm','fixture'],cwd=root,check=True)
+        return subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
 
     def test_real_matching_prefix_reports_exact_pending_count(self):
         self.assertEqual(validate_migration_prefix(self.old,self.new),(1,1))
@@ -44,6 +54,24 @@ class ReleaseUpgradeInputTests(unittest.TestCase):
     def test_no_upgrade_or_downgrade_is_not_accepted_as_upgrade(self):
         with self.assertRaisesRegex(ValueError,'extend'):
             validate_migration_prefix(self.new,self.old)
+
+    def test_dirty_candidate_checkout_is_refused_before_upgrade(self):
+        old_migrations=self.old/'apps/crm/db/migrations'
+        new_migrations=self.new/'apps/crm/db/migrations'
+        old_migrations.mkdir(parents=True)
+        new_migrations.mkdir(parents=True)
+        for source,target in ((self.old,old_migrations),(self.new,new_migrations)):
+            for path in list(source.glob('*.sql'))+[source/'SHA256SUMS']:
+                path.replace(target/path.name)
+        baseline_revision=self.initialize_git_checkout(self.old)
+        candidate_revision=self.initialize_git_checkout(self.new)
+        with patch('scripts.test_release_upgrade.PUBLIC_BASELINE',baseline_revision):
+            self.assertEqual(
+                validate_baseline_checkout(self.old,self.new),
+                (1,1,candidate_revision))
+            (self.new/'uncommitted.txt').write_text('not part of the candidate commit\n')
+            with self.assertRaisesRegex(ValueError,'Candidate checkout is dirty'):
+                validate_baseline_checkout(self.old,self.new)
 
     def test_new_framework_permissions_may_append_but_old_rows_cannot_change(self):
         before={'auth_permission':['old'],'django_content_type':['type'],'lead_submission':['lead']}

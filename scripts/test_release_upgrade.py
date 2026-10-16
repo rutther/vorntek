@@ -49,16 +49,33 @@ def validate_migration_prefix(baseline: Path, candidate: Path) -> tuple[int,int]
     return len(old),len(new)-len(old)
 
 
-def validate_baseline_checkout(baseline: Path, candidate: Path) -> tuple[int,int]:
+def _clean_checkout_revision(checkout: Path, label: str) -> str:
+    try:
+        revision=subprocess.check_output(
+            ['git','rev-parse','HEAD'],cwd=checkout,text=True,stderr=subprocess.STDOUT).strip()
+        status=subprocess.check_output(
+            ['git','status','--porcelain','--untracked-files=all'],
+            cwd=checkout,text=True,stderr=subprocess.STDOUT).strip()
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(f'{label} is not a verifiable Git checkout.') from exc
+    if status:
+        raise ValueError(f'{label} checkout is dirty.')
+    return revision
+
+
+def validate_baseline_checkout(baseline: Path, candidate: Path) -> tuple[int,int,str]:
     baseline=baseline.resolve(strict=True);candidate=candidate.resolve(strict=True)
-    if baseline == candidate or (baseline/'apps/crm/.env').exists():
-        raise ValueError('A separate clean baseline checkout without application .env is required.')
-    revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=baseline,text=True).strip()
-    if revision != PUBLIC_BASELINE:
+    if baseline == candidate:
+        raise ValueError('Separate baseline and candidate checkouts are required.')
+    if (baseline/'apps/crm/.env').exists() or (candidate/'apps/crm/.env').exists():
+        raise ValueError('Clean checkouts without application .env are required.')
+    baseline_revision=_clean_checkout_revision(baseline,'Baseline')
+    if baseline_revision != PUBLIC_BASELINE:
         raise ValueError('Baseline is not the frozen public main revision.')
-    if subprocess.check_output(['git','status','--porcelain','--untracked-files=all'],cwd=baseline).strip():
-        raise ValueError('Baseline checkout is dirty.')
-    return validate_migration_prefix(baseline/'apps/crm/db/migrations',candidate/'apps/crm/db/migrations')
+    candidate_revision=_clean_checkout_revision(candidate,'Candidate')
+    old_count,pending_count=validate_migration_prefix(
+        baseline/'apps/crm/db/migrations',candidate/'apps/crm/db/migrations')
+    return old_count,pending_count,candidate_revision
 
 
 def main():
