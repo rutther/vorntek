@@ -99,6 +99,20 @@
 .lead-form-editor .field input[type="number"],
 .lead-form-editor .field select,
 .lead-form-editor .field textarea,
+.lead-field-options {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 6px;
+}
+.lead-field-options textarea {
+    width: 100%;
+    min-height: 78px;
+    resize: vertical;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 8px 10px;
+    font: inherit;
+}
 .lead-field-input input {
     height: 36px;
     padding: 7px 9px;

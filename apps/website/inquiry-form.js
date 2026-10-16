@@ -20,7 +20,15 @@
       return await Promise.race([(async()=>{
         const response=await fetch(url,{credentials:'same-origin',cache:'no-store',...options,signal:controller.signal});
         const result=await response.json();
-        if(!response.ok||result.ok!==true)throw Error(response.status===429?'rate':'rejected');
+        if(!response.ok||result.ok!==true){
+          const error=Error(response.status===429?'rate':'rejected');
+          if([400,409,422].includes(response.status)){
+            error.validation=true;
+            error.detail=typeof result.error==='string'?result.error.replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,300):'';
+            error.code=typeof result.code==='string'&&/^[a-z][a-z0-9_]{0,79}$/.test(result.code)?result.code:'invalid_submission';
+          }
+          throw error;
+        }
         return result;
       })(),deadline]);
     }finally{clearTimeout(timer);}
@@ -35,7 +43,7 @@
     if(!fieldsRoot||!status||!submit||!consent)return;
     let fields=[],ready=false,busy=false,loading=false,started=false;
     let startedAt=new Date().toISOString(),eventId='',fingerprint='';
-    const setStatus=(kind,en,cn=en)=>{status.dataset.kind=kind;localized(status,en,cn);};
+    const setStatus=(kind,en,cn=en)=>{status.dataset.kind=kind;status.dataset.code='';localized(status,en,cn);};
     const formCodeValid=/^[a-zA-Z0-9_-]{1,100}$/.test(code);
     const base='/admin/api/leads/forms/'+encodeURIComponent(code)+'/';
 
@@ -152,7 +160,12 @@
         form.reset();started=false;fingerprint='';eventId='';startedAt=new Date().toISOString();
       }catch(error){
         if(error.message==='rate')setStatus('error','Too many attempts. Entries are preserved; try later.','提交较频繁，内容已保留，请稍后重试。');
-        else setStatus('error','Submission was not confirmed. Entries are preserved; retry the same request.','提交未确认成功，内容已保留，请重试同一次请求。');
+        else if(error.validation){
+          const detail=error.detail?' '+error.detail:'';
+          setStatus('error','Please correct the submitted information. Entries are preserved.'+detail,
+            '请修改提交的信息，已填写内容已保留。'+detail);
+          status.dataset.code=error.code;
+        }else setStatus('error','Submission was not confirmed. Entries are preserved; retry the same request.','提交未确认成功，内容已保留，请重试同一次请求。');
       }finally{busy=false;submit.disabled=false;form.setAttribute('aria-busy','false');}
     });
     load();

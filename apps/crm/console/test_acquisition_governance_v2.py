@@ -157,6 +157,7 @@ class AcquisitionGovernanceTests(TestCase):
                 data[f'field_{name_key}_required'] = 'on'
             data[f'field_{name_key}_label'] = item['default_label']
             data[f'field_{name_key}_placeholder'] = item['default_placeholder']
+            if item['type'] == 'select': data[f'field_{name_key}_options'] = 'Synthetic advice\nSynthetic support'
         return data
 
     def test_workspace_exposes_operational_risk_and_real_submission_count(self):

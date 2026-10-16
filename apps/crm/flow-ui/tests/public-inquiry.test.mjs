@@ -174,3 +174,31 @@ test('changed fields create a new request identity and unconsented attribution s
   assert.equal(second.fbp,'synthetic-browser-id');assert.equal(second.utm.utm_campaign,'synthetic-campaign');
  }finally{ui.close();}
 });
+
+test('server validation explains the correction while preserving input and retry identity',async()=>{
+ const ui=await fixture();try{
+  ui.form.elements.full_name.value='Synthetic';ui.form.elements.phone.value='abc';ui.form.elements.consent.checked=true;
+  const invalid={ok:false,status:400,json:async()=>({ok:false,code:'invalid_submission',error:'Phone number is invalid.'})};
+  ui.replies.push(invalid);await ui.submit();
+  assert.match(ui.status.textContent,/Phone number is invalid/);
+  assert.doesNotMatch(ui.status.textContent,/retry the same request/);
+  assert.equal(ui.status.dataset.code,'invalid_submission');assert.equal(ui.form.elements.phone.value,'abc');
+  ui.replies.push(invalid);await ui.submit();
+  let writes=ui.requests.filter(r=>r.payload);assert.equal(writes[0].payload.client_event_id,writes[1].payload.client_event_id);
+  ui.form.elements.phone.value='+15550001234';await ui.submit();writes=ui.requests.filter(r=>r.payload);
+  assert.notEqual(writes[1].payload.client_event_id,writes[2].payload.client_event_id);
+  assert.equal(ui.status.dataset.kind,'success');assert.equal(ui.events.length,1);
+ }finally{ui.close();}
+});
+
+test('validation detail is bounded literal text and server failures do not expose internal errors',async()=>{
+ for(const status of [400,500]){
+  const ui=await fixture();try{
+   ui.form.elements.full_name.value='Synthetic';ui.form.elements.email.value='test@example.invalid';ui.form.elements.consent.checked=true;
+   ui.replies.push({ok:false,status,json:async()=>({ok:false,code:'invalid_submission',error:'<img src=x onerror=alert(1)>PRIVATEDETAIL'+ 'x'.repeat(600)})});
+   await ui.submit();assert.equal(ui.status.querySelector('img'),null);assert.ok(ui.status.textContent.length<500);
+   if(status===400)assert.match(ui.status.textContent,/PRIVATEDETAIL/);else assert.doesNotMatch(ui.status.textContent,/PRIVATEDETAIL/);
+   assert.equal(ui.events.length,0);assert.equal(ui.form.elements.email.value,'test@example.invalid');
+  }finally{ui.close();}
+ }
+});

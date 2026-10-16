@@ -96,11 +96,11 @@ class MarketingEventWorkspaceTests(TestCase):
         self.sales = self._user('marketing-sales', ROLE_SALES)
         self.site, self.locale, self.form = self._site_bundle('siteos_demo')
         self.other_site, self.other_locale, self.other_form = self._site_bundle('other')
-        self.meta = MarketingProvider.objects.create(
-            code='meta', name='Meta', enabled=True, capabilities={},
+        self.meta, _ = MarketingProvider.objects.get_or_create(
+            code='meta', defaults={'name': 'Meta', 'enabled': True, 'capabilities': {}},
         )
-        self.google = MarketingProvider.objects.create(
-            code='google', name='Google', enabled=True, capabilities={},
+        self.google, _ = MarketingProvider.objects.get_or_create(
+            code='google', defaults={'name': 'Google', 'enabled': True, 'capabilities': {}},
         )
         self.outbound = self._integration(
             site=self.site,

@@ -172,7 +172,7 @@ class LeadFormEditorForm(forms.Form):
             specs.append(
                 {
                     'name': item['name'],
-                    'type': item['type'],
+                    'type': current.get('type', item['type']),
                     'default_label': item['default_label'],
                     'enabled': bool(current.get('enabled', bool(current))),
                     'required': bool(current.get('required', item['default_required'])),
@@ -190,11 +190,19 @@ class LeadFormEditorForm(forms.Form):
             self.fields[f'field_{name}_required'] = forms.BooleanField(label='必填', required=False)
             self.fields[f'field_{name}_label'] = forms.CharField(label='字段标题', max_length=120, required=False)
             self.fields[f'field_{name}_placeholder'] = forms.CharField(label='占位提示', max_length=200, required=False)
+            if spec['type'] == 'select':
+                self.fields[f'field_{name}_options'] = forms.CharField(label=f"{spec['default_label']}可选项",
+                    max_length=80000, required=False, widget=forms.Textarea(attrs={'rows': 3}),
+                    help_text='每行一个选项；需要独立的值和显示名称时可填写 JSON 数组。最多 200 项。')
             if not self.is_bound:
                 self.initial[f'field_{name}_enabled'] = spec['enabled']
                 self.initial[f'field_{name}_required'] = spec['required']
                 self.initial[f'field_{name}_label'] = spec['label']
                 self.initial[f'field_{name}_placeholder'] = spec['placeholder']
+                if spec['type'] == 'select':
+                    options = spec['options']
+                    self.initial[f'field_{name}_options'] = (json.dumps(options, ensure_ascii=False, indent=2)
+                        if any(isinstance(item, dict) for item in options) else '\n'.join(options))
 
     def field_rows(self) -> list[dict]:
         rows = []
@@ -209,6 +217,7 @@ class LeadFormEditorForm(forms.Form):
                     'required_field': self[f'field_{name}_required'],
                     'label_field': self[f'field_{name}_label'],
                     'placeholder_field': self[f'field_{name}_placeholder'],
+                    'options_field': self[f'field_{name}_options'] if spec['type'] == 'select' else None,
                 }
             )
         return rows
@@ -244,6 +253,12 @@ class LeadFormEditorForm(forms.Form):
     def clean_config_json(self):
         return self._clean_json_field('config_json')
 
+    def clean(self):
+        cleaned = super().clean()
+        if not self.errors:
+            self.cleaned_form_schema()
+        return cleaned
+
     def cleaned_form_schema(self) -> dict:
         fields = []
         enabled_names = set()
@@ -254,6 +269,17 @@ class LeadFormEditorForm(forms.Form):
             required = enabled and bool(self.cleaned_data.get(f'field_{name}_required'))
             label = (self.cleaned_data.get(f'field_{name}_label') or spec['default_label']).strip() or spec['default_label']
             placeholder = (self.cleaned_data.get(f'field_{name}_placeholder') or '').strip()
+            options = spec.get('options', [])
+            option_key = f'field_{name}_options'
+            if spec['type'] == 'select' and option_key in self.cleaned_data:
+                raw = (self.cleaned_data[option_key] or '').strip()
+                if raw.startswith('['):
+                    try:
+                        options = json.loads(raw)
+                    except json.JSONDecodeError as exc:
+                        raise forms.ValidationError(f'{label}选项 JSON 格式无效。') from exc
+                else:
+                    options = [line.strip() for line in raw.splitlines() if line.strip()]
             if enabled:
                 enabled_names.add(name)
             if required:
@@ -266,7 +292,7 @@ class LeadFormEditorForm(forms.Form):
                     'placeholder': placeholder,
                     'enabled': enabled,
                     'required': required,
-                    'options': spec.get('options', []),
+                    'options': options,
                 }
             )
 

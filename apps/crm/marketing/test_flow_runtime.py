@@ -149,11 +149,14 @@ class FlowRuntimeTests(TestCase):
 
     def test_retry_and_conflict(self):
         module = self.runtime()
+        original_ids = set(models.MarketingIntegration.objects.values_list('pk', flat=True))
         request = {'action':'prepare_integration', 'expectedVersion':0, 'requestId':str(uuid.uuid4())}
         first = module.runtime_command(loop=self.loop, actor=self.user, data=request)
         retry = module.runtime_command(loop=self.loop, actor=self.user, data=request)
         self.assertEqual(first, retry)
-        self.assertEqual(models.MarketingIntegration.objects.count(), 1)
+        current_ids = set(models.MarketingIntegration.objects.values_list('pk', flat=True))
+        self.assertTrue(original_ids.issubset(current_ids), 'Existing independent integrations must be retained')
+        self.assertEqual(len(current_ids - original_ids), 1)
         with self.assertRaises(module.RuntimeConflict):
             module.runtime_command(loop=self.loop, actor=self.user, data={**request, 'action':'pause'})
         with self.assertRaises(module.RuntimeConflict):

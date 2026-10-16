@@ -2,6 +2,11 @@
 
 ## Integration completeness follow-up
 
+- Editable select choices now persist from the ordinary form editor; enabled
+  selects without usable choices are rejected before saving/public exposure.
+- Public forms distinguish actionable validation errors from uncertain transport
+  failures, display bounded literal messages and retain inputs/retry identity.
+
 - Restore the existing Pixel scope save sub-operation and its original version,
   placement, consent and transaction guards; saving does not activate delivery.
 - Restore the current CRM source-analysis page and matching-field completeness

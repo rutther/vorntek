@@ -9,6 +9,14 @@ old host's `.env`, Compose project name, secret directory or database volume.
 
 ## Generate one installation / 生成一套安装配置
 
+### Form choices / 表单选项
+
+在获客表单的字段设置中，下拉字段提供“可选项”输入框：每行填写一个选项。
+需要固定提交值与独立显示名称时，可填写数组，例如
+`[{"value":"advice","label":"个人咨询"},{"value":"team","label":"团队协作"}]`。
+启用的下拉字段必须有可用选项；保存会先校验，不会发布只有空白占位项的表单。
+前台校验失败会说明需要修改的信息并保留输入；网络结果不确定时则保留同次请求标识供核对重试。
+
 ```sh
 python3 scripts/configure.py
 docker compose config --quiet

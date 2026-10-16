@@ -67,6 +67,8 @@ def effective_form_fields(form_definition):
                                              or len(option.get("label", value)) > 120):
                 raise FormSchemaError("表单选项配置无效，请联系管理员。")
             values.append(value)
+        if enabled and kind == 'select' and not values:
+            raise FormSchemaError(f'{label}需要至少一个可选项。')
         result[name] = dict(field, name=name, label=label, type=kind, enabled=enabled,
                             required=enabled and required, option_values=tuple(values))
     if not any(result.get(name, {}).get("enabled") for name in ("email", "phone")):
@@ -80,6 +82,10 @@ def public_form_fields(form_definition):
     if rules is None:
         required = {"full_name", "company", "country", "product_category", "capacity"}
         fields = [dict(field, enabled=True, required=field["name"] in required) for field in DEFAULT_FIELDS]
+        # Pre-schema capture accepted a nonempty category string, not a fixed
+        # industry enum. Do not invent choices or render an unusable empty select.
+        for field in fields:
+            if field['name'] == 'product_category': field['type'] = 'text'
         if getattr(form_definition, "category", None) == "industrial":
             # Compatibility for existing records only; fresh bootstrap is general.
             from leads.industrial import BUSINESS_LINES

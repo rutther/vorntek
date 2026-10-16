@@ -2,6 +2,12 @@
 
 ## Integration candidate — 2026-10-16
 
+- The single fresh whole-branch review found two important form defects:
+  uneditable/empty select choices and discarded public validation feedback.
+  Both are fixed in source with observed RED→GREEN tests. Current local results
+  are not a claim that this final review-fix candidate is publicly deployed;
+  native acceptance and final-host interaction still have to be recorded.
+
 - Public candidate `477b9c3` is now running after an accepted app-only update;
   its exact-origin regression was verified through a new public HTTPS inquiry.
   The existing site's canonical origin was updated using the guarded command,
