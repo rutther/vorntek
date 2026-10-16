@@ -6,6 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Group
 from django.db import connection
 from django.test import TestCase
@@ -66,6 +67,7 @@ class TaskViewsV2Tests(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.fixture_password = make_password('password')
         existing = set(connection.introspection.table_names())
         cls.created_models = []
         try:
@@ -97,11 +99,11 @@ class TaskViewsV2Tests(TestCase):
             for role in (ROLE_SALES, ROLE_SALES_MANAGER, ROLE_MARKETING_OPS, ROLE_SYSTEM_ADMIN)
         }
         User = get_user_model()
-        self.sales = User.objects.create_user(username='task-sales', password='password')
-        self.other_sales = User.objects.create_user(username='task-other', password='password')
-        self.manager = User.objects.create_user(username='task-manager', password='password')
-        self.marketing = User.objects.create_user(username='task-marketing', password='password')
-        self.admin = User.objects.create_user(username='task-admin', password='password')
+        self.sales = User.objects.create(username='task-sales', password=self.fixture_password)
+        self.other_sales = User.objects.create(username='task-other', password=self.fixture_password)
+        self.manager = User.objects.create(username='task-manager', password=self.fixture_password)
+        self.marketing = User.objects.create(username='task-marketing', password=self.fixture_password)
+        self.admin = User.objects.create(username='task-admin', password=self.fixture_password)
         self.sales.groups.add(groups[ROLE_SALES])
         self.other_sales.groups.add(groups[ROLE_SALES])
         self.manager.groups.add(groups[ROLE_SALES_MANAGER])
@@ -117,10 +119,10 @@ class TaskViewsV2Tests(TestCase):
             is_default=True, enabled=True, sort_order=10,
         )
         self.team = SalesTeam.objects.create(
-            site=self.site, code='team-a', name='Team A', enabled=True
+            site=self.site, code='team_a', name='Team A', enabled=True
         )
         self.other_team = SalesTeam.objects.create(
-            site=self.site, code='team-b', name='Team B', enabled=True
+            site=self.site, code='team_b', name='Team B', enabled=True
         )
         SalesTeamMember.objects.create(team=self.team, user=self.sales, membership_role='member')
         SalesTeamMember.objects.create(team=self.team, user=self.manager, membership_role='manager')

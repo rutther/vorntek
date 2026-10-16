@@ -2753,6 +2753,7 @@ class LeadViewsV2ContractTests(TestCase):
         annotated = sales_team_usage_queryset(SalesTeam.objects.filter(pk=self.team.pk)).get()
         self.assertEqual(annotated.open_lead_count, 1)
 
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True, NEWCROWN_RUN_SCHEDULED_TASKS=True)
     def test_trash_operational_reminder_command_selects_only_active_records(self):
         from io import StringIO
         from django.test import override_settings
@@ -2827,7 +2828,7 @@ class LeadViewsV2ContractTests(TestCase):
         self.assertEqual(error.exception.code, 'lead_trashed')
         self.assertEqual(self._conversion_counts(self.owned_lead), before)
 
-    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', NEWCROWN_ALLOW_EXTERNAL_IO=True)
     def test_trash_operational_notification_rechecks_stale_record_before_smtp(self):
         from leads.notifications import send_submission_notification
 
@@ -2852,6 +2853,7 @@ class LeadViewsV2ContractTests(TestCase):
             status=status, attempts=2 if status == 'sent' else 0,
         )
 
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
     def test_trash_outbox_worker_preserves_pending_and_sent_states(self):
         from leads.services import dispatch_pending_outbox
 
@@ -2866,6 +2868,7 @@ class LeadViewsV2ContractTests(TestCase):
         self.assertEqual((pending.status, pending.attempts), ('pending', 0))
         self.assertEqual((sent.status, sent.attempts), ('sent', 2))
 
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
     def test_trash_outbox_direct_send_rechecks_stale_record(self):
         from leads.services import dispatch_outbox_event
 
@@ -2877,6 +2880,7 @@ class LeadViewsV2ContractTests(TestCase):
         pending.refresh_from_db()
         self.assertEqual((pending.status, pending.attempts), ('pending', 0))
 
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
     def test_trash_outbox_claimed_before_trash_returns_to_resumable_queue(self):
         from leads.services import dispatch_claimed_outbox_event
 
@@ -2888,6 +2892,7 @@ class LeadViewsV2ContractTests(TestCase):
         claimed.refresh_from_db()
         self.assertEqual((claimed.status, claimed.attempts), ('pending', 0))
 
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
     def test_restore_outbox_resumes_original_target_without_replaying_sent(self):
         from io import BytesIO
         from leads.lead_workflow_services import restore_lead_from_trash
@@ -2914,6 +2919,7 @@ class LeadViewsV2ContractTests(TestCase):
         self.assertEqual(pending.payload_json, original_payload)
         self.assertEqual((sent.status, sent.attempts), ('sent', 2))
 
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
     def test_trash_manual_retry_rejects_then_restore_reenables_original_retry(self):
         from console.marketing_queries import outbox_retry_contract, retryable_outbox_q
         from leads.lead_workflow_services import restore_lead_from_trash
@@ -2938,6 +2944,7 @@ class LeadViewsV2ContractTests(TestCase):
         self.assertTrue(outbox_retry_contract(failed)[0])
         self.assertTrue(LeadEventOutbox.objects.filter(retryable_outbox_q(), pk=failed.pk).exists())
 
+    @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True)
     def test_restore_does_not_override_revoked_delivery_qualification(self):
         from leads.lead_workflow_services import restore_lead_from_trash
         from leads.services import dispatch_pending_outbox
@@ -2952,7 +2959,7 @@ class LeadViewsV2ContractTests(TestCase):
         pending.refresh_from_db()
         self.assertEqual(pending.status, 'skipped')
 
-    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', NEWCROWN_ALLOW_EXTERNAL_IO=True)
     def test_restore_notification_resumes_failed_only_without_replaying_success(self):
         from leads.lead_workflow_services import restore_lead_from_trash
         from leads.notifications import send_submission_notification
