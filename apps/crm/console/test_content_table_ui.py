@@ -441,7 +441,7 @@ class ThreeDResponsiveTableContractTests(SimpleTestCase):
                     'name': '首页设备预览',
                     'code': 'home-equipment',
                     'assetName': '灌装线模型',
-                    'purposeLabel': '首页 3D 设备预览',
+                    'purposeLabel': '首页 3D 展示区',
                     'background': '#ffffff',
                     'fov': 45,
                     'autoRotateLabel': '自动 / 20 秒',

@@ -3757,6 +3757,7 @@ def article_preview_file(request, version: str, artifact: str):
             base=base,
             store=article_preview_store(site, initialize=False),
             asset_root=Path(settings.SITEOS_ARTICLE_PREVIEW_ASSET_ROOT),
+            uploaded_site=site,
         )
     except (ArticleDeliveryError, OSError):
         response = _private_preview_response(

@@ -87,7 +87,7 @@ class ThreeDUiSemanticsTests(SimpleTestCase):
         self.assertEqual(purpose_label('homepage_hero'), '首页 Hero 背景')
         self.assertEqual(
             purpose_label('homepage_equipment_preview'),
-            '首页 3D 设备预览',
+            '首页 3D 展示区',
         )
         self.assertEqual(purpose_label('custom_slot'), 'custom_slot')
 

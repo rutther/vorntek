@@ -108,5 +108,11 @@ available. Never remove unknown files or delete an entire storage directory.
 The journals distinguish committed references from safe owned rollback orphans.
 Missing DB outcome is not authorization to clear a file.
 
+Private article previews can display referenced active image uploads from the
+same site's explicitly allowlisted media storage, as well as packaged website
+images. Uploaded bytes must match stored size and SHA-256; changed or missing
+uploads are unavailable rather than silently served. Other-site, unreferenced,
+private-attachment or non-image files are not exposed by the preview reader.
+
 This extension provides genuine editable content/files, not external platform
 acceptance, a complete example of every module, or final deployment/restore proof.

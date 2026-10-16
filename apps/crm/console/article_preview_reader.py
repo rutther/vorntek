@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from html import escape
 from html.parser import HTMLParser
+import hashlib
 from pathlib import Path, PurePosixPath
 import re
 from urllib.parse import urlsplit
@@ -219,6 +220,7 @@ def read_private_preview(
     base: str,
     store: ArticleReleaseStore,
     asset_root: Path,
+    uploaded_site=None,
 ) -> tuple[bytes, str] | None:
     if not store.preview:
         raise ArticleDeliveryError('preview_store_scope_mismatch')
@@ -256,7 +258,13 @@ def read_private_preview(
         raise ArticleDeliveryError('preview_assets_not_configured')
     file = _asset_file(root, artifact)
     if file is None:
-        return None
+        # Uploads live in an explicitly allowlisted media volume, not the
+        # generated website tree. Only a referenced image owned by this site's
+        # reviewed preview may cross that boundary; never proxy public URLs or
+        # search another site's catalogue/private attachments.
+        result = _read_uploaded_image(site=uploaded_site,artifact=artifact)
+        store.verify(version)
+        return result
     maximum = 2 * 1024 * 1024 if artifact in STYLES else 25 * 1024 * 1024
     if file.stat().st_size > maximum:
         raise ArticleDeliveryError('preview_asset_too_large')
@@ -271,3 +279,28 @@ def read_private_preview(
         mime = IMAGE_TYPES[file.suffix.lower()]
     store.verify(version)
     return raw, mime
+
+
+def _read_uploaded_image(*, site, artifact):
+    if site is None or _resource_path('/'+artifact) != artifact or Path(artifact).suffix.lower() not in IMAGE_TYPES:
+        return None
+    from sitecore.models import MediaAsset
+    from .forms import resolve_storage_path
+    from .storage_security import StorageSecurityError
+    row = MediaAsset.objects.filter(site=site,public_path='/'+artifact,asset_type='image',status='active').first()
+    if row is None:
+        return None
+    try:
+        path = resolve_storage_path(row.storage_path)
+        size = path.stat().st_size
+        if size > 25*1024*1024:
+            raise ArticleDeliveryError('preview_asset_too_large')
+        with path.open('rb') as stream:
+            raw = stream.read(25*1024*1024+1)
+        if len(raw) > 25*1024*1024:
+            raise ArticleDeliveryError('preview_asset_too_large')
+    except (OSError,StorageSecurityError) as error:
+        raise ArticleDeliveryError('preview_upload_unavailable') from error
+    if len(raw) != row.file_size_bytes or hashlib.sha256(raw).hexdigest() != row.sha256:
+        raise ArticleDeliveryError('preview_upload_changed')
+    return raw, IMAGE_TYPES[Path(artifact).suffix.lower()]

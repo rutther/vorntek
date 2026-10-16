@@ -8,7 +8,7 @@
                 <strong>3D 展示管理</strong>
             </nav>
             <h2>3D 展示管理</h2>
-            <p>先管理 3D 文件，再创建展示配置，最后把配置绑定到首页 Hero、设备预览等页面槽位。前台只读取生成后的预览产物。</p>
+            <p>先管理 3D 文件，再创建展示配置，最后把配置绑定到首页背景、3D 展示区等页面槽位。前台只读取生成后的预览产物。</p>
         </div>
         <div class="three-d-pagehead__actions">
             {% if workspace.uploadUrl %}<a class="button neutral" href="{{ workspace.uploadUrl }}">上传资产</a>{% endif %}
@@ -150,7 +150,7 @@
                 <div class="three-d-block__head three-d-block__head--split">
                     <div>
                         <h3>页面槽位</h3>
-                        <p>槽位是前台代码读取的稳定位置，例如首页 Hero 背景、首页 3D 设备预览。</p>
+                        <p>槽位是前台代码读取的稳定位置，例如首页背景、首页 3D 展示区。</p>
                     </div>
                     {% if workspace.createPlacementUrl %}<a class="button neutral" href="{{ workspace.createPlacementUrl }}">新增页面槽位</a>{% endif %}
                 </div>

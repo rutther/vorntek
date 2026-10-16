@@ -8,7 +8,7 @@ from sitecore.models import ThreeDPlacement, ThreeDViewProfile
 
 THREE_D_SLOT_CHOICES: tuple[tuple[str, str], ...] = (
     ('homepage_hero', '首页 Hero 背景'),
-    ('homepage_equipment_preview', '首页 3D 设备预览'),
+    ('homepage_equipment_preview', '首页 3D 展示区'),
 )
 
 THREE_D_VIEWER_PATH = '/assets/splats/viewer.html'

@@ -19,7 +19,7 @@ from console.models import ExampleDataBundle
 from console.test_file_lifecycle_contract import FileLifecycleFixture
 from leads.models import CrmAttachment
 from marketing.models import MarketingProvider, MarketingRuntimeBinding
-from sitecore.models import Article, MediaAsset, MediaAssetBinding, SiteLocale, ThreeDPlacement, ThreeDViewProfile
+from sitecore.models import Article, MediaAsset, MediaAssetBinding, Site, SiteLocale, ThreeDPlacement, ThreeDViewProfile
 
 
 class ContentExamplesPlanTests(SimpleTestCase):
@@ -49,6 +49,7 @@ class ContentExamplesPlanTests(SimpleTestCase):
 class ContentExamplesFixture(FileLifecycleFixture):
     def setUp(self):
         super().setUp()
+        self.site.code = 'siteos_demo'
         self.site.base_url = 'https://examples.example.invalid'
         self.site.save()
         self.actor = get_user_model().objects.create_superuser('content-examples', 'operator@example.invalid', 'synthetic-only')
@@ -178,10 +179,10 @@ class ContentExamplesLifecycleTests(ContentExamplesFixture, TestCase):
     def test_reset_refuses_non_example_reference_to_a_seed_asset(self):
         self.command()
         MediaAssetBinding.objects.create(site=self.site,asset=MediaAsset.objects.first(),
-                                        entity_type='page',entity_id=999,role='later-work')
+                                        entity_type='page_route',entity_id=999,role='later_work')
         with self.assertRaisesRegex(CommandError,'non-example'):
             self.command(reset=True)
-        self.assertEqual(MediaAssetBinding.objects.filter(role='later-work').count(),1)
+        self.assertEqual(MediaAssetBinding.objects.filter(role='later_work').count(),1)
 
     def test_failure_after_upload_rolls_back_database_and_keeps_durable_recovery(self):
         self.assertIn('seed_content_examples',get_commands())
@@ -242,11 +243,73 @@ class ContentExamplesLifecycleTests(ContentExamplesFixture, TestCase):
         self.assertEqual(MediaAsset.objects.count(),1)
         self.assertEqual(CrmAttachment.objects.count(),0)
 
+    def preview(self):
+        from console.article_preview import build_private_article_preview
+        self.command()
+        self.client.force_login(self.actor)
+        article = Article.objects.filter(config_json__synthetic_pack='vorntek-content-v1',
+                                         route__locale__locale_code='en').get()
+        result = build_private_article_preview(site=self.site,article=article,actor=self.actor.username)
+        self.image = MediaAsset.objects.get(site=self.site,asset_type='image')
+        self.preview_prefix = '/admin/releases/articles/preview/'+result['version']+'/'
+        return result
+
+    @override_settings(SITEOS_ARTICLE_PUBLIC_ORIGIN='https://example.invalid')
+    def test_uploaded_cover_is_served_through_the_real_reviewed_private_preview(self):
+        with override_settings(SITEOS_ARTICLE_PREVIEW_ROOT=str(self.root/'previews'),
+                               SITEOS_ARTICLE_PREVIEW_ASSET_ROOT=str(self.root/'static')):
+            self.preview()
+            html = self.client.get(self.preview_prefix+'articles/synthetic-workflow-guide/index.html')
+            self.assertEqual(html.status_code,200)
+            self.assertIn(self.preview_prefix+self.image.public_path.lstrip('/'),html.content.decode())
+            response = self.client.get(self.preview_prefix+self.image.public_path.lstrip('/'))
+            self.assertEqual(response.status_code,200,'Uploaded cover must not be a broken private-preview image')
+            self.assertEqual(response['Content-Type'],'image/png')
+            self.assertEqual(hashlib.sha256(response.content).hexdigest(),self.image.sha256)
+            self.assertIn('no-store',response['Cache-Control'])
+
+    @override_settings(SITEOS_ARTICLE_PUBLIC_ORIGIN='https://example.invalid')
+    def test_private_preview_refuses_changed_upload_and_unreferenced_files(self):
+        with override_settings(SITEOS_ARTICLE_PREVIEW_ROOT=str(self.root/'previews'),
+                               SITEOS_ARTICLE_PREVIEW_ASSET_ROOT=str(self.root/'static')):
+            self.preview()
+            from console.forms import resolve_storage_path
+            resolve_storage_path(self.image.storage_path).write_bytes(b'Changed after upload')
+            response = self.client.get(self.preview_prefix+self.image.public_path.lstrip('/'))
+            self.assertEqual(response.status_code,503)
+            model = MediaAsset.objects.get(asset_type='model3d')
+            self.assertEqual(self.client.get(self.preview_prefix+model.public_path.lstrip('/')).status_code,404)
+
+    @override_settings(SITEOS_ARTICLE_PUBLIC_ORIGIN='https://example.invalid')
+    def test_private_preview_never_serves_another_sites_uploaded_image(self):
+        self.command()
+        from console.content_examples import load_content_bundle
+        from console.forms import store_uploaded_asset
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        data, _, files = load_content_bundle()
+        other = Site.objects.create(code='other_examples',name='Other synthetic site')
+        row = data['assets'][0]
+        asset = store_uploaded_asset(site=other,uploaded_file=SimpleUploadedFile(row['filename'],files[row['key']]),
+            title='Other site private-preview scope',alt_text='',caption='',created_by=self.actor.username)
+        article = Article.objects.get(config_json__synthetic_pack='vorntek-content-v1',route__locale__locale_code='en')
+        article.body_markdown += '\n\n![Other site]('+asset.public_path+')'
+        article.save()
+        with override_settings(SITEOS_ARTICLE_PREVIEW_ROOT=str(self.root/'previews'),
+                               SITEOS_ARTICLE_PREVIEW_ASSET_ROOT=str(self.root/'static')):
+            self.preview()
+            self.assertEqual(self.client.get(self.preview_prefix+asset.public_path.lstrip('/')).status_code,404)
+
 
 @unittest.skipUnless(connection.vendor=='postgresql','Requires committed ordinary-role full-SQL PostgreSQL')
 @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False, NEWCROWN_RUN_SCHEDULED_TASKS=False,
                    SITEOS_WHATSAPP_ALLOW_LIVE_SEND=False)
 class ContentExamplesNativeRecoveryTests(ContentExamplesFixture, TransactionTestCase):
+    def _fixture_teardown(self):
+        # This one committed-recovery test owns a separately provisioned SQL
+        # database. Django's managed-only TRUNCATE cannot flush unmanaged FKs;
+        # the native runner removes the complete owned database after the group.
+        return None
+
     def test_rollback_orphans_are_reconciled_without_removing_committed_retry_files(self):
         self.assertIn('seed_content_examples',get_commands())
         from console import asset_upload_recovery, crm_files
