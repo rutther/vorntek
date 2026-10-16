@@ -74,5 +74,3 @@ export function PixelStep({loop,runtime,update,onContinue,controller,onStatusCha
   <footer className="guide-step-actions pixel-step-actions"><div role="status"><strong>{saving?'正在保存…':dirty?'有未保存修改':notice|| (loop.drafts.pixel?.scope?'已有编辑草稿，尚未完成':s?.activeRevision&&s?.configState==='saved'?'当前范围已应用':s?.draft?.formId?'范围已保存，尚未应用':'尚未保存')}</strong><small>{direct?'保存不改变生效版本；到“运行与版本”查看差异并应用。':'保存不等于启用；07核对并应用，09由你实测。'}</small></div><div><button type="button" className="button" disabled={disabled} onClick={()=>save(true)}>暂存草稿</button><button type="submit" className={`button ${direct?'primary':''}`} disabled={disabled}>{direct?'保存范围':'保存本步'}</button>{!direct&&<button type="button" className="button primary" disabled={disabled} onClick={async()=>{if(await save())onContinue();}}>保存并继续 →</button>}</div></footer>
  </form>;
 }
-
-

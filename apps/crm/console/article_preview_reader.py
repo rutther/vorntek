@@ -272,4 +272,3 @@ def read_private_preview(
     store.verify(version)
     return raw, mime
 
-

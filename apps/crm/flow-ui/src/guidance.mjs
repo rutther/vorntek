@@ -102,4 +102,3 @@ export function nextGuideStep(loop, key) {
   const order = guideOrder(loop);
   return order[order.indexOf(key) + 1];
 }
-

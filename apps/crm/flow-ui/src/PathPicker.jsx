@@ -29,4 +29,3 @@ export function PathPicker({id,label,hint,pages,selected,onChange,disabled,error
   </details>
  </section>;
 }
-
