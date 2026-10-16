@@ -58,7 +58,8 @@ class BrowserAcceptanceFixtureTests(unittest.TestCase):
             'MarketingLoop', 'MarketingLoopAssetBinding', 'MarketingLoopEdge',
             'MarketingLoopNode', 'MarketingLoopTask', 'MarketingRuntimeBinding',
             'MarketingRuntimeCommand', 'MarketingRuntimeRevision', 'MediaAsset',
-            'PrivacyRequest', 'Release', 'ReleaseBuild',
+            'PrivacyRequest', 'Release', 'ReleaseBuild', 'ThreeDPlacement',
+            'ThreeDViewProfile',
         }
         self.assertFalse(
             required - model_names,

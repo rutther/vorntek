@@ -127,10 +127,11 @@ def unmanaged_models():
     )
     from sitecore.models import (
         Article, Category, Cta, MediaAsset, PageRoute, Release, ReleaseBuild,
-        Site, SiteLocale,
+        Site, SiteLocale, ThreeDPlacement, ThreeDViewProfile,
     )
     return (
-        Site, SiteLocale, PageRoute, Category, Article, MediaAsset, Cta,
+        Site, SiteLocale, PageRoute, Category, Article, MediaAsset,
+        ThreeDViewProfile, ThreeDPlacement, Cta,
         CanonicalEvent, MarketingProvider,
         MarketingIntegration, LeadFormDefinition, SalesTeam, SalesTeamMember,
         SavedView, LeadSubmission, ConsentRecord, Company, Contact, Opportunity,
