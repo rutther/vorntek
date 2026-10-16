@@ -95,6 +95,14 @@ class WebsiteReleaseStoreTests(unittest.TestCase):
         self.assertIn('zh/articles/guide/index.html', manifest['files'])
         self.assertEqual(self.website_store.current(), '')
 
+    def test_additional_uploads_cannot_escape_or_override_the_website_namespace(self):
+        article_input = self.article_input()
+        for files in ({'index.html':b'override'}, {'assets/../outside.png':b'escape'},
+                      {'assets/private.txt':b'private attachment'}, {'assets/custom.svg':b'<svg/>'},
+                      {'assets/vorntek/vorntekLogo.png':b'override'}, {'assets/image.png':'not bytes'}):
+            with self.subTest(paths=list(files)), self.assertRaises(ArticleDeliveryError):
+                self.website_store.stage(base_root=WEBSITE_ROOT,article_input=article_input,asset_files=files)
+
     def test_source_changes_do_not_change_an_existing_bundle(self):
         source = Path(self.temporary.name) / 'source'
         shutil.copytree(WEBSITE_ROOT, source)

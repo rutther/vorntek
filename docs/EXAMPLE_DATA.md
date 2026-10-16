@@ -114,5 +114,12 @@ images. Uploaded bytes must match stored size and SHA-256; changed or missing
 uploads are unavailable rather than silently served. Other-site, unreferenced,
 private-attachment or non-image files are not exposed by the preview reader.
 
+Whole-site candidates also freeze each referenced active, site-owned uploaded
+image into their hashed immutable file set. They never copy the entire media or
+private-attachment volume. Missing/changed uploads or namespace collisions refuse
+composition; deleting an original upload later does not damage an already staged
+candidate. Thus restoring a deployed candidate does not depend on its source
+machine's upload directories. Candidate creation is still not selection/deployment.
+
 This extension provides genuine editable content/files, not external platform
 acceptance, a complete example of every module, or final deployment/restore proof.

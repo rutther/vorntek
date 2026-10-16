@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 
 from .article_delivery import ArticleDeliveryError, content_digest
 from .article_release_store import _no_links, _process_lock
+from .article_assets import IMAGE_TYPES
 
 
 _ID = re.compile(r'^[a-f0-9]{64}$')
@@ -330,13 +331,26 @@ class WebsiteReleaseStore:
         _no_links(path)
         return path
 
-    def stage(self, *, base_root: Path, article_input: dict) -> str:
+    def stage(self, *, base_root: Path, article_input: dict, asset_files=None) -> str:
         base_files, base_digest = _scan_base_source(base_root)
         article_files, article_version = _article_files(
             article_input,
             site_code=self.site_code,
         )
         files = {**base_files, **article_files}
+        uploads = {} if asset_files is None else asset_files
+        if not isinstance(uploads,dict):
+            raise ArticleDeliveryError('website_upload_input_invalid')
+        folded = {name.casefold() for name in files}
+        for name, raw in uploads.items():
+            if (not _valid_public_name(name) or not name.startswith('assets/')
+                    or Path(name).suffix.lower() not in IMAGE_TYPES or not isinstance(raw,bytes)
+                    or len(raw)>_MAX_FILE_BYTES):
+                raise ArticleDeliveryError('website_upload_input_invalid')
+            if name.casefold() in folded:
+                raise ArticleDeliveryError('website_upload_conflict')
+            folded.add(name.casefold())
+            files[name] = raw
         if (
             len(files) > _MAX_FILES
             or sum(len(raw) for raw in files.values()) > _MAX_TOTAL_BYTES

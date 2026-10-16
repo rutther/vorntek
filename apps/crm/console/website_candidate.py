@@ -11,9 +11,10 @@ from django.utils import timezone
 from sitecore.models import Release, ReleaseBuild
 
 from .article_build_input import read_article_build_input
+from .article_assets import IMAGE_TYPES, read_uploaded_article_image
 from .article_delivery import ArticleDeliveryError, snapshot_cms_articles
 from .article_release_store import ArticleReleaseStore
-from .website_release_store import WebsiteReleaseStore
+from .website_release_store import WebsiteReleaseStore, _References, _static_target
 
 
 def _absolute_setting(name: str, code: str) -> Path:
@@ -77,13 +78,28 @@ def _build_website_candidate(*, site, preview_record_id: int) -> dict:
         version=article_version,
         release_mode=True,
     )
+    base_root = _absolute_setting('SITEOS_WEBSITE_SOURCE_ROOT','website_source_not_configured')
+    asset_files = {}
+    # Freeze only referenced public images, never the entire upload volume or
+    # private CRM attachments. Packaged images already belong to the base tree.
+    for name, document in article_input['documents'].items():
+        if not name.endswith('.html'):
+            continue
+        references = _References()
+        references.feed(document)
+        for value, resource in references.values:
+            target = _static_target(value,source=name,resource=resource)
+            if (target and target.startswith('assets/') and Path(target).suffix.lower() in IMAGE_TYPES
+                    and not (base_root/target).is_file() and target not in asset_files):
+                image = read_uploaded_article_image(site=site,artifact=target)
+                if image is not None:
+                    asset_files[target] = image[0]
     website_store = website_release_store(site, initialize=True)
     website_current = website_store.current()
     website_version = website_store.stage(
-        base_root=_absolute_setting(
-            'SITEOS_WEBSITE_SOURCE_ROOT', 'website_source_not_configured'
-        ),
+        base_root=base_root,
         article_input=article_input,
+        asset_files=asset_files,
     )
     manifest = website_store.verify(website_version)
     if (

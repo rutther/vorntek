@@ -299,6 +299,61 @@ class ContentExamplesLifecycleTests(ContentExamplesFixture, TestCase):
             self.preview()
             self.assertEqual(self.client.get(self.preview_prefix+asset.public_path.lstrip('/')).status_code,404)
 
+    def publish_example_fixture(self):
+        """Published source fixture, not an assertion that import publishes."""
+        from django.utils import timezone
+        self.command()
+        # Match the real bootstrap contract: English at /, Chinese at /zh/.
+        self.site.config_json = {**self.site.config_json,'articleDelivery':{
+            'baseRouteMode':'shared','brandLogoUrl':'/assets/vorntek/vorntekLogo.png'}}
+        self.site.save(update_fields=['config_json','updated_at'])
+        articles = Article.objects.filter(config_json__synthetic_pack='vorntek-content-v1')
+        articles.update(status='published',published_at=timezone.now())
+        from sitecore.models import PageRoute
+        PageRoute.objects.filter(article__in=articles).update(status='published',published_at=timezone.now())
+        self.image = MediaAsset.objects.get(site=self.site,asset_type='image')
+        image_website = Path(__file__).resolve().parents[1]/'website-source'
+        website = image_website if image_website.is_dir() else Path(__file__).resolve().parents[2]/'website'
+        scoped = override_settings(SITEOS_ARTICLE_PREVIEW_ROOT=self.root/'previews',
+            SITEOS_ARTICLE_RELEASE_ROOT=self.root/'articles',SITEOS_WEBSITE_RELEASE_ROOT=self.root/'website',
+            SITEOS_WEBSITE_SOURCE_ROOT=website,SITEOS_ARTICLE_PUBLIC_ORIGIN='https://example.invalid')
+        scoped.enable()
+        self.addCleanup(scoped.disable)
+
+    def test_whole_site_candidate_freezes_the_uploaded_cover_and_no_private_attachments(self):
+        from console.article_preview import build_private_article_preview
+        from console.website_candidate import build_website_candidate, website_release_store
+        self.publish_example_fixture()
+        preview = build_private_article_preview(site=self.site)
+        candidate = build_website_candidate(site=self.site,preview_record_id=preview['recordId'])
+        store = website_release_store(self.site,initialize=False)
+        manifest = store.verify(candidate['version'])
+        name = self.image.public_path.lstrip('/')
+        self.assertEqual(manifest['files'][name],self.image.sha256)
+        content = store.read_version_file(candidate['version'],name)
+        self.assertEqual(hashlib.sha256(content).hexdigest(),self.image.sha256)
+        self.assertFalse(any('crm-attachments' in item or 'request-notes' in item or
+                             'collaboration-notes' in item for item in manifest['files']))
+        # A candidate is self-contained: subsequent source-file loss must not
+        # turn the already frozen immutable candidate into a broken website.
+        from console.forms import resolve_storage_path
+        resolve_storage_path(self.image.storage_path).unlink()
+        self.assertEqual(store.read_version_file(candidate['version'],name),content)
+        self.assertEqual(store.verify(candidate['version']),manifest)
+        self.assertEqual(store.current(),'')
+
+    def test_changed_uploaded_cover_is_refused_before_a_website_candidate_is_staged(self):
+        from console.article_preview import build_private_article_preview
+        from console.website_candidate import build_website_candidate
+        from console.article_delivery import ArticleDeliveryError
+        self.publish_example_fixture()
+        preview = build_private_article_preview(site=self.site)
+        from console.forms import resolve_storage_path
+        resolve_storage_path(self.image.storage_path).write_bytes(b'Changed after the reviewed preview')
+        with self.assertRaisesRegex(ArticleDeliveryError,'preview_upload_changed'):
+            build_website_candidate(site=self.site,preview_record_id=preview['recordId'])
+        self.assertFalse((self.root/'website'/self.site.code/'releases').exists())
+
 
 @unittest.skipUnless(connection.vendor=='postgresql','Requires committed ordinary-role full-SQL PostgreSQL')
 @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=False, NEWCROWN_RUN_SCHEDULED_TASKS=False,
