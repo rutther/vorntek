@@ -67,16 +67,29 @@
     }));
   });
   document.querySelectorAll('[data-product-model]').forEach(root=>{
-    const model=root.querySelector('model-viewer'),button=root.querySelector('[data-load-model]'),status=root.querySelector('[data-model-status]');
-    let timer;
+    let model=root.querySelector('model-viewer');
+    const button=root.querySelector('[data-load-model]'),status=root.querySelector('[data-model-status]');
+    let timer,attempts=0;
     const message=(en,zh)=>{status.textContent=language==='zh'?zh:en;};
+    const observe=target=>{
+      target.addEventListener('load',()=>{if(target!==model)return;clearTimeout(timer);button.hidden=true;button.disabled=false;message('Drag to rotate. Scroll or pinch to zoom.','拖动旋转，滚轮或双指缩放。');});
+      target.addEventListener('error',()=>{if(target!==model)return;clearTimeout(timer);button.disabled=false;message('The 3D view is unavailable. The pictures and specifications remain available.','三维视图暂时不可用，仍可查看图片与规格。');});
+    };
+    observe(model);
     button?.addEventListener('click',()=>{
       button.disabled=true;message('Loading the equipment view…','正在加载设备视图…');
-      model.src=model.dataset.modelSrc;
+      let source=model.dataset.modelSrc;
+      if(attempts>0){
+        const fresh=model.cloneNode(false);fresh.removeAttribute('src');
+        model.replaceWith(fresh);model=fresh;observe(model);
+        // The pinned viewer also caches failed GLTF instances by URL. A fresh
+        // element plus a same-origin retry key must issue a real new request.
+        const retry=new URL(source,location.href);retry.searchParams.set('view_retry',String(attempts));
+        source=retry.pathname+retry.search;
+      }
+      attempts++;model.setAttribute('src',source);
       clearTimeout(timer);timer=setTimeout(()=>{button.disabled=false;message('The view is taking longer to load. You can retry or continue with the pictures and specifications.','视图加载较慢，可重试或继续查看图片与规格。');},20000);
     });
-    model.addEventListener('load',()=>{clearTimeout(timer);button.hidden=true;button.disabled=false;message('Drag to rotate. Scroll or pinch to zoom.','拖动旋转，滚轮或双指缩放。');});
-    model.addEventListener('error',()=>{clearTimeout(timer);button.disabled=false;message('The 3D view is unavailable. The pictures and specifications remain available.','三维视图暂时不可用，仍可查看图片与规格。');});
   });
   document.querySelectorAll('[data-print]').forEach(button=>button.addEventListener('click',()=>window.print()));
   async function addInquiryContext(){

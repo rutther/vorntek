@@ -48,14 +48,19 @@ test('gallery buttons change the actual product image and selected state',()=>{
  assert.equal(buttons[1].getAttribute('aria-pressed'),'true');assert.equal(buttons[0].getAttribute('aria-pressed'),'false');dom.window.close();
 });
 
-test('3D activation loads the packaged model and failures preserve a retry action',()=>{
+test('3D failure retry creates a fresh viewer rather than assigning an unchanged source',()=>{
  const dom=fixture('products/inspect/'),{document,Event}=dom.window;
  const model=document.querySelector('model-viewer'),button=document.querySelector('[data-load-model]');
  assert.equal(model.getAttribute('src'),null);button.click();
- assert.match(model.src,/inspect\.glb$/);assert.equal(button.disabled,true);
+ assert.match(model.getAttribute('src'),/inspect\.glb$/);assert.equal(button.disabled,true);
  model.dispatchEvent(new Event('error'));assert.equal(button.disabled,false);
  assert.match(document.querySelector('[data-model-status]').textContent,/pictures and specifications/);
- button.click();model.dispatchEvent(new Event('load'));assert.equal(button.hidden,true);dom.window.close();
+ button.click();
+ const retry=document.querySelector('model-viewer');
+ assert.notEqual(retry,model);assert.equal(model.isConnected,false);
+ assert.match(retry.getAttribute('src'),/inspect\.glb\?view_retry=1$/);
+ model.dispatchEvent(new Event('load'));assert.equal(button.hidden,false);
+ retry.dispatchEvent(new Event('load'));assert.equal(button.hidden,true);dom.window.close();
 });
 
 test('product context waits for configured fields and does not replace entered content',async()=>{

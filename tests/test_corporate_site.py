@@ -103,5 +103,20 @@ class CorporateSiteTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 builder().main(catalog=catalog,output=Path(temporary)/'invalid')
 
+    def test_valid_catalogue_ids_generate_distinct_publishable_slot_codes(self):
+        catalog=self.catalog()
+        ids=['vision-station','VisionStation','x_reserved','b'*80]
+        with tempfile.TemporaryDirectory() as temporary:
+            for row,key in zip(catalog['productLines'],ids):row['id']=key
+            output=Path(temporary)/'slots'
+            try:builder().main(catalog=catalog,output=output)
+            except ValueError as error:self.fail('Accepted catalogue route cannot produce a slot: '+str(error))
+            slots=json.loads((output/'three-d-slots.json').read_bytes())['slots']
+            self.assertEqual(len({row['code'] for row in slots}),6)
+            for row in slots:
+                self.assertRegex(row['code'],r'^[a-z][a-z0-9_]{0,79}$')
+                page=(output/row['path']).read_text(encoding='utf-8')
+                self.assertIn('<!--siteos:slot:'+row['code']+'-->',page)
+
 
 if __name__=='__main__':unittest.main()

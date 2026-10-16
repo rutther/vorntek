@@ -172,6 +172,16 @@ class ArticleRenderingTests(unittest.TestCase):
                                locale='zh', default_locale='en', base_route_mode='shared')
         self.assertIn('href="/products/inspect/?ref=guide&amp;lang=zh#dimensions"', text)
 
+    def test_default_article_language_is_explicit_when_returning_to_shared_pages(self):
+        release=build_article_release([ArticleVersion(content_key='guide',locale='en',slug='guide',
+            title='Guide',markdown='[Contact](/contact/?ref=guide#form)',status='published',route_status='published')],
+            locales=self.locales,site_code='testSite',site_name='Vorntek',
+            public_origin='https://example.invalid',base_route_mode='shared')
+        page=render_article_documents(release)['articles/guide/index.html']
+        for href in ('/products/?lang=en','/company/?lang=en','/?lang=en','/contact/?lang=en'):
+            self.assertIn('href="'+href+'"',page)
+        self.assertIn('href="/contact/?ref=guide&amp;lang=en#form"',page)
+
     def test_title_and_schema_json_cannot_break_out_of_script(self):
         release = build_article_release(
             [

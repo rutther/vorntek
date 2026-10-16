@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import tempfile
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -25,9 +26,12 @@ class ReleaseManifestTests(unittest.TestCase):
             manifest['migrations']['tip'],
             '0043_site_example_bundle.sql',
         )
-        # Fifteen pages, four neutral visuals, four controllers/styles and robots.
-        # Seven legacy concept bitmaps were replaced by three neutral SVGs.
-        self.assertEqual(manifest['website_tree']['tracked_files'], 24)
+        # Bind the actual committed company package, not the retired24-file demo.
+        # Read names independently of the manifest's mode/blob-hash tree parser.
+        website_files=subprocess.check_output(['git','ls-tree','-r','--name-only','HEAD','--','apps/website'],cwd=ROOT).splitlines()
+        self.assertEqual(manifest['website_tree']['tracked_files'],len(website_files))
+        self.assertIn(b'apps/website/products/inspect/index.html',website_files)
+        self.assertIn(b'apps/website/assets/vorntek/models/inspect.glb',website_files)
         for key in (
             manifest['source_tree']['git_tree_sha256'],
             manifest['website_tree']['git_tree_sha256'],

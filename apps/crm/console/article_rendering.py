@@ -33,8 +33,6 @@ def _copy(locale: str) -> dict:
 def _base_href(path: str, *, locale: str, default_locale: str, mode: str) -> str:
     if mode != 'shared':
         return ('' if locale == default_locale else '/' + locale) + path
-    if locale == default_locale:
-        return path
     target = urlsplit(path)
     query = [(key, value) for key, value in parse_qsl(target.query, keep_blank_values=True) if key != 'lang']
     query.append(('lang', locale))

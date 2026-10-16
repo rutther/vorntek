@@ -43,6 +43,12 @@ def aria(label):
     return f'aria-label="{esc(en)}" data-aria-en="{esc(en)}" data-aria-zh="{esc(zh)}"'
 
 
+def product_slot_code(identifier):
+    if re.fullmatch(r'[a-z][a-z0-9_]{0,71}',identifier) and not identifier.startswith('x_'):
+        return 'product_'+identifier
+    return 'product_x_'+hashlib.sha256(identifier.encode('utf-8')).hexdigest()
+
+
 def local_asset(value):
     if not isinstance(value,str) or not re.fullmatch(r'[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.(?:png|jpg|webp|svg|glb|webm|woff2)',value):
         raise ValueError('Invalid local catalogue resource')
@@ -66,6 +72,13 @@ class ExampleWebsite:
             identifiers=[row['id'] for row in collection]
             if len(identifiers)!=len(set(identifiers)) or any(not isinstance(v,str) or not ID.fullmatch(v) for v in identifiers):
                 raise ValueError('Catalogue IDs must be unique local route segments')
+        self.product_slots={row['id']:product_slot_code(row['id']) for row in self.products if row.get('model')}
+        if len(self.product_slots)>120 or len(set(self.product_slots.values()))!=len(self.product_slots):
+            raise ValueError('Product 3D positions must be bounded and distinct')
+        self.slot_registry={'schemaVersion':1,'slots':[{'code':self.product_slots[row['id']],
+            'path':'products/'+row['id']+'/index.html',
+            'label':(re.sub(r'[\x00-\x1f]',' ',str(row.get('nameZh',row['name']))).strip() or row['id'])[:175]+' · 3D'}
+            for row in self.products if row.get('model')]}
         self.assets={'vorntekLogo.png',local_asset(catalog['visuals']['hero'])}
         self.assets.update({'fonts/manrope.woff2','fonts/OFL.txt'})
         for row in self.products:
@@ -174,8 +187,7 @@ class ExampleWebsite:
         model=(f'<div class="product-model" data-product-model><model-viewer data-model-src="/assets/vorntek/models/{esc(row["model"])}" poster="/assets/vorntek/{esc(gallery[0])}" alt="{esc(row["name"])}" data-alt-en="{esc(row["name"])}" data-alt-zh="{esc(row.get("nameZh",row["name"]))}" camera-controls camera-orbit="35deg 76deg 125%" field-of-view="30deg" shadow-intensity="1" environment-image="neutral" interaction-prompt="none"></model-viewer><button class="button secondary" type="button" data-load-model>{t(["Explore in 3D","查看三维结构"])}{ARROW}</button><p data-model-status role="status"></p></div>' if row.get('model') else '')
         family=next((f for f in self.families if f['id']==row.get('family')),None)
         if row.get('model'):
-            code='product_'+row['id']
-            if len(code)>80:raise ValueError('Product ID is too long for a configured 3D slot')
+            code=self.product_slots[row['id']]
             model='<!--siteos:slot:'+code+'-->'+model+'<!--siteos:end:'+code+'-->'
         inquiry=button(['Discuss this equipment','咨询这款设备'],'/contact/?'+urlencode({'product':row['id']}),attrs=f'data-product-context="{esc(row["id"])}"')
         dl=button(['Download specifications','下载规格资料'],f'/resources/specifications/{row["id"]}.txt',False,attrs='download') if row.get('specs') else ''
@@ -270,6 +282,6 @@ def main(*,catalog=None,output=None):
     (output/'robots.txt').write_text('User-agent: *\nDisallow: /\n',encoding='utf-8')
     (output/'corporate-build.json').write_text(json.dumps({'schemaVersion':1,'routes':sorted(pages),'contentSha256':hashlib.sha256(json.dumps(catalog,sort_keys=True).encode()).hexdigest()},indent=2),encoding='utf-8')
     (output/'catalogue-context.json').write_text(json.dumps({'products':[{'id':row['id'],'name':row['name'],'nameZh':row.get('nameZh',row['name'])} for row in builder.products]},ensure_ascii=False),encoding='utf-8')
-    (output/'three-d-slots.json').write_text(json.dumps({'schemaVersion':1,'slots':[{'code':'product_'+row['id'],'path':'products/'+row['id']+'/index.html','label':row.get('nameZh',row['name'])+' · 3D'} for row in builder.products if row.get('model')]},ensure_ascii=False),encoding='utf-8')
+    (output/'three-d-slots.json').write_text(json.dumps(builder.slot_registry,ensure_ascii=False),encoding='utf-8',newline='\n')
     print(f'Built {len(pages)} corporate routes from {len(builder.products)} configurable equipment entries.')
     return pages
