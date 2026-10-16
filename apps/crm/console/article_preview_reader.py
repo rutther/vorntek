@@ -271,4 +271,3 @@ def read_private_preview(
         mime = IMAGE_TYPES[file.suffix.lower()]
     store.verify(version)
     return raw, mime
-
