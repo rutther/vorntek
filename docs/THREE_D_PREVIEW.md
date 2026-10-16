@@ -18,11 +18,22 @@ document CSP. SOG publication rejects archive traversal, duplicate entries,
 unbounded metadata, encryption and texture references outside the archive.
 Model files are bounded to 128MiB, with the existing total candidate size cap.
 
-The first public-candidate source (`5d5ed56`) passed isolated Linux image, fresh
-install, old-version upgrade and six PostgreSQL test groups, with cleanup.
-It is **not deployed**. Local browser acceptance has rendered synthetic GLB,
-binary PLY and a real bundled SOG. Further editing/control fixes in the current
-source need their own native gate and final-host publication/restart acceptance.
+Installation, old-version upgrade and PostgreSQL validation are separate from
+each installation's publication acceptance. Synthetic GLB, binary PLY and SOG
+can exercise the actual renderer without customer assets. Record the exact
+application image, website candidate and browser observations in that
+installation's delivery report; an earlier gate does not prove a later image.
+
+The normal **生成预览产物** entry on the release and 3D pages opens the managed
+preview workspace. Generate the published-article preview there, then explicitly
+freeze its exact record into a whole-site candidate. That candidate also includes
+the enabled 3D slots. Selection and deployment are still independent operations.
+No external Astro source tree is required for this workflow. An installation
+that explicitly provisions `SITEOS_PREVIEW_WORKSPACE_ROOT` retains the separate
+custom-frontend executor and its original path/runtime/environment safeguards;
+the release page labels it **构建自定义前端**. Content-read, release-read and
+preview-build rights are all required for the managed preview workspace;
+executor permission alone never grants content access.
 
 ## Authenticated editing
 

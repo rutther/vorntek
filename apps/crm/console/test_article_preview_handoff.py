@@ -1,4 +1,5 @@
-"""Actual persisted preview reuse must hand off its own record, not the newest row."""
+"""Normal preview entry and persisted reuse must hand off the correct workflow."""
+import os
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -8,9 +9,9 @@ from django.urls import reverse
 
 from console.access import GROUP_BY_ROLE, ROLE_CONTENT_OPS
 from console.article_preview import build_private_article_preview
-from console.content_access import CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD
+from console.content_access import ASSETS_READ, CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD
 from console.models import ContentAccessGrant
-from sitecore.models import Article, PageRoute, Release, SiteLocale
+from sitecore.models import Article, PageRoute, Release, SiteLocale, MediaAsset
 from .test_file_lifecycle_contract import FileLifecycleFixture
 
 
@@ -42,6 +43,67 @@ class ArticlePreviewHandoffTests(FileLifecycleFixture, TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, '生成文章预览版本')
         self.assertEqual(Release.objects.count(), before)
+
+    @override_settings(SITEOS_PREVIEW_WORKSPACE_ROOT='')
+    def test_primary_entry_builds_real_preview_without_a_legacy_astro_workspace(self):
+        # A regression to the legacy POST makes the normal install unusable.
+        with patch.dict(os.environ, {'SITEOS_PREVIEW_WORKSPACE_ROOT': ''}):
+            response = self.client.get(reverse('console:releases'))
+            action = next(item for item in response.context['page_payload']['actions']
+                          if item['tone'] == 'primary')
+            self.assertEqual(action['kind'], 'link')
+            self.assertEqual(action['href'], reverse('console:article_release_preview'))
+            page = self.client.get(action['href'])
+            self.assertEqual(page.status_code, 200)
+            built = self.client.post(action['href'], {'workspace': '1'})
+        self.assertEqual(built.status_code, 200)
+        record_id = built.context['article_preview_result']['recordId']
+        record = Release.objects.get(pk=record_id, site=self.site)
+        self.assertEqual(record.status, 'built')
+        self.assertEqual(record.snapshot_manifest['scope'], 'sitePublished')
+        self.assertContains(built, reverse('console:website_candidate_build', args=[record_id]))
+        self.assertFalse(Release.objects.filter(snapshot_manifest__kind='websiteCandidate').exists())
+        self.article.refresh_from_db()
+        self.assertEqual(self.article.status, 'published')
+
+    @override_settings(SITEOS_PREVIEW_WORKSPACE_ROOT='')
+    def test_three_d_entries_open_the_same_workflow_without_a_dead_build_post(self):
+        asset = MediaAsset.objects.create(site=self.site, asset_type='model3d', status='active',
+            title='Synthetic geometry', original_name='synthetic.glb', file_ext='.glb',
+            storage_path='storage/assets/models/2026/10/1234567890abcdef-synthetic.glb',
+            public_path='/assets/models/2026/10/1234567890abcdef-synthetic.glb',
+            file_size_bytes=12, sha256='a' * 64)
+        before = Release.objects.count()
+        with patch.dict(os.environ, {'SITEOS_PREVIEW_WORKSPACE_ROOT': ''}):
+            for route, args in [('assets_three_d', ()), ('three_d_asset_detail', (asset.pk,))]:
+                with self.subTest(route=route):
+                    page = self.client.get(reverse('console:' + route, args=args))
+                    self.assertEqual(page.status_code, 200)
+                    self.assertContains(page, 'href="' + reverse('console:article_release_preview') + '"')
+                    self.assertNotContains(page, 'action="' + reverse('console:release_build_preview') + '"')
+        self.assertEqual(Release.objects.count(), before)
+
+    @override_settings(SITEOS_PREVIEW_WORKSPACE_ROOT='')
+    def test_managed_entry_does_not_infer_content_read_from_executor_grant(self):
+        actor = get_user_model().objects.create_user('asset-executor', password='synthetic-only')
+        group, _ = Group.objects.get_or_create(name=GROUP_BY_ROLE[ROLE_CONTENT_OPS])
+        actor.groups.add(group)
+        for capability in (ASSETS_READ, RELEASES_PREVIEW_BUILD):
+            ContentAccessGrant.objects.create(user=actor, site=self.site, capability=capability, enabled=True)
+        self.client.force_login(actor)
+        with patch.dict(os.environ, {'SITEOS_PREVIEW_WORKSPACE_ROOT': ''}):
+            page = self.client.get(reverse('console:assets_three_d'))
+            self.assertNotContains(page, 'href="' + reverse('console:article_release_preview') + '"')
+            self.assertEqual(self.client.get(reverse('console:article_release_preview')).status_code, 403)
+
+    @override_settings(SITEOS_PREVIEW_WORKSPACE_ROOT='C:/explicit-custom-source')
+    def test_explicit_custom_frontend_keeps_its_distinct_post_executor(self):
+        page = self.client.get(reverse('console:releases'))
+        actions = page.context['page_payload']['actions']
+        managed = next(item for item in actions if item['tone'] == 'primary')
+        custom = next(item for item in actions if item['href'] == reverse('console:release_build_preview'))
+        self.assertEqual(managed['kind'], 'link')
+        self.assertEqual((custom['kind'], custom['tone']), ('post', 'secondary'))
 
     def test_reused_preview_offers_its_exact_candidate_action_not_the_newest_record(self):
         first = build_private_article_preview(site=self.site)

@@ -196,10 +196,15 @@
                 <div class="three-d-side-actions">
                     {% if detail.createProfileUrl %}<a class="button primary wide" href="{{ detail.createProfileUrl }}">创建展示配置</a>{% endif %}
                     {% if detail.buildPreviewUrl %}
+                        {% if detail.buildPreviewMethod == 'get' %}
+                        <a class="button neutral wide" href="{{ detail.buildPreviewUrl }}">生成预览产物</a>
+                        <p>进入预览工作台生成文章预览，再固化整站候选；启用的 3D 槽位会随候选冻结，选择与部署仍需分别确认。</p>
+                        {% else %}
                         <form action="{{ detail.buildPreviewUrl }}" method="post">
                             {% csrf_token %}
                             <button type="submit" class="button neutral wide">生成预览产物</button>
                         </form>
+                        {% endif %}
                     {% endif %}
                     {% if not detail.createProfileUrl and not detail.buildPreviewUrl %}<p>当前账号仅可查看此资产及其引用关系。</p>{% endif %}
                 </div>

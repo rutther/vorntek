@@ -9,9 +9,9 @@ from .content_access import (
     ASSETS_IMPORT_LOCAL,
     ASSETS_READ,
     ASSETS_WRITE,
-    RELEASES_PREVIEW_BUILD,
 )
 from .payloads import default_site_locale, format_admin_datetime
+from .preview_navigation import preview_workflow_entry
 from .three_d_config import asset_extension, purpose_label, slot_label
 
 
@@ -127,7 +127,8 @@ def three_d_workspace_context(
         raise PermissionDenied('当前账号没有查看 3D 素材的权限。')
     can_write = ASSETS_WRITE in capabilities
     can_import_local = ASSETS_WRITE in capabilities and ASSETS_IMPORT_LOCAL in capabilities
-    can_build_preview = RELEASES_PREVIEW_BUILD in capabilities
+    preview_entry = preview_workflow_entry(capabilities)
+    can_build_preview = bool(preview_entry['url'])
     if site is None:
         site, _locale = default_site_locale()
     assets = list(
@@ -261,7 +262,8 @@ def three_d_workspace_context(
             'placements': placement_rows,
             'createProfileUrl': reverse('console:three_d_profile_create') if can_write else '',
             'createPlacementUrl': reverse('console:three_d_placement_create') if can_write else '',
-            'buildPreviewUrl': reverse('console:release_build_preview') if can_build_preview else '',
+            'buildPreviewUrl': preview_entry['url'],
+            'buildPreviewMethod': preview_entry['method'],
             'assetsUrl': reverse('console:assets'),
             'uploadUrl': reverse('console:asset_upload') if can_write else '',
             'importUrl': reverse('console:asset_import_path') if can_import_local else '',
@@ -284,7 +286,8 @@ def three_d_asset_detail_context(
     if ASSETS_READ not in capabilities:
         raise PermissionDenied('当前账号没有查看 3D 素材的权限。')
     can_write = ASSETS_WRITE in capabilities
-    can_build_preview = RELEASES_PREVIEW_BUILD in capabilities
+    preview_entry = preview_workflow_entry(capabilities)
+    can_build_preview = bool(preview_entry['url'])
     site = asset.site
     profiles = list(
         ThreeDViewProfile.objects.select_related('asset')
@@ -381,6 +384,7 @@ def three_d_asset_detail_context(
                 f"{reverse('console:three_d_profile_create')}?asset_id={asset.id}"
                 if can_write else ''
             ),
-            'buildPreviewUrl': reverse('console:release_build_preview') if can_build_preview else '',
+            'buildPreviewUrl': preview_entry['url'],
+            'buildPreviewMethod': preview_entry['method'],
         }
     }

@@ -196,9 +196,11 @@ class GenericTablePayloadContractTests(SimpleTestCase):
         incomplete = payload_for({RELEASES_READ, RELEASES_PREVIEW_BUILD})
         complete = payload_for({CONTENT_READ, RELEASES_READ, RELEASES_PREVIEW_BUILD})
 
-        self.assertNotIn('文章发布预览', [action['label'] for action in incomplete['actions']])
+        preview_url = reverse('console:article_release_preview')
+        self.assertNotIn(preview_url, [action['href'] for action in incomplete['actions']])
         self.assertEqual(incomplete['views']['releases']['table']['rows'][0]['actions'], [])
-        self.assertIn('文章发布预览', [action['label'] for action in complete['actions']])
+        entry = next(action for action in complete['actions'] if action['href'] == preview_url)
+        self.assertEqual((entry['kind'], entry['tone']), ('link', 'primary'))
         self.assertEqual(
             complete['views']['releases']['table']['rows'][0]['actions'][0]['label'],
             '打开文章私有预览',

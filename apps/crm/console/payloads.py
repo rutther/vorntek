@@ -29,6 +29,7 @@ from .content_access import (
 )
 from .marketing_queries import build_marketing_overview
 from .navigation import SECTION_MAP
+from .preview_navigation import custom_preview_configured, preview_workflow_entry
 
 
 PUBLIC_PREVIEW_BASE_URL = os.getenv(
@@ -1225,15 +1226,17 @@ def releases_payload(
         {'key': 'releases', 'label': '内容快照'},
     ]
     payload['actions'] = []
-    if RELEASES_PREVIEW_BUILD in capabilities:
+    preview_entry = preview_workflow_entry(capabilities)
+    if preview_entry['url']:
+        action_builder = link_action if preview_entry['method'] == 'get' else post_action
         payload['actions'].append(
-            post_action('生成预览产物', reverse('console:release_build_preview'), tone='primary')
+            action_builder('生成预览产物', preview_entry['url'], tone='primary')
         )
-    if can_article_preview:
+    if can_article_preview and custom_preview_configured():
         payload['actions'].append(
-            link_action(
-                '文章发布预览',
-                reverse('console:article_release_preview'),
+            post_action(
+                '构建自定义前端',
+                reverse('console:release_build_preview'),
                 tone='secondary',
             )
         )

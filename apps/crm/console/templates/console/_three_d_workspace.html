@@ -209,10 +209,15 @@
                 <h3>发布状态</h3>
                 <p>保存配置、启用槽位或生成预览均不会立即改变官网。只有启用槽位及启用配置会进入新的网站候选；还需在「预览与快照」核对、选择并部署。</p>
                 {% if workspace.buildPreviewUrl %}
+                    {% if workspace.buildPreviewMethod == 'get' %}
+                    <a class="button primary wide" href="{{ workspace.buildPreviewUrl }}">生成预览产物</a>
+                    <p>进入预览工作台 → 生成文章预览版本 → 固化本次预览为整站候选。新候选会包含当前启用的 3D 槽位；随后仍需分别选择、部署。</p>
+                    {% else %}
                     <form action="{{ workspace.buildPreviewUrl }}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="button primary wide">生成预览产物</button>
                     </form>
+                    {% endif %}
                 {% else %}
                     <p>当前账号可查看配置，但没有执行预览构建的权限。</p>
                 {% endif %}
