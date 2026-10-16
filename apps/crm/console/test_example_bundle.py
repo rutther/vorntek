@@ -100,7 +100,10 @@ class ExampleBundleLifecycleTests(TestCase):
             base_url='https://preview.example.invalid', config_json={'keep_this':True})
         for code in ('en', 'zh'):
             SiteLocale.objects.create(site=self.site, locale_code=code, label=code, is_default=code == 'en')
-        MarketingProvider.objects.get_or_create(code='meta', defaults={'name':'Meta', 'enabled':True})
+        provider, _ = MarketingProvider.objects.get_or_create(code='meta', defaults={'name':'Meta', 'enabled':True})
+        MarketingIntegration.objects.create(provider=provider, name='Existing disabled integration',
+            integration_type='pixel', public_id='SYNTHETIC-UNBOUND-BASELINE', enabled=False)
+        self.original_integrations = list(MarketingIntegration.objects.order_by('pk').values())
         self.nonseed = Company.objects.create(site=self.site, name='Existing organization',
                                               normalized_name='existing organization')
 
@@ -127,7 +130,8 @@ class ExampleBundleLifecycleTests(TestCase):
         self.assertEqual(Article.objects.count(), 4)
         self.assertEqual(FreePage.objects.count(), 2)
         self.assertEqual(MarketingRuntimeBinding.objects.count(), 0)
-        self.assertEqual(MarketingIntegration.objects.count(), 0)
+        self.assertEqual(MarketingIntegration.objects.filter(site=self.site).count(), 0)
+        self.assertEqual(list(MarketingIntegration.objects.order_by('pk').values()), self.original_integrations)
         personal = Opportunity.objects.get(name='示例 · 个人支持协作')
         self.assertIsNone(personal.company_id)
         self.assertEqual(personal.primary_contact.email, 'personal-demo@example.invalid')
