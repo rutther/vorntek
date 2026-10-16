@@ -28,8 +28,19 @@ The earlier observations below describe the prior public source baseline.
   No database timestamps or existing integrations were rewritten by these fixes.
 - Article editing exposed inconsistent category choices: the picker offered draft
   categories rejected by the server. Regression cases reproduce the mismatch and
-  protect retention of an existing scoped unpublished binding. The source fix is
-  not yet accepted as a deployed-browser correction.
+  protect retention of an existing scoped unpublished binding. The source fix
+  was then accepted in retained-copy candidate `92b9d9a` after normal editor save
+  and reload. Both scoped binding retention and unassigned choices were observed.
+- The retained copy has exercised whole-site publication, a second distinct
+  revision and normal rollback to the first immutable version. Three selection
+  and deployment receipts were retained; all 32 served files matched the first
+  manifest before and after a website restart. The source site's missing
+  shared-base route configuration was corrected only in the retained copy;
+  protected production upgrade must apply the same route contract deliberately.
+- The walkthrough found ambiguous candidate failure messages, a shared-base
+  article navigation locale error, client-specific deployment wording and RTL
+  skip-link overflow. These follow-up source fixes still require their own clean
+  image and deployed-browser verification; they are not final product acceptance.
 
 - Candidate `fc3e5c2` passed a full isolated two-instance DB/files/runtime/config
   and vault recovery, including normal login, private attachment downloads,

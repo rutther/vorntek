@@ -187,6 +187,22 @@ class ArticleRenderingTests(unittest.TestCase):
         self.assertEqual(text.count('<script'), 1)
         self.assertIn('\\u003c/script\\u003e', text)
 
+    def test_shared_article_navigation_keeps_the_current_article_language(self):
+        locales = [ArticleLocale('en', 'English', is_default=True),
+                   ArticleLocale('zh', '中文'), ArticleLocale('ar', 'العربية', direction='rtl')]
+        release = build_article_release(
+            [ArticleVersion(content_key='guide', locale=code, slug='guide', title='Guide',
+                            markdown='Synthetic content', status='published', route_status='published')
+             for code in ('en', 'zh', 'ar')],
+            locales=locales, site_code='testSite', site_name='Vorntek',
+            public_origin='https://example.invalid', base_route_mode='shared')
+        documents = render_article_documents(release, preview=False)
+        for code, label in (('zh', '文章'), ('ar', 'المقالات')):
+            with self.subTest(language=code):
+                html = documents[f'{code}/articles/guide/index.html']
+                self.assertNotIn(f'href="/articles/">{label}</a>', html)
+                self.assertIn(f'href="/{code}/articles/">{label}</a>', html)
+
     def test_tampered_release_is_refused(self):
         release = self.manifest()
         release['articles'][0]['title'] = 'Changed after freeze'

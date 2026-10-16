@@ -3508,11 +3508,21 @@ def website_candidate_build(request, preview_record_id: int):
             preview_record_id=preview_record_id,
             actor=actor,
         )
-    except (ArticleDeliveryError, OSError):
-        messages.error(
-            request,
-            '整站候选未生成；请重新审查文章预览并检查候选存储配置。',
-        )
+    except (ArticleDeliveryError, OSError) as exc:
+        code = exc.code if isinstance(exc, ArticleDeliveryError) else ''
+        guidance = {
+            'translations_not_ready': (
+                '整站候选未生成：当前启用语言的文章译文尚未齐全。'
+                '请在文章管理中按同一关联标识补齐译文并保存为已发布，再重新生成文章私有预览。'
+                '现有网站未改变。'
+            ),
+            'website_internal_reference_missing': (
+                '整站候选未生成：引用的页面或公开素材缺失。'
+                '请由管理员核对站点基础路径模式与资源，再重新生成文章私有预览。'
+                '现有网站未改变。'
+            ),
+        }.get(code, '整站候选未生成；请重新审查文章预览并检查候选存储配置。现有网站未改变。')
+        messages.error(request, guidance)
     else:
         messages.success(
             request,

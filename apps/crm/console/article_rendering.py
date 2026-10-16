@@ -183,7 +183,7 @@ def render_article_documents(release: dict, *, preview: bool = True) -> dict[str
             'preview': preview,
             'releaseHash': release['releaseSha256'],
             'nav': [
-                {'label': t[key], 'href': base_prefix + '/' + key + '/'}
+                {'label': t[key], 'href': hub if key == 'articles' else base_prefix + '/' + key + '/'}
                 for key in (
                     'company',
                     'products',

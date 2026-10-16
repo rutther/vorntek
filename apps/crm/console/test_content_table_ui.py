@@ -348,6 +348,12 @@ class GenericTablePayloadContractTests(SimpleTestCase):
 
 
 class ContentAccessibilityDomContractTests(SimpleTestCase):
+    def test_rendered_deployment_guidance_is_independent_of_customer_environment(self):
+        from django.template.loader import render_to_string
+        html = render_to_string('console/_website_deployment_workspace.html', {'resume_allowed': True})
+        self.assertIn('会改变本安装的公开网站服务指针', html)
+        self.assertNotIn('香港', html)
+
     def test_candidate_selection_template_states_non_deploying_boundary(self):
         template = (
             TEMPLATE_ROOT / '_website_candidate_selection_workspace.html'

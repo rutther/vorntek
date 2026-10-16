@@ -8,6 +8,10 @@ certifications.
 
 ### Fixed
 
+- Candidate build failures explain missing translations or public resources
+  without exposing internal paths; deployment guidance no longer names a client environment.
+- Shared-base article navigation keeps the current article language.
+- The keyboard skip link no longer creates horizontal page overflow in RTL.
 - Article category pickers now show only choices accepted by the editor, while
   ordinary edits can retain an existing unpublished category in the same scope.
 - Standalone console website links inherit the configured site origin instead
