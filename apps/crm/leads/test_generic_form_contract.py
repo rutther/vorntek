@@ -41,6 +41,44 @@ class GenericFormContractTests(SimpleTestCase):
         self.assertEqual(cleaned["country"], "")
         self.assertEqual(cleaned["payload_json"], {})
 
+    def test_navigation_from_the_same_public_origin_is_not_an_external_referral(self):
+        for source, referrer in (
+                ('https://forms.example.invalid/contact/', 'https://forms.example.invalid/'),
+                ('https://forms.example.invalid:443/contact/', 'https://FORMS.example.invalid/about/')):
+            with self.subTest(source=source):
+                payload = dict(self.payload(), source_url=source, referrer_url=referrer)
+                cleaned = self.clean(payload)
+                self.assertEqual(cleaned['source_channel'], 'website')
+                self.assertEqual(cleaned['source_detail'], '')
+                self.assertEqual(cleaned['referrer_url'], referrer)
+
+    def test_external_or_different_origin_referrals_remain_distinct_from_direct_visits(self):
+        for referrer in ('https://partner.example.invalid/', 'https://forms.example.invalid:8443/',
+                         'http://forms.example.invalid/'):
+            with self.subTest(referrer=referrer):
+                cleaned = self.clean(dict(self.payload(), source_url='https://forms.example.invalid/contact/',
+                                          referrer_url=referrer))
+                self.assertEqual(cleaned['source_channel'], 'referral')
+        self.assertEqual(self.clean(dict(self.payload(), source_url='https://forms.example.invalid/contact/'))['source_channel'], 'direct')
+
+    def test_consented_campaign_takes_priority_over_internal_navigation(self):
+        payload = dict(self.payload(), source_url='https://forms.example.invalid/contact/',
+                       referrer_url='https://forms.example.invalid/',
+                       utm={'utm_source': 'facebook', 'utm_campaign': 'synthetic-campaign'},
+                       consent={'contact': True, 'privacy_notice': True, 'marketing': True})
+        cleaned = self.clean(payload)
+        self.assertEqual(cleaned['source_channel'], 'meta_ads')
+        self.assertIn('synthetic-campaign', cleaned['source_detail'])
+
+    def test_malformed_or_lookalike_source_origins_do_not_become_internal(self):
+        for source in ('https://forms.example.invalid:0/contact/',
+                       'https://forms.example.invalid.evil.invalid/contact/',
+                       'https://user:synthetic@forms.example.invalid/contact/'):
+            with self.subTest(source=source):
+                cleaned = self.clean(dict(self.payload(), source_url=source,
+                                          referrer_url='https://forms.example.invalid/'))
+                self.assertEqual(cleaned['source_channel'], 'referral')
+
     def test_new_general_form_without_custom_schema_uses_neutral_defaults(self):
         form = SimpleNamespace(site_id=7, id=11, category="general", form_schema={})
         self.assertEqual(self.clean(form=form)["full_name"], "Example visitor")

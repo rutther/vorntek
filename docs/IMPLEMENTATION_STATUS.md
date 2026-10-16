@@ -2,15 +2,29 @@
 
 ## Integration candidate — 2026-10-16
 
-This branch is an in-progress integration, not a deployed product release.
+This branch is deployed to the authorized Vorntek installation and remains
+an in-progress integration, not a completed product release.
 The earlier observations below describe the prior public source baseline.
+
+- The authorized Vorntek installation has now been switched to the upgraded
+  copy at its public HTTPS hostname, after a frozen original-state comparison,
+  paired current backups and an actual operator-process-loss recovery rehearsal.
+  Original protected rows across 70 tables, original accounts and keys were
+  retained, apart from the explicitly recorded neutral form/article/route edits.
+  Original writers are intentionally standby; the upgraded target is now the
+  only public writer. Never resume the stale original against newer target data.
+- Public-PC acceptance is still in progress. A real HTTPS inquiry reached CRM,
+  exposing a same-origin referrer misclassification; its regression fix and an
+  explicit site-origin maintenance command are being prepared for the next
+  accepted runtime. Do not confuse source fixes with deployment of those fixes.
 
 - Formal deployment preparation found the base HTTP proxy loses verified client
   addresses and the TLS protocol behind a host edge. An opt-in exact-peer renderer
   now preserves both without trusting arbitrary forwarding headers. Standalone
   native Nginx/HTTP tests reproduced the old failure and passed trusted/untrusted
   peer, spoofed-header and two-client checks; original containers and host Nginx
-  remained unchanged. This is not actual final TLS/Docker ingress acceptance.
+  remained unchanged during that preparation. The later protected public
+  switch described above now supersedes this historical ingress-only check.
   Default HTTP configuration remains unchanged; see [HTTPS proxy](HTTPS_PROXY.md).
 - English/Chinese entry documentation and the rollout checklist now describe the
   neutral product and optional example packs, rather than prescribing the older

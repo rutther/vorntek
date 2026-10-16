@@ -8,6 +8,11 @@ certifications.
 
 ### Fixed
 
+- Same-origin website navigation is no longer classified as an external referral;
+  consent filtering and campaign precedence remain unchanged.
+- Remaining conversation requirement examples use neutral categories and project
+  parameters instead of one customer's equipment or production units.
+
 - Candidate build failures explain missing translations or public resources
   without exposing internal paths; deployment guidance no longer names a client environment.
 - Shared-base article navigation keeps the current article language.
@@ -21,6 +26,9 @@ certifications.
 - Integration help no longer embeds a former customer's phone or account suffix.
 
 ### Added
+
+- A plan-first, stale-state-guarded `configure_site_origin` maintenance command
+  for existing installations, with one-field updates and immutable audit records.
 
 - An opt-in, exact-peer HTTPS edge proxy renderer with standalone real Nginx
   spoofing/client-identity checks; no automatic host configuration changes.

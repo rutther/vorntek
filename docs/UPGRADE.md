@@ -95,6 +95,21 @@ create a replacement database or restore an old dump over later business data.
 HTTPS 安装须先完成两跳代理核验；保留原项目、卷、秘密和开关。换源码目录不等于换库，
 也不允许用旧备份覆盖更新后产生的业务。
 
+An existing site's stored `base_url` is preserved by bootstrap. After inspecting
+that value and configuring the actual origin, explicitly update it with the
+guarded command below (substitute the actual site code, new origin and exact old
+value). The default is a plan; append `--apply` only after review with external
+delivery/scheduled work disabled. A stale expected value refuses the update.
+Only this field changes, with an append-only before/after audit record.
+
+```sh
+docker compose exec -T crm python manage.py configure_site_origin --site-code siteos_demo --origin https://YOUR_HOST --expected-current http://localhost:8088
+```
+
+升级不会悄悄改写站点地址。检查旧值后，用上述命令先看计划，再显式加 `--apply`。
+旧值不匹配会拒绝；公网新地址须为 HTTPS，更新只改站点地址并留审计，不改表单、账号或秘密。
+这一步也确保平台接入页的回调地址属于本安装，而不是旧 localhost。
+
 ```sh
 docker compose up -d
 docker compose ps -a

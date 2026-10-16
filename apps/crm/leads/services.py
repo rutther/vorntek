@@ -376,7 +376,24 @@ def _strip_marketing_query(url: str) -> str:
         return ''
 
 
-def _derive_source(payload: dict[str, Any], utm: dict[str, Any], referrer_url: str) -> tuple[str, str]:
+def _http_origin(value: str):
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password:
+            return None
+        port = parsed.port
+        if port is not None and not 1 <= port <= 65535:
+            return None
+        return parsed.scheme, parsed.hostname, port if port is not None else (443 if parsed.scheme == 'https' else 80)
+    except ValueError:
+        return None
+
+
+def _derive_source(payload: dict[str, Any], utm: dict[str, Any], referrer_url: str, *, source_url: str = '') -> tuple[str, str]:
+    # Browser source/referrer metadata is advisory, never authentication evidence.
+    # Match full HTTP(S) origins, not hostname substrings or arbitrary suffixes.
+    origin = _http_origin(source_url)
+    internal_referrer = origin is not None and origin == _http_origin(referrer_url)
     requested = str(payload.get('source_channel') or '').strip().lower()
     source = str(utm.get('utm_source') or '').strip().lower()
     medium = str(utm.get('utm_medium') or '').strip().lower()
@@ -390,6 +407,8 @@ def _derive_source(payload: dict[str, Any], utm: dict[str, Any], referrer_url: s
         channel = 'whatsapp'
     elif source in {'google', 'bing', 'baidu'} and medium in {'organic', ''}:
         channel = 'organic'
+    elif internal_referrer:
+        channel = 'website'
     elif referrer_url:
         channel = 'referral'
     else:
@@ -400,7 +419,7 @@ def _derive_source(payload: dict[str, Any], utm: dict[str, Any], referrer_url: s
         parts = [
             str(utm.get('utm_campaign') or '').strip(),
             str(utm.get('utm_content') or '').strip(),
-            (urlsplit(referrer_url).hostname or '') if referrer_url else '',
+            (urlsplit(referrer_url).hostname or '') if referrer_url and not internal_referrer else '',
         ]
         detail = ' / '.join(item for item in parts if item)[:500]
     return channel, detail
@@ -542,7 +561,7 @@ def clean_submission_input(payload: dict[str, Any], *, form_definition: LeadForm
             source_payload[key] = ''
         source_payload['source_channel'] = ''
         source_payload['source_detail'] = ''
-    source_channel, source_detail = _derive_source(source_payload, utm, referrer_url)
+    source_channel, source_detail = _derive_source(source_payload, utm, referrer_url, source_url=source_url)
     google_session_attributes = _clean_google_session_attributes(
         payload.get('google_session_attributes') or payload.get('session_attributes'),
         marketing_consent=marketing_consent,
