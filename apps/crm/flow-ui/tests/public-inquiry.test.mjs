@@ -5,6 +5,7 @@ import {JSDOM} from 'jsdom';
 
 const path=new URL('../../../website/inquiry-form.js',import.meta.url);
 const source=existsSync(path)?readFileSync(path,'utf8'):'';
+const siteController=readFileSync(new URL('../../../website/app.js',import.meta.url),'utf8');
 const css=readFileSync(new URL('../../../website/styles.css',import.meta.url),'utf8');
 const defaults=[{name:'full_name',type:'text',label:'姓名',required:true},
  {name:'email',type:'email',label:'邮箱',required:false},
@@ -55,6 +56,23 @@ test('loaded form hides retry and gives the long request its own row',async()=>{
  const ui=await fixture();try{
   assert.equal(ui.window.getComputedStyle(ui.form.querySelector('[data-form-retry]')).display,'none');
   assert.ok(ui.form.elements.message.closest('label').classList.contains('inquiry-field-wide'));
+ }finally{ui.close();}
+});
+
+test('language switch translates current status without resetting the request or losing errors',async()=>{
+ const ui=await fixture();try{
+  const select=ui.window.document.createElement('select');select.id='language';
+  select.innerHTML='<option value="en">EN</option><option value="zh">中文</option>';
+  ui.window.document.body.append(select);ui.window.eval(siteController);
+  select.value='zh';select.dispatchEvent(new ui.window.Event('change'));
+  assert.equal(ui.status.textContent,'邮箱或电话至少填写一项，* 为必填。');
+  ui.form.elements.full_name.value='Example';ui.form.elements.email.value='visitor@example.test';
+  ui.form.elements.consent.checked=true;ui.replies.push(Error('Synthetic failure'));await ui.submit();
+  assert.equal(ui.status.dataset.kind,'error');
+  select.value='en';select.dispatchEvent(new ui.window.Event('change'));
+  assert.equal(ui.status.textContent,'Submission was not confirmed. Entries are preserved; retry the same request.');
+  assert.equal(ui.status.dataset.kind,'error');assert.equal(ui.form.elements.email.value,'visitor@example.test');
+  assert.equal(ui.requests.filter(r=>r.payload).length,1);
  }finally{ui.close();}
 });
 

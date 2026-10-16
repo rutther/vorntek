@@ -20,6 +20,7 @@
     document.querySelectorAll('[data-en][data-zh]').forEach(node => { node.textContent = node.dataset[lang]; });
     if(language) language.value = lang;
     updateHint();
+    document.dispatchEvent(new CustomEvent('nc:language-changed',{detail:{language:lang}}));
   }
   language?.addEventListener('change', () => {
     lang = language.value;
@@ -93,6 +94,21 @@
   function renderData(){
     const chart=document.querySelector('#data-chart');if(!chart)return;
     const hours=Number(document.querySelector('#data-window').value);
+    if(document.querySelector('[data-demo-kind="requests"]')){
+      const rows=Array.from({length:hours},(_,hour)=>({hour,
+        requests:12+Math.round(Math.sin(hour*.34)*3),
+        followups:7+Math.round(Math.sin(hour*.24)*2)}));
+      const points=rows.map((row,i)=>`${(i/(hours-1)*780+10).toFixed(1)},${(190-row.requests*6).toFixed(1)}`).join(' ');
+      chart.innerHTML=`<line x1="10" y1="100" x2="790" y2="100" stroke="#dce2e9"/><polyline points="${points}" fill="none" stroke="#2375b8" stroke-width="3"/>`;
+      const total=rows.reduce((sum,row)=>sum+row.requests,0);
+      document.querySelector('#data-metrics').innerHTML=`<div><b>${total}</b><span>${lang==='zh'?'合成请求数':'Synthetic requests'}</span></div><div><b>${hours}</b><span>${lang==='zh'?'合成采样点':'Synthetic samples'}</span></div><div><b>0</b><span>${lang==='zh'?'连接的真实数据源':'Live sources connected'}</span></div>`;
+      document.querySelector('#data-description').textContent=lang==='zh'?'趋势及CSV均由同一份确定性合成数据生成，不代表实际业务表现。':'The chart and CSV use the same deterministic synthetic dataset, not actual business performance.';
+      const csv='synthetic_hour,synthetic_requests,synthetic_followups\n'+rows.map(row=>`${row.hour},${row.requests},${row.followups}`).join('\n')+'\n';
+      const download=document.querySelector('#data-export');
+      download.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+      download.download=`vorntekSyntheticData${hours}h.csv`;
+      return;
+    }
     demoRows=Array.from({length:hours},(_,i)=>({hour:i,temperature:Number((26+Math.sin(i*.34)*2+.5*Math.cos(i*.13)).toFixed(2)),load:Number((58+Math.cos(i*.24)*11).toFixed(1))}));
     const points=demoRows.map((r,i)=>`${(i/(hours-1)*780+10).toFixed(1)},${(190-(r.temperature-22)*22).toFixed(1)}`).join(' ');
     chart.innerHTML=`<line x1="10" y1="100" x2="790" y2="100" stroke="#dce2e9"/><polyline points="${points}" fill="none" stroke="#2375b8" stroke-width="3"/>`;

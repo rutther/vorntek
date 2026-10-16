@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" role="img" aria-labelledby="title desc">
+<title id="title">An illustrated shared plan</title><desc id="desc">Three blank note cards linked in sequence. Fictional illustration, not a completed business workflow.</desc>
+<rect width="960" height="720" fill="#f0f4f8"/><circle cx="165" cy="140" r="170" fill="#e5eafa"/>
+<path d="M255 260h165v100h160v110h165" fill="none" stroke="#aabbd0" stroke-width="4"/>
+<g fill="white" stroke="#dce2e9" stroke-width="2"><rect x="90" y="150" width="245" height="195" rx="14"/><rect x="365" y="280" width="245" height="195" rx="14"/><rect x="635" y="410" width="245" height="195" rx="14"/></g>
+<g fill="#2439d9"><circle cx="133" cy="195" r="15"/><circle cx="408" cy="325" r="15"/><circle cx="678" cy="455" r="15"/></g>
+<g stroke="#ccd7e4" stroke-width="10" stroke-linecap="round"><path d="M125 250h155m-155 35h110"/><path d="M400 380h155m-155 35h110"/><path d="M670 510h155m-155 35h110"/></g>
+</svg>

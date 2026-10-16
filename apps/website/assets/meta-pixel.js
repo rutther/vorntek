@@ -516,6 +516,11 @@
     });
   }
 
+  document.addEventListener('nc:language-changed', function () {
+    ensurePrivacyControls();
+    if (document.getElementById('nc-consent')) showConsent();
+  });
+
   function showConsent() {
     injectConsentStyles();
     var current = document.getElementById("nc-consent");

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 760" role="img" aria-labelledby="title desc">
+<title id="title">An illustrated conversation</title><desc id="desc">Abstract notes connect a question, a discussion and a next step. Fictional illustration, not software status.</desc>
+<rect width="960" height="760" fill="#edf2f7"/><circle cx="760" cy="120" r="190" fill="#e1e8fa"/>
+<path d="M120 610C320 610 620 210 850 280" fill="none" stroke="#aebddd" stroke-width="3" stroke-dasharray="8 12"/>
+<rect x="110" y="145" width="600" height="410" rx="16" fill="white" stroke="#dce2e9" stroke-width="2"/>
+<rect x="145" y="180" width="530" height="40" rx="8" fill="#f5f7fa"/><circle cx="165" cy="200" r="5" fill="#2439d9"/>
+<rect x="155" y="265" width="295" height="100" rx="14" fill="#edf0ff"/><path d="M180 298h225m-225 28h152" stroke="#2439d9" stroke-width="9" stroke-linecap="round"/>
+<rect x="325" y="390" width="325" height="108" rx="14" fill="#f3f6fa"/><path d="M353 424h250m-250 28h177" stroke="#637080" stroke-width="9" stroke-linecap="round"/>
+<circle cx="780" cy="460" r="78" fill="#102c43"/><path d="M743 460h73m-29-29 29 29-29 29" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="210" y="600" width="440" height="10" rx="5" fill="#ccd7e4"/><rect x="295" y="630" width="270" height="8" rx="4" fill="#dbe3ec"/>
+</svg>

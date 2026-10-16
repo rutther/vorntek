@@ -24,7 +24,11 @@ function fixture(){
   };
   const document={documentElement:{},referrer:'',
     querySelector(selector){return {'#project-form':form,'#form-status':status,'#business-help':help}[selector]||null;},
-    querySelectorAll(){return [];},dispatchEvent(event){events.push(event);}
+    querySelectorAll(){return [];},dispatchEvent(event){
+      // This suite observes marketing form events; language notifications are
+      // independently exercised with the real DOM/privacy controller.
+      if(['nc:form-started','nc:lead-accepted'].includes(event.type))events.push(event);
+    }
   };
   const window={};
   const context={document,window,localStorage:{getItem(){return null;}},location:{search:'',href:'http://localhost:8088/contact/',pathname:'/contact/'},
@@ -48,9 +52,9 @@ test('analytics download link contains the selected 24/168-point chart dataset',
     '#data-description':{textContent:''}, '#data-export':{href:'',download:''},
     '#data-window':{value:'24',addEventListener(name,handler){this.change=handler;}},
   };
-  const context={document:{documentElement:{},querySelector:s=>elements[s]||null,querySelectorAll:()=>[]},
+  const context={document:{documentElement:{},querySelector:s=>elements[s]||null,querySelectorAll:()=>[],dispatchEvent(){}},
     window:{},localStorage:{getItem:()=>null,setItem(){}},location:{search:'',href:'http://localhost/'},
-    URL,URLSearchParams,encodeURIComponent};
+    URL,URLSearchParams,encodeURIComponent,CustomEvent:class{constructor(type,options){Object.assign(this,{type,...options});}}};
   vm.runInNewContext(source,context);
   for(const hours of [24,168]){
     elements['#data-window'].value=String(hours);elements['#data-window'].change();
@@ -70,6 +74,31 @@ test('analytics download link contains the selected 24/168-point chart dataset',
     }
     assert.ok(elements['#data-chart'].innerHTML.includes(points.join(' ')));
     assert.ok(elements['#data-metrics'].innerHTML.includes(`<b>${hours}</b>`));
+  }
+});
+
+test('neutral chart and CSV share request counts without equipment metrics',()=>{
+  const elements={
+    '#data-chart':{innerHTML:''}, '#data-metrics':{innerHTML:''},
+    '#data-description':{textContent:''}, '#data-export':{href:'',download:''},
+    '[data-demo-kind="requests"]':{dataset:{demoKind:'requests'}},
+    '#data-window':{value:'24',addEventListener(name,handler){this.change=handler;}},
+  };
+  const context={document:{documentElement:{},querySelector:s=>elements[s]||null,querySelectorAll:()=>[],dispatchEvent(){}},
+    window:{},localStorage:{getItem:()=>null,setItem(){}},location:{search:'',href:'http://localhost/'},
+    URL,URLSearchParams,encodeURIComponent,CustomEvent:class{constructor(type,options){Object.assign(this,{type,...options});}}};
+  vm.runInNewContext(source,context);
+  for(const hours of [24,168]){
+    elements['#data-window'].value=String(hours);elements['#data-window'].change();
+    const link=elements['#data-export'];
+    const lines=decodeURIComponent(link.href.slice(link.href.indexOf(',')+1)).trim().split('\n');
+    assert.equal(lines[0],'synthetic_hour,synthetic_requests,synthetic_followups');
+    assert.equal(lines.length,hours+1);
+    assert.equal(lines[1],'0,12,7');
+    assert.ok(elements['#data-chart'].innerHTML.includes('10.0,118.0'));
+    assert.ok(elements['#data-metrics'].innerHTML.includes('Synthetic requests'));
+    assert.ok(!elements['#data-metrics'].innerHTML.includes('°C'));
+    assert.ok(!elements['#data-metrics'].innerHTML.includes('devices'));
   }
 });
 

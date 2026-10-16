@@ -94,8 +94,7 @@ class WebsiteRecoveryTests(TestCase):
             previous_version='',
             deployed_by='operator',
             reason='Deployed verified candidate before recovery.',
-            status='activated',
-            completed_at=timezone.now(),
+            status='prepared',
         )
         self.receipt = WebsiteReleaseDeployment.objects.create(
             operation=self.operation,
@@ -108,6 +107,11 @@ class WebsiteRecoveryTests(TestCase):
             deployed_by='operator',
             reason='Deployed verified candidate before recovery.',
         )
+        # Same prepared -> receipt -> activated sequence as the deployment
+        # service. Full SQL rejects inventing a receipt after activation.
+        WebsiteDeploymentOperation.objects.filter(pk=self.operation.pk).update(
+            status='activated', completed_at=timezone.now())
+        self.operation.refresh_from_db()
         self.source_manifest = {
             'schemaVersion': 1,
             'kind': 'websiteRelease',
@@ -217,14 +221,13 @@ class WebsiteRecoveryTests(TestCase):
         self.serving.deploy.assert_not_called()
 
     def test_ledger_mismatch_is_not_treated_as_recoverable_cache_loss(self):
-        WebsiteDeploymentOperation.objects.filter(pk=self.operation.pk).update(
-            deployed_by='different-operator'
-        )
-
-        with self.assertRaisesRegex(
-            ArticleDeliveryError,
-            'website_reconcile_ledger_mismatch',
-        ):
-            self.reconcile()
+        # PostgreSQL forbids changing activated identities. Simulate damaged
+        # restored evidence at the read boundary, rather than disabling that
+        # protection just to construct a corruption fixture.
+        receipt=WebsiteReleaseDeployment.objects.select_related('operation','selection','release').get(pk=self.receipt.pk)
+        receipt.operation.deployed_by='different-operator'
+        with patch('django.db.models.query.QuerySet.first',return_value=receipt):
+            with self.assertRaisesRegex(ArticleDeliveryError,'website_reconcile_ledger_mismatch'):
+                self.reconcile()
         self.source.verify.assert_not_called()
         self.serving.deploy.assert_not_called()

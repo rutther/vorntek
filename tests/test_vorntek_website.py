@@ -35,6 +35,78 @@ class PageParser(HTMLParser):
 
 
 class VorntekWebsiteTests(unittest.TestCase):
+    def test_default_public_content_is_industry_neutral(self):
+        for path in SITE.rglob('*.html'):
+            source = path.read_text(encoding='utf-8').lower()
+            for retired in ('industrial technolog', 'circulating water', 'propane', 'turbojet',
+                            '工业', '循环水', '丙烷', '涡喷', 'vorntekworkshop.png', 'vorntekpumpskid.png'):
+                with self.subTest(page=str(path.relative_to(SITE)), retired=retired):
+                    self.assertNotIn(retired, source)
+
+    def test_configured_catalogue_supports_unrelated_ids_and_escapes_content(self):
+        spec = importlib.util.spec_from_file_location('site_builder', ROOT/'scripts/build_vorntek_site.py')
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        catalog = json.loads((ROOT/'docs/vorntekDemo/catalog.json').read_text(encoding='utf-8'))
+        catalog['productLines'] = [{
+            'id':'personal-advice', 'name':'Advice <example>', 'nameZh':'个人咨询示例',
+            'headline':'Start with a question.', 'headlineZh':'从一个问题开始。',
+            'description':'A synthetic personal request, not equipment procurement.',
+            'descriptionZh':'合成个人请求，不需要企业资料。',
+            'features':[{'en':'Clarify the question','zh':'明确问题'}], 'asset':None,
+        }, {
+            'id':'project-review', 'name':'Project review', 'nameZh':'项目评估',
+            'headline':'Review before a decision.', 'headlineZh':'决定前先评估。',
+            'description':'A separate synthetic team scenario.', 'descriptionZh':'独立团队合成场景。',
+            'features':[{'en':'Define the scope','zh':'确定范围'}], 'asset':None,
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)/'site'
+            builder.main(catalog=catalog, output=output)
+            self.assertEqual(len(list(output.rglob('*.html'))),10)
+            personal = (output/'products/personal-advice/index.html').read_text(encoding='utf-8')
+            listing = (output/'products/index.html').read_text(encoding='utf-8')
+            self.assertIn('Advice &lt;example&gt;', personal)
+            self.assertIn('Clarify the question', personal)
+            self.assertIn('/products/project-review/', listing)
+            self.assertNotIn('circulatingWaterControl', listing)
+            self.assertTrue((output/'contact/index.html').is_file())
+            self.assertIn('data-configured-form', (output/'contact/index.html').read_text(encoding='utf-8'))
+            parser=PageParser()
+            parser.feed(personal)
+            for ref in parser.refs:
+                path=urlsplit(ref).path
+                if not path or path.startswith('/admin/'):
+                    continue
+                target=output/path.lstrip('/')
+                self.assertTrue((target/'index.html' if path.endswith('/') else target).is_file(),ref)
+
+    def test_bad_catalogue_routes_refused_before_output(self):
+        spec = importlib.util.spec_from_file_location('site_builder', ROOT/'scripts/build_vorntek_site.py')
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        catalog = json.loads((ROOT/'docs/vorntekDemo/catalog.json').read_text(encoding='utf-8'))
+        with tempfile.TemporaryDirectory() as directory:
+            for bad in ('../escape','/absolute','same/route'):
+                catalog['productLines'][0]['id']=bad
+                output=Path(directory)/'site'
+                with self.assertRaises(ValueError):
+                    builder.main(catalog=catalog, output=output)
+                self.assertFalse(output.exists())
+
+    def test_empty_catalogue_keeps_navigation_contact_and_non_catalogue_pages(self):
+        spec=importlib.util.spec_from_file_location('site_builder',ROOT/'scripts/build_vorntek_site.py')
+        builder=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        catalog=json.loads((ROOT/'docs/vorntekDemo/catalog.json').read_text(encoding='utf-8'))
+        catalog['productLines']=[]
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)/'site'
+            builder.main(catalog=catalog,output=output)
+            self.assertEqual(len(list(output.rglob('*.html'))),8)
+            self.assertIn('data-configured-form',(output/'contact/index.html').read_text(encoding='utf-8'))
+            self.assertIn('/company/',(output/'index.html').read_text(encoding='utf-8'))
+
     def test_default_forms_load_configured_fields_without_fixed_industry_controls(self):
         for route in ('index.html', 'contact/index.html'):
             source = (SITE / route).read_text(encoding='utf-8')
@@ -73,11 +145,11 @@ class VorntekWebsiteTests(unittest.TestCase):
                     self.assertNotIn('capacity', parser.fields)
                     self.assertTrue({'company', 'country', 'email', 'phone', 'message', 'application_context', 'consent'} <= parser.fields)
 
-    def test_published_bitmaps_match_the_eight_ai_originals(self):
+    def test_published_visuals_match_neutral_sources_and_preserve_logo(self):
         originals = ROOT/'docs/vorntekDemo/assets'
-        expected = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in originals.glob('*.png')}
-        self.assertEqual(len(expected), 8)
-        public = list(SITE.rglob('*.png'))
+        expected = {name: hashlib.sha256((originals/name).read_bytes()).hexdigest() for name in
+            ('vorntekLogo.png','example-conversation.svg','example-process.svg','example-collaboration.svg')}
+        public = list((SITE/'assets/vorntek').iterdir())
         self.assertEqual({p.name for p in public}, set(expected))
         self.assertFalse(list(SITE.rglob('*.jpg')))
         for path in public:
@@ -86,12 +158,14 @@ class VorntekWebsiteTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(mark.read_bytes()).hexdigest(), expected['vorntekLogo.png'])
         self.assertFalse((mark.parent/'new-crown-mark.png').exists())
 
-    def test_catalogue_and_backend_share_business_identifiers(self):
-        spec = importlib.util.spec_from_file_location('industrial_catalogue', ROOT/'apps/crm/leads/industrial.py')
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+    def test_catalogue_entries_are_example_content_not_fixed_backend_enums(self):
         catalog = json.loads((ROOT/'docs/vorntekDemo/catalog.json').read_text(encoding='utf-8'))
-        self.assertEqual({p['id'] for p in catalog['productLines']}, set(module.BUSINESS_LINES))
+        self.assertTrue(catalog['demoOnly'])
+        self.assertEqual(catalog['brand']['contactPlaceholder'],'inquiries@example.invalid')
+        for entry in catalog['productLines']:
+            page=(SITE/'products'/entry['id']/'index.html').read_text(encoding='utf-8')
+            self.assertIn('name="robots" content="noindex,nofollow"',page)
+            self.assertIn('Fictional example only.',page)
 
     def test_clean_generator_reproduces_checked_in_pages(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -102,6 +176,7 @@ class VorntekWebsiteTests(unittest.TestCase):
                 destination = target/name
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT/name, destination)
+            shutil.copytree(ROOT/'docs/vorntekDemo/assets',target/'docs/vorntekDemo/assets')
             subprocess.run([sys.executable, str(target/'scripts/build_vorntek_site.py')], check=True, capture_output=True)
             built = target/'apps/website'
             self.assertEqual({str(p.relative_to(built)) for p in built.rglob('*.html')},

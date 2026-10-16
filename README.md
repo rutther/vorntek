@@ -116,6 +116,11 @@ acceptance. With separately installed PostgreSQL binaries, run
 Website source: [catalogue](docs/vorntekDemo/catalog.json) and
 `scripts/build_vorntek_site.py`. Regenerate `apps/website/` after changing scripts
 or styles to update content-hash cache keys.
+The optional example catalogue is industry-neutral and independent of legacy
+backend business identifiers. It supports arbitrary entry counts and IDs, including
+an empty catalogue. `--catalog PATH --output DIRECTORY` builds a separate complete
+static site; generation does not delete other destination files. See the current
+[example content notes](docs/vorntekDemo/README.md), not the old industrial demo.
 
 ## Operations and license
 

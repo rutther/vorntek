@@ -1,5 +1,11 @@
 # Vorntek local acceptance / 本地验收
 
+Current productization candidate: the old industrial example content below has
+been retired from default pages and visuals. Neutral catalogue builds, configured
+forms and synthetic request chart/CSV have current tests; this historical report
+does not prove the full new product, target-domain deployment or joint restore.
+See `vorntekDemo/README.md` and `CONTENT_EDITING.md` for current contracts.
+
 Observed 2026-09-13 (Asia/Shanghai). Local candidate only, not a deployment or
 public release. Exact source is retained in the candidate Git index after this stage.
 

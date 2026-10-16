@@ -35,7 +35,7 @@
     if(!fieldsRoot||!status||!submit||!consent)return;
     let fields=[],ready=false,busy=false,loading=false,started=false;
     let startedAt=new Date().toISOString(),eventId='',fingerprint='';
-    const setStatus=(kind,text)=>{status.dataset.kind=kind;status.textContent=text;};
+    const setStatus=(kind,en,cn=en)=>{status.dataset.kind=kind;localized(status,en,cn);};
     const formCodeValid=/^[a-zA-Z0-9_-]{1,100}$/.test(code);
     const base='/admin/api/leads/forms/'+encodeURIComponent(code)+'/';
 
@@ -43,7 +43,7 @@
       if(loading||busy)return;
       loading=true;ready=false;submit.disabled=true;
       if(retry){retry.hidden=true;retry.disabled=true;}
-      setStatus('pending',copy('Loading form…','正在加载表单…'));
+      setStatus('pending','Loading form…','正在加载表单…');
       try{
         if(!formCodeValid)throw Error('invalid form');
         const result=await request(base+'definition/');
@@ -98,9 +98,9 @@
           return {...field,input};
         });
         fieldsRoot.replaceChildren(fragment);ready=true;submit.disabled=false;
-        setStatus('idle',copy('Provide an email or phone. Required fields are marked *.','邮箱或电话至少填写一项，* 为必填。'));
+        setStatus('idle','Provide an email or phone. Required fields are marked *.','邮箱或电话至少填写一项，* 为必填。');
       }catch(_error){
-        setStatus('error',copy('The form could not be loaded. Retry loading before submitting.','表单暂时无法加载，请先重试加载后再提交。'));
+        setStatus('error','The form could not be loaded. Retry loading before submitting.','表单暂时无法加载，请先重试加载后再提交。');
         if(retry){retry.hidden=false;retry.disabled=false;}
       }finally{loading=false;}
     }
@@ -115,11 +115,11 @@
       event.preventDefault();if(!ready||busy)return;
       setStatus('idle','');
       if(!form.checkValidity()||fields.some(field=>field.required&&!field.input.value.trim())){
-        form.reportValidity();setStatus('error',copy('Check the required fields and formats.','请检查必填项和格式。'));return;
+        form.reportValidity();setStatus('error','Check the required fields and formats.','请检查必填项和格式。');return;
       }
       const values=Object.fromEntries(fields.map(field=>[field.name,field.input.value.trim()]));
       if(!values.email&&!values.phone){
-        setStatus('error',copy('Provide an email address or phone number.','邮箱或电话至少填写一项。'));
+        setStatus('error','Provide an email address or phone number.','邮箱或电话至少填写一项。');
         fields.find(field=>field.name==='email'||field.name==='phone')?.input.focus();return;
       }
       const current=JSON.stringify(values);
@@ -140,19 +140,19 @@
         payload.google_session_attributes=typeof window.ncGoogleSessionAttributes==='function'?window.ncGoogleSessionAttributes():'';
       }
       busy=true;submit.disabled=true;form.setAttribute('aria-busy','true');
-      setStatus('pending',copy('Submitting…','正在提交…'));
+      setStatus('pending','Submitting…','正在提交…');
       try{
         payload.measurement_context=marketing&&typeof window.ncMeasurementContext==='function'?await window.ncMeasurementContext():'';
         const result=await request(base+'submit/',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});
-        setStatus('success',result.duplicate?copy('Already received; no duplicate was created.','此询盘已接收，未重复创建。'):
-          copy('Inquiry received.','询盘已接收。'));
+        if(result.duplicate)setStatus('success','Already received; no duplicate was created.','此询盘已接收，未重复创建。');
+        else setStatus('success','Inquiry received.','询盘已接收。');
         if(result.measurement?.shouldTrack||!result.duplicate)
           document.dispatchEvent(new CustomEvent('nc:lead-accepted',{detail:{formCode:code,
             eventId:result.measurement?.eventId||eventId,measurement:result.measurement}}));
         form.reset();started=false;fingerprint='';eventId='';startedAt=new Date().toISOString();
       }catch(error){
-        setStatus('error',error.message==='rate'?copy('Too many attempts. Entries are preserved; try later.','提交较频繁，内容已保留，请稍后重试。'):
-          copy('Submission was not confirmed. Entries are preserved; retry the same request.','提交未确认成功，内容已保留，请重试同一次请求。'));
+        if(error.message==='rate')setStatus('error','Too many attempts. Entries are preserved; try later.','提交较频繁，内容已保留，请稍后重试。');
+        else setStatus('error','Submission was not confirmed. Entries are preserved; retry the same request.','提交未确认成功，内容已保留，请重试同一次请求。');
       }finally{busy=false;submit.disabled=false;form.setAttribute('aria-busy','false');}
     });
     load();

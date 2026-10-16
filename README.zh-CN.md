@@ -94,6 +94,10 @@ Node 仅用于 JS 测试。应用运行器使用合成 SQLite 并阻断非回环
 网站内容由[目录配置](docs/vorntekDemo/catalog.json)和
 `scripts/build_vorntek_site.py` 生成。修改脚本/样式后应重新生成 `apps/website/`，
 更新基于内容哈希的缓存版本。
+当前可选目录为行业中立示例，不与旧后端业务枚举绑定；条目数量及标识可变，
+也支持空目录。`--catalog PATH --output DIRECTORY` 可另建完整静态产物；生成器
+不删除目标中的其他文件。参见[当前示例内容说明](docs/vorntekDemo/README.md)，
+不要把旧工业演示的历史验收当作当前产品要求。
 
 ## 运维与许可
 

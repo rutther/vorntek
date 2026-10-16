@@ -138,7 +138,7 @@ class WebsiteCandidateTests(TestCase):
         )
 
         self.assertEqual(first, second)
-        self.assertEqual(first['fileCount'], 33)
+        self.assertEqual(first['fileCount'], 29)
         self.assertEqual(article_live_store(self.site, initialize=False).current(), '')
         self.assertEqual(website_release_store(self.site, initialize=False).current(), '')
         record = Release.objects.get(pk=first['recordId'])
