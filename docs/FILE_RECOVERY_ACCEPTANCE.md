@@ -1,5 +1,41 @@
 # File recovery acceptance / 文件恢复验收
 
+## Current private-attachment recovery contract (2026-10-16 candidate)
+
+CRM uploads now keep owner-only durable upload markers until the row commits.
+An outer transaction rollback leaves recoverable intent rather than an untracked
+blob. Physical retirement clears personal metadata but retains a restricted
+pending path until deletion succeeds; filesystem failures, shared references and
+unsafe indirect paths remain retryable with safe error codes. Active attachments
+are not cleanup candidates.
+
+The system-admin Data Governance page shows pending retirements and upload-marker
+counts. GET is non-destructive; confirmed POST rechecks the current role, records
+an audit attempt and retries at most 100 already-retired attachments. CSRF remains
+required. An unavailable marker directory is not reported as an empty directory.
+Uploads in progress and orphan uploads are deliberately handled separately.
+
+For an operator in the installed application's environment:
+
+```sh
+python manage.py retry_private_attachment_cleanup --site YOUR_SITE --limit 100
+# Review first; this explicit confirmation authorizes the bounded retry:
+python manage.py retry_private_attachment_cleanup --site YOUR_SITE --limit 100 --execute --confirm "RETRY FILE CLEANUP"
+```
+
+The default command only previews counts. `--uploads-only` restricts execution to
+the upload journal; `--upload-cursor` continues a bounded journal page. Invalid
+site, limit or cursor is rejected before physical cleanup. No whole-directory
+scan-and-delete or cleanup of arbitrary filenames is authorized. PostgreSQL
+advisory/row locks protect active writes; SQLite cannot authorize orphan deletion.
+
+Local synthetic verification: five file/DB contracts and six real HTTP cases
+passed; complete application suite 1181 tests passed with 113 PostgreSQL/other
+conditional skips. These results do not prove Linux lock behavior, current server
+deployment, or consistent whole-system restore. Native lock and independent
+recovery acceptance are separate gates. The older observations below remain
+historical and are not a substitute for the current-candidate gates.
+
 2026-09-12. Scope: local synthetic files and the independent development candidate.
 No real assets, customer attachments, server volumes or production data were copied.
 

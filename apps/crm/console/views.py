@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -23,6 +23,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 
 from leads.email_delivery import load_runtime_email_config, smtp_password_last4
 from leads.models import (
+    CrmAttachment,
     LeadConversion,
     LeadEventOutbox,
     LeadFormDefinition,
@@ -103,7 +104,8 @@ from .audit import (
     record_audit,
 )
 from .email_forms import SmtpSettingsForm
-from .data_governance_forms import RetentionExecutionForm, RetentionPolicyForm
+from .data_governance_forms import AttachmentCleanupForm, RetentionExecutionForm, RetentionPolicyForm
+from .crm_files import process_private_attachment_cleanup
 from .forms import ArticleEditorForm, AssetImportPathForm, AssetUploadForm, asset_mime_type
 from .lead_forms import LeadFormEditorForm, LeadSubmissionEditorForm, default_form_schema
 from leads.form_schema import FormSchemaError, public_form_fields
@@ -2060,8 +2062,29 @@ def system_data_governance(request):
     execution_form = RetentionExecutionForm(
         initial={'version': workspace['policy_version']}
     )
+    cleanup_form = AttachmentCleanupForm()
 
-    if request.method == 'POST' and action == 'save_policy':
+    if request.method == 'POST' and action == 'retry_attachment_cleanup':
+        fresh_actor = get_user_model().objects.filter(pk=request.user.pk, is_active=True).first()
+        if not fresh_actor or not user_has_any_role(fresh_actor, SYSTEM_ROLES):
+            raise PermissionDenied('当前账号没有重试附件清理的权限。')
+        cleanup_form = AttachmentCleanupForm(request.POST)
+        if cleanup_form.is_valid():
+            try:
+                # Persist an authorized attempt before irreversible filesystem I/O.
+                # A later SQL failure leaves the existing retirement intent retryable.
+                record_audit(actor=fresh_actor, action='private_attachment_cleanup_requested',
+                    entity_table='privacy_retention_policy', entity_id=policy.id, request=request,
+                    metadata={'site_id': site.pk, 'limit': 100})
+                result = process_private_attachment_cleanup(site_id=site.pk, limit=100)
+                remaining = CrmAttachment.objects.filter(site=site).exclude(purge_storage_path='').count()
+                feedback = f'本次已完成 {result["removed"]} 个附件的物理清理；仍待处理 {remaining} 个。'
+                (messages.warning if remaining else messages.success)(request, feedback)
+                return redirect(f'{reverse("console:system_data_governance")}?locale={locale.locale_code}#attachment-cleanup')
+            except (DatabaseError, OSError, ValidationError):
+                cleanup_form.add_error(None, '本次清理未全部完成；待处理标记保留。请刷新核对，再重试或检查文件系统权限。')
+                workspace = build_data_governance_workspace(site=site)
+    elif request.method == 'POST' and action == 'save_policy':
         policy_form = RetentionPolicyForm(request.POST, policy=policy)
         if policy_form.is_valid():
             saved = False
@@ -2138,14 +2161,16 @@ def system_data_governance(request):
                     for message in error_messages if isinstance(error_messages, (list, tuple)) else [error_messages]:
                         execution_form.add_error(target, message)
             if executed:
-                messages.success(request, '数据保留策略已执行；实际清理数量已写入审计记录。')
+                messages.success(request, '数据保留策略已执行；记录处理数量已写入审计。附件物理清理请在下方单独核对。')
                 return redirect(
                     f'{reverse("console:system_data_governance")}?locale={locale.locale_code}'
                 )
     elif request.method == 'POST':
+        policy_form = RetentionPolicyForm(request.POST, policy=policy)
+        policy_form.is_valid()
         policy_form.add_error(None, '未识别的数据治理操作。')
 
-    return render_form_console(
+    response = render_form_console(
         request,
         section_key='system_data_governance',
         page_payload=system_page_payload(
@@ -2161,8 +2186,13 @@ def system_data_governance(request):
             'data_governance': workspace,
             'retention_policy_form': policy_form,
             'retention_execution_form': execution_form,
+            'attachment_cleanup_form': cleanup_form,
+            'stylesheet_version': '20261015-attachment-cleanup-1',
         },
     )
+    if request.method == 'POST' and action not in {'save_policy', 'execute_retention', 'retry_attachment_cleanup'}:
+        response.status_code = 400
+    return response
 
 
 @login_required

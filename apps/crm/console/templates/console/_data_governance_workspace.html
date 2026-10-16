@@ -4,6 +4,30 @@
         <a class="button neutral" href="{% url 'console:marketing_privacy' %}">查看全部隐私请求</a>
     </header>
 
+    <section class="governance-card governance-cleanup-card" id="attachment-cleanup" aria-labelledby="attachment-cleanup-title">
+        <div class="governance-card-head"><div><h3 id="attachment-cleanup-title">附件物理清理</h3><p>记录匿名化完成，不等于文件已经删除。这里只重试已授权的附件清理，不重新执行隐私请求或保留策略。</p></div></div>
+        <div class="governance-cleanup-body">
+            <div>
+                <dl class="governance-cleanup-facts">
+                    <div><dt>已匿名化、文件待清理</dt><dd>{{ data_governance.file_cleanup.pending_retired }} 个</dd></div>
+                    <div><dt>上传恢复标记</dt><dd>{% if data_governance.file_cleanup.upload_available %}{{ data_governance.file_cleanup.pending_uploads }} 个{% else %}暂不可读取{% endif %}</dd></div>
+                </dl>
+                {% if data_governance.file_cleanup.filesystem %}<p class="field-help">文件系统访问失败：{{ data_governance.file_cleanup.filesystem }} 个。检查私有存储权限后再重试。</p>{% endif %}
+                {% if data_governance.file_cleanup.shared %}<p class="field-help">仍被正常附件引用：{{ data_governance.file_cleanup.shared }} 个。为保护共享文件，这些不会被删除。</p>{% endif %}
+                {% if data_governance.file_cleanup.invalid_path %}<p class="field-help">路径需管理员核对：{{ data_governance.file_cleanup.invalid_path }} 个。不要手动删除不明文件。</p>{% endif %}
+                <p class="field-help">上传标记不代表全部都是孤儿：可能仍在上传或已被记录引用。上传恢复由运维使用现有有界命令核对；不会在打开本页时删除。</p>
+            </div>
+            <form method="post" class="governance-cleanup-action">
+                {% csrf_token %}
+                {% if attachment_cleanup_form.non_field_errors %}<div class="form-errors" role="alert">{{ attachment_cleanup_form.non_field_errors }}</div>{% endif %}
+                <label class="governance-cleanup-confirm">{{ attachment_cleanup_form.confirmed }}<span>{{ attachment_cleanup_form.confirmed.label }}</span></label>
+                {% for error in attachment_cleanup_form.confirmed.errors %}<div class="field-error" role="alert">{{ error }}</div>{% endfor %}
+                <button type="submit" name="_action" value="retry_attachment_cleanup" class="button neutral"{% if not data_governance.file_cleanup.pending_retired %} disabled{% endif %}>重试附件清理</button>
+                <small>每次最多 100 个；失败保留标记，成功后显示剩余数量。不会改动正常附件。</small>
+            </form>
+        </div>
+    </section>
+
     <dl class="governance-metrics" aria-label="数据治理概况">
         <div class="{% if data_governance.high_risk_count %}is-attention{% endif %}"><dt>需系统处理</dt><dd>{{ data_governance.high_risk_count }}</dd></div>
         <div><dt>保留策略</dt><dd class="is-text">{% if data_governance.policy.enabled %}已启用{% else %}已停用{% endif %}</dd></div>

@@ -81,3 +81,10 @@ class RetentionExecutionForm(forms.Form):
         if value != 'APPLY RETENTION':
             raise forms.ValidationError('请输入 APPLY RETENTION 确认执行。')
         return value
+
+
+class AttachmentCleanupForm(forms.Form):
+    confirmed = forms.BooleanField(
+        label='仅重试已匿名化附件的物理清理，不处理正常附件。',
+        error_messages={'required': '请确认仅重试已匿名化附件的物理清理。'},
+    )
