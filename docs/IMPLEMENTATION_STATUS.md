@@ -5,6 +5,27 @@
 This branch is an in-progress integration, not a deployed product release.
 The earlier observations below describe the prior public source baseline.
 
+- The original Vorntek application's protected paired backup and independent
+  original-version restoration have now been exercised, including its six
+  accounts, encrypted vault, files and normal login after restart. The original
+  writers were paused for 10.046 seconds for that backup and restored. No Hong
+  Kong server connection was made in this transfer.
+- Clean candidate `11daa7d` passed native installation and original-prefix27→43
+  upgrade with original-column row preservation. A separate retained original
+  backup copy was actually upgraded, loaded with optional neutral examples, and
+  tested through the normal PC browser. The three-lane flow diagram, multiple
+  loop instances and 16 figure entries remain available. A synthetic public
+  personal inquiry reached CRM without organization/industry fields; assignment,
+  internal activity and task creation/start/completion were operated and refreshed.
+  Candidate-only origin configuration recreates only its CRM and restarts its
+  website, with original service identities/start times unchanged. This retained
+  preview is not the final public HTTPS deployment or whole-product acceptance.
+- The browser walkthrough exposed an old developer-port shortcut and UTC/local
+  display disagreement between lead and task pages. Regression tests reproduced
+  both before correction; the new source still needs its own clean image and
+  deployed-browser verification. No database timestamps or existing integrations
+  were rewritten by these source fixes.
+
 - Candidate `fc3e5c2` passed a full isolated two-instance DB/files/runtime/config
   and vault recovery, including normal login, private attachment downloads,
   uploaded public covers and bilingual published pages after a DB/application

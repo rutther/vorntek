@@ -31,7 +31,9 @@ from .marketing_queries import build_marketing_overview
 from .navigation import SECTION_MAP
 
 
-PUBLIC_PREVIEW_BASE_URL = os.getenv('SITEOS_PREVIEW_BASE_URL', 'http://127.0.0.1:25000').rstrip('/')
+PUBLIC_PREVIEW_BASE_URL = os.getenv(
+    'SITEOS_PREVIEW_BASE_URL', os.getenv('NEWCROWN_SITE_URL', 'http://127.0.0.1:25000'),
+).rstrip('/')
 
 
 def admin_locale_label(locale: SiteLocale) -> str:
@@ -91,6 +93,8 @@ def latest_content_update(site: Site):
 def format_admin_datetime(value) -> str:
     if not value:
         return '未设置'
+    if timezone.is_aware(value):
+        value = timezone.localtime(value)
     return value.strftime('%Y-%m-%d %H:%M')
 
 

@@ -135,13 +135,13 @@ class MarketingIntegrationEditorForm(forms.Form):
             ('meta', 'Meta Cloud API 直连'),
             ('ycloud', 'YCloud 官方 Coexistence'),
         ),
-        help_text='8155 优先采用可验证的官方 Coexistence；切换不会自动迁移或发送消息。',
+        help_text='使用目标账号支持且已核验的官方接入方式；切换不会自动迁移或发送消息。',
     )
     business_phone_e164 = forms.CharField(
         label='业务号码（E.164）',
         max_length=32,
         required=False,
-        help_text='例如 +15592028155。Phone Number ID 仍填写在上方公开 ID 中。',
+        help_text='填写你自己的完整国际号码（含 + 和国家代码）。Phone Number ID 仍填写在上方公开 ID 中。',
     )
     ycloud_webhook_endpoint_id = forms.CharField(
         label='YCloud Webhook Endpoint ID',

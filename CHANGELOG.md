@@ -6,6 +6,14 @@ certifications.
 
 ## [Unreleased]
 
+### Fixed
+
+- Standalone console website links inherit the configured site origin instead
+  of an unrelated developer port; an explicit separate preview origin still wins.
+- Lead workspace timestamps use the active display timezone, matching task pages
+  for the same stored instant without rewriting database timestamps.
+- Integration help no longer embeds a former customer's phone or account suffix.
+
 ### Added
 
 - A canonical `VERSION` file and runtime version reporting in `/healthz/`.
