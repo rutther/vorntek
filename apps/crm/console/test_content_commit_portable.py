@@ -51,7 +51,7 @@ class ContentCommitPortableTests(FileLifecycleFixture, TestCase):
         published=Category.objects.create(site=self.site,locale=self.locale,code='allowed',slug='allowed',name='Allowed',status='published')
         draft=Category.objects.create(site=self.site,locale=self.locale,code='draft',slug='draft',name='Draft',status='draft')
         Category.objects.create(site=self.site,locale=self.locale,code='old',slug='old',name='Archived',status='archived')
-        child=Category.objects.create(site=self.site,locale=self.locale,parent=draft,code='allowed-child',slug='allowed-child',name='Allowed child',status='published')
+        child=Category.objects.create(site=self.site,locale=self.locale,parent=draft,code='allowed_child',slug='allowed-child',name='Allowed child',status='published')
         other_locale=SiteLocale.objects.create(site=self.site,locale_code='zh',label='Chinese',enabled=True)
         Category.objects.create(site=self.site,locale=other_locale,code='foreign',slug='foreign',name='Foreign locale',status='published')
         row=self.article()
