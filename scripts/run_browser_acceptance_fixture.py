@@ -119,7 +119,12 @@ def unmanaged_models():
         LeadEventOutbox, LeadFormDefinition, LeadInboundEvent, LeadSubmission,
         Opportunity, PrivacyRequest, SalesTeam, SalesTeamMember, SavedView, Task,
     )
-    from marketing.models import CanonicalEvent, MarketingIntegration, MarketingProvider
+    from marketing.models import (
+        CanonicalEvent, MarketingIntegration, MarketingLoop,
+        MarketingLoopAssetBinding, MarketingLoopEdge, MarketingLoopNode,
+        MarketingLoopTask, MarketingProvider, MarketingRuntimeBinding,
+        MarketingRuntimeCommand, MarketingRuntimeRevision,
+    )
     from sitecore.models import (
         Article, Category, Cta, MediaAsset, PageRoute, Release, ReleaseBuild,
         Site, SiteLocale,
@@ -131,6 +136,9 @@ def unmanaged_models():
         SavedView, LeadSubmission, ConsentRecord, Company, Contact, Opportunity,
         LeadConversion, Activity, Task, LeadEventOutbox, AuditLog,
         LeadInboundEvent, PrivacyRequest, Release, ReleaseBuild, ContentAccessGrant,
+        MarketingLoop, MarketingRuntimeBinding, MarketingRuntimeRevision,
+        MarketingRuntimeCommand, MarketingLoopNode, MarketingLoopEdge,
+        MarketingLoopTask, MarketingLoopAssetBinding,
         CrmMutationReceipt, CompanyPoolState, CompanyContactPoint, CustomerSource,
         CustomerImportBatch, CustomerImportRow, CustomerPoolRow, CustomerExportJob,
     )

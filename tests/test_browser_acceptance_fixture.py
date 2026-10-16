@@ -54,7 +54,10 @@ class BrowserAcceptanceFixtureTests(unittest.TestCase):
         model_names = {node.id for node in returned.elts if isinstance(node, ast.Name)}
         required = {
             'Article', 'Category', 'ContentAccessGrant', 'LeadInboundEvent',
-            'MediaAsset', 'PrivacyRequest', 'Release', 'ReleaseBuild',
+            'MarketingLoop', 'MarketingLoopAssetBinding', 'MarketingLoopEdge',
+            'MarketingLoopNode', 'MarketingLoopTask', 'MarketingRuntimeBinding',
+            'MarketingRuntimeCommand', 'MarketingRuntimeRevision', 'MediaAsset',
+            'PrivacyRequest', 'Release', 'ReleaseBuild',
         }
         self.assertFalse(
             required - model_names,
