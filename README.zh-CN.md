@@ -1,17 +1,18 @@
 # Vorntek
 
-可自行部署、行业中立的网站与业务管理系统，包含 PostgreSQL、Docker Compose、
+面向工业 B2B 团队、可自行部署的网站与业务管理系统，包含 PostgreSQL、Docker Compose、
 可配置询盘、CRM、营销闭环、内容发布、账号权限及备份恢复工具。
 
 [English](README.md)
 
-**当前为整合候选，不是已完成的正式发布。** 本轮保留完整应用，解除客户及行业绑定。
-独立安装、升级和运行验证不代表公网正式部署已经完成。参见[当前状态](docs/IMPLEMENTATION_STATUS.md)。
+可替换的工业企业示例包含六种设备、应用方案、工程指南、三维模型与询盘表单。
+底层业务字段和分类可以配置，不把工业示例变成固定行业规则。
+参见[发行范围](docs/RELEASE_SCOPE.md)和[当前验证状态](docs/IMPLEMENTATION_STATUS.md)。
 
 已公开的 [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1)、
 [对应 CI](https://github.com/rutther/vorntek/actions/runs/34712023363)及
 [历史交付证据](docs/PUBLIC_DELIVERY.md)描述的是先前版本，不是本分支或当前服务器状态。
-本轮整合尚未推送或发布为新的 GitHub 发行版。
+当前正在准备下一源码预发行版，GitHub 发布与独立下载安装验收尚待完成。
 当前开发版本以 [`VERSION`](VERSION) 为准，并由 `/healthz/` 返回；完成验收前不视为正式发布。
 
 ## 包含什么
@@ -55,6 +56,18 @@ docker compose exec crm python manage.py createsuperuser
 [DNS 排障流程](docs/BUILD_NETWORK.md)；不要放宽应用网络或改动主机上的无关服务。
 
 ## 配置与升级
+
+工业后台示例独立可选，先查看计划，再使用刚创建的管理员显式导入
+（将 `YOUR_ADMIN` 替换为管理员名）：
+
+```sh
+docker compose exec crm python manage.py seed_industrial_examples
+docker compose exec crm python manage.py seed_industrial_examples --apply --synthetic-only --owner YOUR_ADMIN
+```
+
+它添加真实媒体、六个停用的3D展示配置和中英阿工程文章草稿；不自动发布、不启用接入、
+不替换已有业务。[工业示例指南](docs/INDUSTRIAL_EXAMPLE.md)说明正常预览、选版和发布路径。
+跨模块业务示例另行可选，与企业内容分开。
 
 可选的[合成示例数据包](docs/EXAMPLE_DATA.md)独立版本化，覆盖关联的询盘、企业、联系人、
 商机、任务、闭环实例、内容和文件。默认只生成计划，不写数据：

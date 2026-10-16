@@ -29,3 +29,11 @@ python scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean --ass
 Changing resource content requires a new provenance review and exact manifest
 entry. Do not increase the global limit, delete historical scan coverage or
 remove another valid rule to accommodate a resource.
+
+## Supplemental secret scan
+
+Gitleaks8.30.1 checks the pending Git history with redacted output. The sole
+reviewed false positive is the literal UUID `12345678-abcd-4000-9000-123456789012`
+in the historical React runtime-label test. `.gitleaksignore` identifies its
+exact commit/path/rule/line; it does not ignore the file or a class of credentials.
+Keep raw scan output outside release artifacts and record the scanned commit.

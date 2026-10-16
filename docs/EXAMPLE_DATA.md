@@ -1,5 +1,10 @@
 # Optional synthetic example bundle
 
+For the current industrial company articles, equipment models and media use the
+independent [industrial example](INDUSTRIAL_EXAMPLE.md). The general/content packs
+below retain their existing digests and business exercises; neither is rewritten
+to change an already installed example into the industrial company.
+
 The integration candidate includes `console/data/general_examples.json`, separate
 from application logic. Empty installation does not import it automatically.
 All contacts and website references use the reserved `example.invalid` domain.

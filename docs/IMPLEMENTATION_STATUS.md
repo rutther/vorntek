@@ -1,5 +1,21 @@
 # Implementation status / 实现状态
 
+## Current source release preparation — 2026-10-17
+
+The complete industrial corporate website and product integration reached the
+existing Vorntek installation in the previous delivery. That deployment is not
+a GitHub release. This branch prepares `v0.2.0-rc.1` from source baseline
+`5bc7f2a`; it keeps the same application/visual behavior and adds a reproducible
+optional industrial import command and exact large-resource history approvals.
+
+The current supported scope is RELEASE_SCOPE.md. Public push, final clean install,
+upgrade and restore, current remote CI and anonymous release-download acceptance
+remain pending until their version-bound records are added. No server update is
+part of this source-release task. Older counts and pending statements below are
+historical checkpoints, not the current delivery verdict.
+
+## Historical integration checkpoints
+
 ## Integration candidate — 2026-10-16
 
 - Subsequent source fixes route private PLY/SOG editing through authenticated

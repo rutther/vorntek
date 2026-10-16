@@ -1,21 +1,22 @@
 # Vorntek
 
-A self-hosted, industry-neutral website and business-management system, with
+A self-hosted website and business-management system for industrial B2B teams, with
 PostgreSQL, Docker Compose, configurable inquiries, CRM, marketing workflows,
 content delivery, roles and recovery tooling.
 
 [中文说明](README.zh-CN.md)
 
-**Integration candidate — not a completed production release.** Current work
-preserves the full application while removing customer and industry coupling.
-Independent installation, upgrade and runtime checks do not by themselves prove
-the public deployment is complete. See [current status](docs/IMPLEMENTATION_STATUS.md).
+The replaceable industrial company example includes six equipment concepts,
+application pages, engineering guides, product models and inquiry forms. The
+application supports configurable business fields rather than fixed industry
+categories. See [release scope](docs/RELEASE_SCOPE.md) and
+[current verification status](docs/IMPLEMENTATION_STATUS.md).
 
 The public [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1),
 [release CI](https://github.com/rutther/vorntek/actions/runs/34712023363) and
 [earlier delivery evidence](docs/PUBLIC_DELIVERY.md) describe the earlier release,
-not this branch or the current server state. This integration has not been pushed
-or published as a new GitHub release.
+not this branch or the current server state. This branch is preparing the next
+source pre-release; its GitHub publication and independent download checks remain pending.
 The current development version is recorded in [`VERSION`](VERSION) and returned
 by `/healthz/`; it is not a release until the acceptance ledger is complete.
 
@@ -56,7 +57,8 @@ docker compose ps -a
 docker compose exec crm python manage.py createsuperuser
 ```
 
-Open `http://localhost:8088/` and `http://localhost:8088/admin/`. There is **no default
+Open `http://localhost:8088/` for the industrial website and
+`http://localhost:8088/admin/` for the empty business workspace. There is **no default
 administrator password**. Initialization checks/applies the SQL chain, creates
 minimum site/role/form configuration and collects CRM assets. Base Compose binds
 to loopback and restricts application-network egress.
@@ -70,6 +72,20 @@ build-only [DNS troubleshooting procedure](docs/BUILD_NETWORK.md); do not weaken
 the application network or change unrelated host services.
 
 ## Configuration and upgrades
+
+For an optional industrial workspace, run the plan first, then explicitly import
+using the administrator you created (replace `YOUR_ADMIN`):
+
+```sh
+docker compose exec crm python manage.py seed_industrial_examples
+docker compose exec crm python manage.py seed_industrial_examples --apply --synthetic-only --owner YOUR_ADMIN
+```
+
+This adds actual media, six disabled 3D profiles and English/Chinese/Arabic
+engineering article drafts. It does not publish articles, enable integrations or
+replace business records. Follow [the industrial example guide](docs/INDUSTRIAL_EXAMPLE.md)
+for the normal preview, selection and deployment steps. Optional cross-module
+business examples are separate from this company content.
 
 Use the optional, independently versioned [synthetic example packs](docs/EXAMPLE_DATA.md)
 for coherent inquiries, companies, contacts, opportunities, tasks, workflow
@@ -136,7 +152,7 @@ The optional example catalogue is industry-neutral and independent of legacy
 backend business identifiers. It supports arbitrary entry counts and IDs, including
 an empty catalogue. `--catalog PATH --output DIRECTORY` builds a separate complete
 static site; generation does not delete other destination files. See the current
-[example content notes](docs/vorntekDemo/README.md), not the old industrial demo.
+[example content notes](docs/vorntekDemo/README.md).
 
 ## Operations and license
 
@@ -153,8 +169,9 @@ static site; generation does not delete other destination files. See the current
   [contributing](CONTRIBUTING.md), [CI](docs/CI.md).
 
 `docker compose down -v` destroys persistent volumes; it is **not an upgrade command**.
-The published source and its initial history have been checked; binary-image
-redistribution and final release acceptance remain open. No real
+The published source and its initial history have been checked; this candidate's
+release checks are tracked separately. Prebuilt container images are not part of
+this source distribution. No real
 customers, credentials, original-company photos or private backups belong in the
 public project.
 

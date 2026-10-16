@@ -1,0 +1,3 @@
+# Reviewed false positive: literal UUID used by a React renderer test to verify
+# applied-version labels. Not an integration credential; exact historical line.
+16d0681f382ed339aac6a133d7aa28b959afbbab:apps/crm/flow-ui/tests/runtime.test.mjs:generic-api-key:96
