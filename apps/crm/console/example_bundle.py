@@ -131,8 +131,8 @@ def _check_physical_references(by_model, present):
                 raise CommandError(f'Examples are referenced by non-example {table}; reset refused.')
 
 
-def _reset(bundle, actor):
-    allowed = {model._meta.label_lower:model for model in OWNED_MODELS}
+def _reset(bundle, actor, *, owned_models=OWNED_MODELS):
+    allowed = {model._meta.label_lower:model for model in owned_models}
     manifest = bundle.manifest_json
     if not isinstance(manifest, dict) or manifest.get('version') != 1:
         raise CommandError('Unsupported example ownership manifest; no rows were deleted.')

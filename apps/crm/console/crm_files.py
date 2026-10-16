@@ -159,6 +159,7 @@ def store_crm_attachment(
     title: str,
     uploaded_by,
     target: dict,
+    require_new_blob: bool = False,
 ) -> CrmAttachment:
     unexpected_targets = set(target) - set(CRM_TARGET_FIELDS)
     if unexpected_targets:
@@ -205,6 +206,10 @@ def store_crm_attachment(
             sha256=sha256,
         ).exclude(storage_path='').select_for_update().order_by('-created_at').first()
         if existing:
+            # Optional synthetic packs must not adopt/repair an operator's
+            # existing file. Normal uploads retain their deduplication behavior.
+            if require_new_blob:
+                raise ValidationError('Untracked existing private attachment content conflicts; no data was overwritten.')
             storage_path = existing.storage_path
             existing_path = resolve_private_attachment_path(storage_path)
             if not existing_path.exists():
