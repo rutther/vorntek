@@ -8,6 +8,20 @@ import tarfile
 import urllib.request
 
 ROOT=Path(__file__).resolve().parents[1]
+UPSTREAM_JS_SHA256='818a439821fbd9a3e36c885318cba164452db023b6187c676cd5d8b6cd73b30b'
+
+
+def extended_viewer(raw):
+    """One explicit API addition; preserve the original pinned bundle separately."""
+    if hashlib.sha256(raw).hexdigest()!=UPSTREAM_JS_SHA256:
+        raise ValueError('Cannot extend a different upstream viewer')
+    anchor=b'        captureFrame: (captureOptions) => viewer.captureFrame(captureOptions),'
+    if raw.count(anchor)!=1:raise ValueError('Pinned camera extension anchor differs')
+    return (b"import {snapshotSplatCamera} from '../../../three-d-camera.js';\n"
+        +raw.replace(anchor,b"        getCamera: () => {\n"
+                     b"            viewer.requireLoaded('getCamera');\n"
+                     b"            return snapshotSplatCamera(viewer.cameraManager.camera);\n"
+                     b"        },\n"+anchor))
 PACKAGES=(
     ('@playcanvas/supersplat-viewer','1.37.0',
      'https://registry.npmjs.org/@playcanvas/supersplat-viewer/-/supersplat-viewer-1.37.0.tgz',
@@ -34,12 +48,16 @@ def main():
                 if not member.isfile() or member.size>5*1024*1024: raise ValueError('Unexpected vendor file')
                 files[destination]=package.extractfile(member).read()
         sources.append({'package':name,'version':version,'url':url,'integrity':'sha512-'+integrity})
+    files['siteos-viewer.js']=extended_viewer(files['index.js'])
     destination=ROOT/'apps/crm/console/static/console/vendor/supersplat/1.37.0'
     for name,raw in files.items():
         target=destination/name;target.parent.mkdir(parents=True,exist_ok=True)
         if target.exists() and target.read_bytes()!=raw: raise ValueError('Refusing different existing vendor bytes')
         target.write_bytes(raw)
     manifest={'sources':sources,'scriptsExecuted':False,
+              'localExtension':{'file':'siteos-viewer.js','upstreamSha256':UPSTREAM_JS_SHA256,
+                                'generator':'scripts/vendor_splat_viewer.py',
+                                'purpose':'getCamera: exact current position, focus target and FOV'},
               'files':{name:hashlib.sha256(raw).hexdigest() for name,raw in files.items()}}
     (destination/'provenance.json').write_text(json.dumps(manifest,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(manifest))

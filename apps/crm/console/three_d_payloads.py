@@ -12,7 +12,7 @@ from .content_access import (
     RELEASES_PREVIEW_BUILD,
 )
 from .payloads import default_site_locale, format_admin_datetime
-from .three_d_config import asset_extension, build_splat_viewer_url, purpose_label, slot_label
+from .three_d_config import asset_extension, purpose_label, slot_label
 
 
 def _asset_name(asset: MediaAsset) -> str:
@@ -54,8 +54,8 @@ def _asset_status_label(status: str) -> str:
 
 def _preview_build_guidance(can_build_preview: bool) -> str:
     if can_build_preview:
-        return '配置或槽位发生变更后，可生成新的预览产物，再核对前台展示。'
-    return '配置或槽位发生变更后，由具备预览构建权限的成员生成新的预览产物。'
+        return '配置或槽位变更后，可生成新的预览产物及网站候选；由有权限的成员核对、选择并部署，官网才会更新。'
+    return '配置或槽位变更后，由具备预览构建权限的成员生成新的预览产物及网站候选，再核对部署；只保存不会更新官网。'
 
 
 def three_d_page_payload(
@@ -181,8 +181,7 @@ def three_d_workspace_context(
     profile_rows = []
     for profile in profiles:
         asset = profile.asset
-        ext = asset_extension(asset.public_path)
-        viewer_url = build_splat_viewer_url(profile) if ext in {'.sog', '.ply'} else asset.public_path
+        viewer_url = reverse('console:three_d_profile_preview', args=[profile.pk])
         linked_slots = placements_by_profile.get(profile.id, [])
         config = profile.config_json or {}
         auto_rotate = bool(config.get('autoRotate', True))

@@ -12,3 +12,12 @@ export function cameraFromOrbit(orbit,target,fov){
     y:target.y+radius*Math.cos(phi),z:target.z+radius*Math.sin(phi)*Math.cos(theta)},
     target:{x:target.x,y:target.y,z:target.z},fov};
 }
+
+// Called by the explicit, pinned local embedding extension. Use the actual
+// current pivot after orbit, pan or zoom, never an approximation of a saved view.
+export function snapshotSplatCamera(current){
+  const position=current.position,target=current.position.clone();
+  current.calcFocusPoint(target);
+  return {position:{x:position.x,y:position.y,z:position.z},
+    target:{x:target.x,y:target.y,z:target.z},fov:current.fov};
+}

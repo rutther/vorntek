@@ -1,12 +1,17 @@
 import {orbitFromCamera} from './three-d-camera.js';
+import {createLoadStatus} from './three-d-load-state.js';
+import {draftConfig,setSplatInteraction} from './three-d-preview-config.js';
 
-const config=JSON.parse(document.getElementById('model-config').textContent);
+const savedConfig=JSON.parse(document.getElementById('model-config').textContent);
+const config=savedConfig.privatePreview?draftConfig(savedConfig,location.href):savedConfig;
 const status=document.getElementById('model-status');
 const controls=document.getElementById('model-controls');
 controls.hidden=!config.showUi;
 const rotating=config.autoRotate&&!matchMedia('(prefers-reduced-motion: reduce)').matches;
-const failed=()=>{status.textContent='Unable to load 3D. Reload this page or contact the site owner. / 3D加载失败，请刷新或联系网站管理员。';};
-const ready=()=>{status.textContent='3D';};
+const load=createLoadStatus(status,{privatePreview:config.privatePreview,reducedMotion:config.autoRotate&&!rotating});
+const failed=()=>load.failed();
+const ready=()=>load.ready();
+window.addEventListener('pagehide',()=>load.dispose(),{once:true});
 
 try{
   if(config.kind==='glb'){
@@ -34,7 +39,7 @@ try{
     document.getElementById('reset-view').addEventListener('click',reset);
     model.src=config.src;
   }else{
-    const {createViewer}=await import('./vendor/supersplat/1.37.0/index.js');
+    const {createViewer}=await import('./vendor/supersplat/1.37.0/siteos-viewer.js');
     const rgb=[1,3,5].map(index=>parseInt(config.background.slice(index,index+2),16)/255);
     const tracks=[];
     if(rotating){
@@ -54,11 +59,22 @@ try{
       cameras:[{initial:{position:config.position,target:config.target,fov:config.fov}}],
       animTracks:tracks,annotations:[],startMode:rotating?'animTrack':'default'};
     const viewer=await createViewer({container:document.getElementById('splat-viewer'),settings,
-      contentUrl:config.src,renderer:'webgl',ui:config.showUi,exposeGlobals:false,noanim:!rotating});
-    viewer.state.inputEnabled=config.interaction;
+      contentUrl:config.src,contentFilename:config.filename,renderer:'webgl',ui:config.showUi,exposeGlobals:false,noanim:!rotating});
+    setSplatInteraction(viewer.state,document.querySelector('#splat-viewer canvas'),config.interaction);
     if(viewer.state.loaded)ready();else viewer.events.on('loaded:changed',value=>{if(value)ready();});
-    viewer.events.on('error:changed',value=>{if(value)failed();});
+    // This pinned viewer has no error:changed state. Its engine asset registry
+    // reports actual parser/HTTP errors after createViewer has already resolved.
+    viewer.app.assets.on('error',failed);
     document.getElementById('reset-view').addEventListener('click',()=>{if(viewer.state.loaded)viewer.resetCamera();});
+    if(config.privatePreview){
+      const capture=event=>{
+        if(!viewer.state.loaded||event.source!==window.parent||event.origin!==location.origin||event.data?.type!=='siteos:getCamera')return;
+        const camera=viewer.getCamera();
+        window.parent.postMessage({type:'siteos:camera',camera},location.origin);
+      };
+      window.addEventListener('message',capture);
+      window.addEventListener('pagehide',()=>window.removeEventListener('message',capture),{once:true});
+    }
     window.addEventListener('pagehide',()=>viewer.destroy(),{once:true});
   }
 }catch{failed();}

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from urllib.parse import quote
 
 from sitecore.models import ThreeDPlacement, ThreeDViewProfile
 
@@ -11,7 +10,6 @@ THREE_D_SLOT_CHOICES: tuple[tuple[str, str], ...] = (
     ('homepage_equipment_preview', '首页 3D 展示区'),
 )
 
-THREE_D_VIEWER_PATH = '/assets/splats/viewer.html'
 SPLAT_EXTENSIONS = {'.sog', '.ply'}
 MODEL_EXTENSIONS = {'.glb', '.gltf'}
 
@@ -40,32 +38,9 @@ def asset_extension(public_path: str) -> str:
 
 
 def build_splat_viewer_url(profile: ThreeDViewProfile) -> str:
-    asset = profile.asset
-    config = profile.config_json or {}
-    query = {
-        'content': asset.public_path,
-        'bg': profile.background_color,
-        'px': str(_decimal(profile.camera_position_x)),
-        'py': str(_decimal(profile.camera_position_y)),
-        'pz': str(_decimal(profile.camera_position_z)),
-        'tx': str(_decimal(profile.camera_target_x)),
-        'ty': str(_decimal(profile.camera_target_y)),
-        'tz': str(_decimal(profile.camera_target_z)),
-        'fov': str(_decimal(profile.fov)),
-    }
-    if config.get('autoRotate', True):
-        query['spin'] = str(config.get('autoRotateDuration') or 20)
-    else:
-        query['noanim'] = '1'
-    if not profile.show_ui:
-        query['noui'] = '1'
-    if not profile.allow_interaction:
-        query['locked'] = '1'
-    if profile.poster_asset_id and profile.poster_asset and profile.poster_asset.public_path:
-        query['poster'] = profile.poster_asset.public_path
-
-    query_string = '&'.join(f'{key}={quote(value, safe="/,:-._")}' for key, value in query.items())
-    return f'{THREE_D_VIEWER_PATH}?{query_string}'
+    # Generated only when an enabled slot is frozen into a website candidate.
+    # Draft editors must use the authenticated preview route instead.
+    return f'/assets/3d/profiles/{profile.pk}/index.html'
 
 
 def placement_public_config(placement: ThreeDPlacement) -> dict[str, object]:

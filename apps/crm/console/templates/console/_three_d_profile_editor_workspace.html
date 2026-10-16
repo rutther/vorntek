@@ -202,8 +202,9 @@
                     <p>右侧是登录后的编辑预览；修改视角后先保存配置。它不会启用槽位或把模型公开发布。</p>
                     <ol class="three-d-steps">
                         <li><span>1</span>保存配置到数据库</li>
-                        <li><span>2</span>返回 3D 展示管理生成预览产物</li>
-                        <li><span>3</span>刷新前台页面读取最新快照</li>
+                        <li><span>2</span>需要上官网时，启用配置并绑定启用的首页槽位</li>
+                        <li><span>3</span>在「预览与快照」生成预览及网站候选</li>
+                        <li><span>4</span>核对后选择并部署候选，再打开官网检查</li>
                     </ol>
                 </section>
             </aside>
@@ -255,6 +256,9 @@
         else next.searchParams.set('noui', '1');
         if (fields.allowInteraction?.checked) next.searchParams.delete('locked');
         else next.searchParams.set('locked', '1');
+        next.searchParams.set('ui', fields.showUi?.checked ? '1' : '0');
+        next.searchParams.set('interaction', fields.allowInteraction?.checked ? '1' : '0');
+        next.searchParams.set('rotate', fields.autoRotate?.checked ? '1' : '0');
         const url = next.toString();
         frame.src = url;
         if (urlText) urlText.textContent = url;

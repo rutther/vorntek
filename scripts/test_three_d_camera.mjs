@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {orbitFromCamera, cameraFromOrbit} from '../apps/crm/console/static/console/three-d-camera.js';
+import {orbitFromCamera, cameraFromOrbit, snapshotSplatCamera} from '../apps/crm/console/static/console/three-d-camera.js';
 
 test('saved Cartesian camera maps to a meter-based orbit around its actual target',()=>{
   const orbit=orbitFromCamera([1,2,7],[1,2,3]);
@@ -15,4 +15,11 @@ test('camera capture returns world position not a spherical angle as Cartesian f
 test('zero-radius or invalid drafts do not create an invalid rendering camera',()=>{
   assert.equal(orbitFromCamera([0,0,0],[0,0,0]).radius,4);
   assert.equal(orbitFromCamera([NaN,Infinity,0],[0,0,0]).radius,4);
+});
+test('splat capture reads the current panned pivot rather than reconstructing a saved distance',()=>{
+  const current={position:{x:2,y:3,z:4,clone(){return {x:this.x,y:this.y,z:this.z};}},fov:52,
+    calcFocusPoint(out){Object.assign(out,{x:-1,y:2,z:0});return out;}};
+  const camera=snapshotSplatCamera(current);
+  assert.deepEqual(camera,{position:{x:2,y:3,z:4},target:{x:-1,y:2,z:0},fov:52});
+  current.position.x=8;assert.equal(camera.position.x,2);
 });

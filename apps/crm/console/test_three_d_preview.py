@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 import struct
+import io
+import zipfile
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -74,6 +76,74 @@ class ThreeDPreviewTests(FileLifecycleFixture, TestCase):
         self.assertContains(page, 'src="'+self.url+'"')
         page = self.client.get(f'/admin/assets/3d/placements/{placement.pk}/')
         self.assertContains(page, 'src="'+self.url+'"')
+
+    def use_splat(self, extension='.ply', metadata=None):
+        raw = b'ply\nformat ascii 1.0\nelement vertex 1\nproperty float x\nproperty float y\nproperty float z\nend_header\n0 0 0\n'
+        if extension == '.sog':
+            raw = (Path(__file__).parent/'data/test-fixtures/synthetic-scene.sog').read_bytes()
+            if metadata is not None:
+                stream = io.BytesIO()
+                with zipfile.ZipFile(stream, 'w') as bundle:
+                    bundle.writestr('meta.json', json.dumps(metadata))
+                raw = stream.getvalue()
+        relative = 'models/2026/10/fedcba9876543210-synthetic'+extension
+        self.path = self.root/relative
+        self.path.write_bytes(raw)
+        self.asset.original_name = 'synthetic'+extension
+        self.asset.file_ext = extension
+        self.asset.storage_path = 'storage/assets/'+relative
+        self.asset.public_path = '/assets/'+relative
+        self.asset.file_size_bytes = len(raw)
+        self.asset.sha256 = hashlib.sha256(raw).hexdigest()
+        self.asset.save()
+
+    def test_splat_editor_and_slot_do_not_depend_on_publication(self):
+        from sitecore.models import ThreeDPlacement
+        self.use_splat()
+        placement = ThreeDPlacement.objects.create(site=self.site, profile=self.profile,
+            slot_code='homepage_hero', name='Synthetic splat slot', enabled=False)
+        for route in (f'/admin/assets/3d/profiles/{self.profile.pk}/',
+                      f'/admin/assets/3d/placements/{placement.pk}/'):
+            page = self.client.get(route)
+            self.assertContains(page, 'src="'+self.url+'"')
+            self.assertNotContains(page, '/assets/splats/viewer.html')
+        self.assertFalse(ThreeDPlacement.objects.get(pk=placement.pk).enabled)
+
+    def test_management_list_preview_does_not_require_a_public_model_for_any_format(self):
+        for extension in ('.glb','.ply','.sog'):
+            if extension!='.glb':self.use_splat(extension)
+            page=self.client.get('/admin/assets/3d/')
+            self.assertContains(page,'href="'+self.url+'"')
+
+    def test_ply_draft_uses_scoped_file_with_explicit_format_and_saved_camera(self):
+        self.use_splat()
+        page = self.client.get(self.url)
+        self.assertContains(page, 'id="splat-viewer"')
+        self.assertContains(page, f'"src": "/admin/assets/{self.asset.pk}/file/"')
+        self.assertContains(page, '"filename": "scene.ply"')
+        self.assertContains(page, '"privatePreview": true')
+        self.assertContains(page, '"position": [8.0, 5.0, -8.0]')
+        self.assertNotContains(page, self.asset.public_path)
+        self.assertEqual(page['X-Frame-Options'], 'SAMEORIGIN')
+        self.assertIn('no-store', page['Cache-Control'])
+        downloaded = self.client.get(f'/admin/assets/{self.asset.pk}/file/')
+        self.assertEqual(b''.join(downloaded.streaming_content), self.path.read_bytes())
+
+    def test_sog_external_reference_is_refused_in_private_preview(self):
+        self.use_splat('.sog', {'version':2, 'means':{'files':['https://example.invalid/texture.webp']}})
+        page = self.client.get(self.url)
+        self.assertContains(page, '暂时无法预览')
+        self.assertNotContains(page, 'id="splat-viewer"')
+        self.assertNotContains(page, 'https://example.invalid/texture.webp')
+
+    def test_sog_draft_uses_real_bundled_asset_without_publishing(self):
+        self.use_splat('.sog')
+        page = self.client.get(self.url)
+        self.assertContains(page, 'id="splat-viewer"')
+        self.assertContains(page, '"filename": "scene.sog"')
+        self.assertContains(page, f'/admin/assets/{self.asset.pk}/file/')
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.status, 'disabled')
 
     def test_read_only_asset_operator_can_preview_but_not_edit(self):
         actor = get_user_model().objects.create_user('model-reader', password='synthetic-only')

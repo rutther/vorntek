@@ -156,7 +156,7 @@ from .storage_security import (
     resolve_storage_asset_path,
 )
 from .taxonomy import category_tree_data
-from .three_d_config import build_splat_viewer_url, placement_public_config, slot_label
+from .three_d_config import placement_public_config, slot_label
 from .three_d_forms import ThreeDPlacementForm, ThreeDViewProfileForm
 from .three_d_payloads import three_d_asset_detail_context, three_d_asset_page_payload, three_d_page_payload, three_d_workspace_context
 from .system_forms import ConsoleUserForm, SalesTeamForm
@@ -1245,11 +1245,7 @@ def three_d_profile_edit(request, profile_id: int):
     else:
         form = ThreeDViewProfileForm(site=site, profile=profile)
 
-    preview_url = (
-        preview_public_url(build_splat_viewer_url(profile), request=request)
-        if profile.asset.file_ext in {'.sog', '.ply'}
-        else reverse('console:three_d_profile_preview', args=[profile.pk])
-    )
+    preview_url = reverse('console:three_d_profile_preview', args=[profile.pk])
     placement = ThreeDPlacement.objects.filter(site=site, profile=profile).order_by('sort_order', 'id').first()
     return render_form_console(
         request,
@@ -1272,17 +1268,27 @@ def three_d_profile_edit(request, profile_id: int):
 @require_GET
 def three_d_profile_preview(request, profile_id: int):
     from .three_d_preview import inspect_model, ModelPreviewError
+    from .three_d_publication import read_public_3d_asset
+    from .article_delivery import ArticleDeliveryError
     site, _locale, _capabilities = content_site_scope(request, 'three_d_profile_preview')
     profile = get_object_or_404(ThreeDViewProfile.objects.select_related('asset'),
                                pk=profile_id, site=site, asset__site=site)
     error = ''
+    is_splat = profile.asset.file_ext in {'.ply', '.sog'}
     try:
-        inspect_model(profile.asset)
+        if is_splat:
+            read_public_3d_asset(profile.asset, site)
+        else:
+            inspect_model(profile.asset)
     except ModelPreviewError as exc:
         error = str(exc)
+    except ArticleDeliveryError:
+        error = '模型文件不可用或包含不支持的外部资源；请返回资产库核对原文件。'
     response = render(request, 'console/three_d_model_preview.html', {
-        'profile': profile, 'preview_error': error,
+        'profile': profile, 'preview_error': error, 'is_splat': is_splat,
         'preview_config': {'src': reverse('console:asset_file', args=[profile.asset_id]),
+                           'filename': 'scene'+profile.asset.file_ext, 'kind': 'splat' if is_splat else 'glb',
+                           'privatePreview': True,
                            'title': profile.asset.title or profile.asset.original_name,
                            'background': profile.background_color,
                            'position': [float(profile.camera_position_x), float(profile.camera_position_y), float(profile.camera_position_z)],
@@ -1319,8 +1325,7 @@ def three_d_placement_edit(request, placement_id: int):
         form = ThreeDPlacementForm(site=site, placement=placement)
 
     preview = placement_public_config(placement)
-    preview_url = (reverse('console:three_d_profile_preview', args=[placement.profile_id])
-                   if preview.get('modelUrl') else preview_public_url(str(preview.get('viewerUrl') or ''), request=request))
+    preview_url = reverse('console:three_d_profile_preview', args=[placement.profile_id])
     return render_form_console(
         request,
         section_key='assets',

@@ -2,6 +2,14 @@
 
 ## Integration candidate — 2026-10-16
 
+- Subsequent source fixes route private PLY/SOG editing through authenticated
+  scoped files; local actual SOG render/capture/save/reload and locked-pointer
+  checks passed. Preview switches now work in both directions; delayed/error
+  feedback and generated export URLs are corrected. The first public-source
+  native gate (`5d5ed56`) passed all six groups with cleanup, but these later
+  changes have not yet passed their own native gate or reached the formal host.
+  Current public app remains `0b7569d`; do not infer final deployment from local UI.
+
 - Current public app is `0b7569d`. Its authenticated GLB editor preview now has
   final-host render/drag/capture/save/reload evidence and remains disabled. The
   earlier 404 is fixed. Subsequent public-slot publication work is **new source,

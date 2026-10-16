@@ -8,7 +8,7 @@
                 <strong>3D 展示管理</strong>
             </nav>
             <h2>3D 展示管理</h2>
-            <p>先管理 3D 文件，再创建展示配置，最后把配置绑定到首页背景、3D 展示区等页面槽位。前台只读取生成后的预览产物。</p>
+            <p>先管理 3D 文件，再配置视角和首页槽位。后台预览无需发布；官网只读取已选择并部署的网站候选。</p>
         </div>
         <div class="three-d-pagehead__actions">
             {% if workspace.uploadUrl %}<a class="button neutral" href="{{ workspace.uploadUrl }}">上传资产</a>{% endif %}
@@ -116,6 +116,7 @@
                                     <td>
                                         <strong>{{ profile.name }}</strong>
                                         <span>{{ profile.code }}</span>
+                                        <a class="table-button" href="{{ profile.previewUrl }}" target="_blank" rel="noopener">编辑预览</a>
                                     </td>
                                     <td><span>{{ profile.assetName }}</span></td>
                                     <td><span>{{ profile.purposeLabel }}</span></td>
@@ -206,7 +207,7 @@
         <aside class="three-d-side">
             <section class="three-d-sidebox">
                 <h3>发布状态</h3>
-                <p>后台保存的是编辑态数据。前台首页和产品页读取的是预览产物。</p>
+                <p>保存配置、启用槽位或生成预览均不会立即改变官网。只有启用槽位及启用配置会进入新的网站候选；还需在「预览与快照」核对、选择并部署。</p>
                 {% if workspace.buildPreviewUrl %}
                     <form action="{{ workspace.buildPreviewUrl }}" method="post">
                         {% csrf_token %}
@@ -235,8 +236,8 @@
                 <ol class="three-d-steps">
                     <li><span>1</span>确认 3D 文件已入库</li>
                     <li><span>2</span>创建展示配置并调好视角</li>
-                    <li><span>3</span>把配置绑定到页面槽位</li>
-                    <li><span>4</span>生成预览产物后刷新前台</li>
+                    <li><span>3</span>启用配置并绑定启用的首页槽位</li>
+                    <li><span>4</span>生成预览及网站候选，核对后选择并部署</li>
                 </ol>
             </section>
         </aside>

@@ -131,7 +131,8 @@ def build_three_d_publication(site):
             files.update(_vendor_files('model-viewer','4.4.0') if profile.asset.file_ext=='.glb'
                          else _vendor_files('supersplat','1.37.0'))
         if slots:
-            for name in ('public-viewer.js','public-viewer.css','three-d-camera.js'):
+            for name in ('public-viewer.js','public-viewer.css','three-d-camera.js',
+                         'three-d-load-state.js','three-d-preview-config.js'):
                 files['assets/3d/'+name]=(STATIC/name).read_bytes()
     except (OSError,ValueError) as error:
         if isinstance(error,ArticleDeliveryError):raise

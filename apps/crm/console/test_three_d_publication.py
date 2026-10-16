@@ -82,7 +82,12 @@ class ThreeDPublicationTests(FileLifecycleFixture,TestCase):
         result=publication.build_three_d_publication(self.site)
         self.assertEqual(result['files'][self.asset.public_path.lstrip('/')],raw)
         self.assertIn('assets/3d/vendor/supersplat/1.37.0/index.js',result['files'])
+        self.assertIn('assets/3d/vendor/supersplat/1.37.0/siteos-viewer.js',result['files'])
         self.assertNotIn('assets/3d/vendor/model-viewer/4.4.0/model-viewer.min.js',result['files'])
+        self.assertIn('assets/3d/three-d-load-state.js',result['files'])
+        from .three_d_config import placement_public_config
+        exported=placement_public_config(self.slot)
+        self.assertEqual(exported['viewerUrl'],f'/assets/3d/profiles/{self.profile.pk}/index.html')
 
     def test_missing_home_slot_marker_refuses_silent_omission(self):
         with self.assertRaisesRegex(ArticleDeliveryError,'three_d_slot_anchor_missing'):

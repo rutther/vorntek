@@ -15,7 +15,7 @@ over website photographs, trademarks, customer material or unrelated content.
 | Bootstrap, bundled by Tabler | 5.3.7 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/BOOTSTRAP_LICENSE) |
 | Popper core, bundled by Tabler | 2.11.8 | [MIT notice from the exact package](apps/crm/console/static/console/vendor/tabler/1.4.0/POPPER_LICENSE) |
 | Google model-viewer, scoped draft and enabled public GLB slots | 4.4.0 | [Apache-2.0 license, original bundle notices and dependency notices](apps/crm/console/static/console/vendor/model-viewer/4.4.0/) |
-| SuperSplat Viewer / bundled PlayCanvas engine | 1.37.0 / 2.23.0 | [MIT notices and exact npm integrity provenance](apps/crm/console/static/console/vendor/supersplat/1.37.0/) |
+| SuperSplat Viewer / bundled PlayCanvas engine | 1.37.0 / 2.23.0 | [MIT notices, unchanged upstream bytes and documented local camera API extension](apps/crm/console/static/console/vendor/supersplat/1.37.0/) |
 
 The public splat runtime uses the original self-contained browser bundle from
 the exact official npm package. `scripts/vendor_splat_viewer.py` verifies both
