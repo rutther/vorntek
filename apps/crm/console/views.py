@@ -3461,7 +3461,7 @@ def release_build_preview(request):
 @login_required
 @require_http_methods(['GET', 'POST'])
 def article_release_preview(request):
-    site, locale, _capabilities = content_site_scope(request, 'article_release_preview')
+    site, locale, capabilities = content_site_scope(request, 'article_release_preview')
     selected = request.POST.get('article') if request.method == 'POST' else request.GET.get('article')
     article = None
     if selected:
@@ -3500,7 +3500,8 @@ def article_release_preview(request):
         workspace_template='console/_article_release_preview.html',
         extra_stylesheets=['console/article-workspace.css'],
         extra_context={'preview_article':article, 'article_preview_result':result,
-            'article_preview_error':error, 'article_preview_history':history})
+            'article_preview_error':error, 'article_preview_history':history,
+            'can_build_website_candidate': RELEASES_CANDIDATE_BUILD in capabilities})
     response['Cache-Control'] = 'private, no-store'
     response['X-Robots-Tag'] = 'noindex, nofollow'
     return response

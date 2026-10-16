@@ -2,6 +2,10 @@
 
 ## Integration completeness follow-up
 
+- Article preview now hands off its exact current/reused record to candidate
+  construction instead of making operators guess the newest history row.
+  Draft-only, missing-translation and preview-only permission boundaries remain.
+
 - Editable select choices now persist from the ordinary form editor; enabled
   selects without usable choices are rejected before saving/public exposure.
 - Public forms distinguish actionable validation errors from uncertain transport

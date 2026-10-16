@@ -12,6 +12,11 @@
       <p style="overflow-wrap:anywhere">内容版本：<code>{{ article_preview_result.sourceVersion }}</code></p>
       {% for missing in article_preview_result.missingTranslations %}<p>缺少译文：{{ missing.contentKey }} — {{ missing.languages|join:", " }}</p>{% endfor %}
       <details open><summary>打开此版本的文章预览</summary><ul>{% for link in article_preview_result.links %}<li style="overflow-wrap:anywhere"><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.name }}</a></li>{% endfor %}</ul></details>
+      {% if article_preview_result.scope == 'sitePublished' and not article_preview_result.missingTranslations and can_build_website_candidate %}
+      <h3>下一步：固化本次预览</h3>
+      <p>本次对应预览记录 #{{ article_preview_result.recordId }}。相同内容会复用原记录，不一定排在历史列表最前；请从这里继续，不要按创建时间猜测。固化不会选择或部署网站，后续仍需分别审查。</p>
+      <form method="post" action="{% url 'console:website_candidate_build' article_preview_result.recordId %}">{% csrf_token %}<button type="submit" class="button primary">固化本次预览为整站候选</button></form>
+      {% endif %}
     {% endif %}
     <p><a href="{% url 'console:articles' %}">返回文章管理</a> · <a href="{% url 'console:releases' %}">整站候选、选版与部署</a></p>
     <h3>最近20条预览记录</h3>

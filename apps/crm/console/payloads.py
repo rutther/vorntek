@@ -1231,8 +1231,8 @@ def releases_payload(
         )
     if can_article_preview:
         payload['actions'].append(
-            post_action(
-                '生成文章私有预览',
+            link_action(
+                '文章发布预览',
                 reverse('console:article_release_preview'),
                 tone='secondary',
             )

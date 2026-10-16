@@ -2,6 +2,17 @@
 
 ## Integration candidate — 2026-10-16
 
+- Public app candidate `48ef086` and whole-site candidate 17 are now deployed.
+  Editable select choices, rejected empty selects, corrected phone validation,
+  actual public inquiry persistence, Pixel draft/reload and both source-analysis
+  views have been exercised on the public hostname. Temporary required choices
+  were restored to optional; external integrations remain disabled.
+- That exercise exposed confusing idempotent preview reuse: the correct review
+  record can be older than the top history row. A source-only UI follow-up now
+  opens the explicit preview workspace and offers the exact current record's
+  candidate action. Its deployed verification is still pending; the existing
+  stale-content guard was not relaxed or bypassed.
+
 - Final event-workspace native validation exposed an implicit test dependency on
   the outer runner enabling external I/O. The same seven failures reproduce in
   the isolated local runner when quiet mode is set. Retry-contract fixtures now
@@ -17,15 +28,15 @@
   are not a claim that this final review-fix candidate is publicly deployed;
   native acceptance and final-host interaction still have to be recorded.
 
-- Public candidate `477b9c3` is now running after an accepted app-only update;
+- Earlier public candidate `477b9c3` ran after an accepted app-only update;
   its exact-origin regression was verified through a new public HTTPS inquiry.
   The existing site's canonical origin was updated using the guarded command,
   retaining all other site settings. No database restore or migration occurred.
 - Final reference comparison then exposed a missing Pixel scope-save module and
   an older source-analysis renderer. These are now restored in source with their
-  original behavior and regression tests, but still await their own accepted
-  image and actual deployed-page verification. Do not claim final completeness
-  from the public-origin fix alone.
+  original behavior and regression tests, and subsequently passed their own
+  accepted-image and public-page checks in `48ef086`. Final completeness still
+  requires the remaining preview handoff and overall delivery checks.
 
 This branch is deployed to the authorized Vorntek installation and remains
 an in-progress integration, not a completed product release.
