@@ -5,6 +5,8 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from scripts.git_test_context import requires_git_checkout
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -15,6 +17,7 @@ SPEC.loader.exec_module(release_manifest)
 
 
 class ReleaseManifestTests(unittest.TestCase):
+    @requires_git_checkout(ROOT)
     def test_manifest_binds_version_tree_migrations_website_and_locks(self):
         manifest = release_manifest.build_manifest()
 

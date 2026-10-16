@@ -145,6 +145,9 @@ Node is needed only for JS tests. The application runner uses synthetic SQLite
 and blocks non-loopback Python sockets; it does not replace PostgreSQL/browser
 acceptance. With separately installed PostgreSQL binaries, run
 `python3 scripts/test_postgres_install.py --pg-bin /path/to/bin --http`.
+Downloaded source archives intentionally omit `.git`. In that context, the root
+suite explicitly skips only Git-history/tracked-input integrity checks; those
+checks still run in a repository checkout, while archive-safe tests remain active.
 
 Website source: [catalogue](docs/vorntekDemo/catalog.json) and
 `scripts/build_vorntek_site.py`. Regenerate `apps/website/` after changing scripts

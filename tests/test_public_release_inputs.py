@@ -5,6 +5,8 @@ import re
 import subprocess
 import unittest
 
+from scripts.git_test_context import requires_git_checkout
+
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT/'apps/crm/console/static/console'
@@ -23,6 +25,7 @@ class PublicReleaseInputTests(unittest.TestCase):
             item.decode('utf-8') for item in result.stdout.split(b'\0') if item
         )
 
+    @requires_git_checkout(ROOT)
     def test_historical_content_rewriters_are_not_release_inputs(self):
         names = [
             'enrich_product_page_sources.py', 'refresh_benchmark_free_pages.py',
@@ -48,6 +51,7 @@ class PublicReleaseInputTests(unittest.TestCase):
                     self.assertNotIn(name, source)
                     self.assertNotIn(name.removesuffix('.py'), source)
 
+    @requires_git_checkout(ROOT)
     def test_old_host_tools_are_retired_from_distribution(self):
         retired = [
             'apps/crm/scripts/build-production-release.ps1',
@@ -68,6 +72,7 @@ class PublicReleaseInputTests(unittest.TestCase):
                                 check=True, capture_output=True, text=True)
         self.assertEqual(result.stdout.strip(), '')
 
+    @requires_git_checkout(ROOT)
     def test_private_qa_is_not_tracked_or_in_container_context(self):
         prefix = 'apps/crm/console/static/console/v2/qa/'
         self.assertIn(prefix, (ROOT/'.gitignore').read_text())
@@ -76,6 +81,7 @@ class PublicReleaseInputTests(unittest.TestCase):
                                 check=True, capture_output=True, text=True)
         self.assertEqual(result.stdout.strip(), '')
 
+    @requires_git_checkout(ROOT)
     def test_private_exclude_ledger_cannot_reenter_public_crm_source(self):
         ledger = (ROOT/'docs/PRODUCTION_PARITY.md').read_text(encoding='utf-8')
         section = ledger.split('## PRIVATE EXCLUDE', 1)[1].split('\n## ', 1)[0]
@@ -89,6 +95,7 @@ class PublicReleaseInputTests(unittest.TestCase):
                 self.assertFalse((ROOT/public_path).exists())
                 self.assertNotIn(public_path, tracked)
 
+    @requires_git_checkout(ROOT)
     def test_secret_backup_and_private_artifacts_are_not_tracked(self):
         blocked_parts = {'.secrets', '.runtime', 'backups', 'private'}
         blocked_suffixes = (
@@ -106,6 +113,7 @@ class PublicReleaseInputTests(unittest.TestCase):
                 )
                 self.assertFalse(lower_name.endswith(blocked_suffixes))
 
+    @requires_git_checkout(ROOT)
     def test_tracked_text_has_no_private_keys_or_live_token_shapes(self):
         literal_markers = (
             b'-----BEGIN ' + b'PRIVATE KEY-----',
@@ -139,6 +147,7 @@ class PublicReleaseInputTests(unittest.TestCase):
                         'credential-bearing service URL',
                     )
 
+    @requires_git_checkout(ROOT)
     def test_deployable_source_has_no_known_production_identifiers(self):
         runtime_prefixes = ('apps/', 'deploy/', 'scripts/')
         runtime_root_files = {'compose.yaml', '.env.example'}
