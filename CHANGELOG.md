@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0-rc.3] — clean Node verification setup
+
+- Bilingual README and development commands now install the locked `flow-ui`
+  Node dependencies before running root JavaScript checks.
+- The same documented sequence runs the complete guided UI suite and production
+  build, so an anonymous source download no longer depends on inherited modules.
+- Supersedes `0.2.0-rc.2`; its Python archive verification is correct, but its
+  clean-download Node command omitted the required dependency-install step.
+
 ## [0.2.0-rc.2] — source archive verification fix
 
 - Git-history and tracked-input tests now report explicit skips when run from a

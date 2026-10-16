@@ -105,11 +105,15 @@ docker compose exec crm python manage.py seed_industrial_examples --apply --synt
 ```sh
 python3 -m pip install -r apps/crm/requirements.lock -r requirements-dev.txt
 python3 -m unittest discover -s tests -v
+npm --prefix apps/crm/flow-ui ci
 node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
+npm --prefix apps/crm/flow-ui test
+npm --prefix apps/crm/flow-ui run build
 python3 scripts/run_application_tests.py
 ```
 
-Node 仅用于 JS 测试。应用运行器使用合成 SQLite 并阻断非回环 Python 网络，
+Node 依赖隔离安装在 `apps/crm/flow-ui`；根目录 JS 检查会复用其中声明的 `jsdom`
+版本，因此必须先执行上述安装命令。应用运行器使用合成 SQLite 并阻断非回环 Python 网络，
 不能代替 PostgreSQL/浏览器验收。另行安装 PostgreSQL 后可执行
 `python3 scripts/test_postgres_install.py --pg-bin /path/to/bin --http`。
 公开下载的源码压缩包有意不包含 `.git`；在该环境中，根测试套件只明确跳过依赖

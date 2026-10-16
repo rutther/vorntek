@@ -12,7 +12,7 @@ version is VERSION; private npm components may have independent version numbers.
 4. Build archives and metadata into a new directory outside the clean checkout:
 
 ```sh
-python scripts/package_release.py --ref v0.2.0-rc.2 --output /YOUR_TEMP/vorntek-0.2.0-rc.2
+python scripts/package_release.py --ref v0.2.0-rc.3 --output /YOUR_TEMP/vorntek-0.2.0-rc.3
 ```
 
 The command refuses dirty source, a ref differing from HEAD and reused output.
@@ -34,3 +34,6 @@ GitHub publication does not automatically deploy to either running website.
 The documented root test command is also valid in a source archive. Tests that
 require `.git` history or the tracked-file index must skip with an explicit reason;
 repository CI still runs them and archive-safe tests must not be broadly skipped.
+Install the locked Python and `apps/crm/flow-ui` Node dependencies in the anonymous
+download before running the README verification commands; inherited developer
+modules are not acceptable release evidence.

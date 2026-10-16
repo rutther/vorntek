@@ -1,6 +1,6 @@
 # Implementation status / 实现状态
 
-## v0.2.0-rc.2 source candidate — 2026-10-17
+## v0.2.0-rc.3 source candidate — 2026-10-17
 
 This branch contains the complete website/CRM integration and replaceable
 industrial company package. Its earlier demonstration deployment is separate
@@ -38,7 +38,10 @@ version is VERSION and is reported by `/healthz/`.
 The immutable `v0.2.0-rc.1` publication completed remote CI and anonymous hash/
 install checks, but its documented root test command produced eight errors because
 Git-only integrity tests did not distinguish an archive from a checkout. The rc.2
-candidate fixes that public verification path without changing application behavior.
+publication fixed that Python verification path. Its anonymous Node check then
+exposed a separate documentation gap: the clean-download sequence did not first
+install the locked `flow-ui` modules. The rc.3 candidate documents and tests the
+complete clean Node setup without changing application behavior.
 
 ## Remaining gates
 

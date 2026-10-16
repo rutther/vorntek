@@ -26,13 +26,18 @@ regenerate the recorded host/Linux evidence rather than silently refreshing lock
 
 ```sh
 python3 -m unittest discover -s tests -v
+npm --prefix apps/crm/flow-ui ci
 node --test scripts/test_measurement.mjs scripts/test_form_status.mjs scripts/test_credential_receipt.mjs scripts/test_vorntek_form.mjs
+npm --prefix apps/crm/flow-ui test
+npm --prefix apps/crm/flow-ui run build
 python3 scripts/run_application_tests.py
 python3 -m pip_audit -r apps/crm/requirements.lock --progress-spinner off
 python3 scripts/audit_release_history.py --base v0.1.0-rc.1 --require-clean
 ```
 
-The history audit requires the immutable RC1 tag and full Git history. It scans
+The Node install is locked by `apps/crm/flow-ui/package-lock.json`; root browser
+scripts intentionally resolve `jsdom` from that declared package. The history audit
+requires the immutable RC1 tag and full Git history. It scans
 candidate-only objects, including deleted blobs, without printing matched secret
 material. A passing pattern scan complements human review; it cannot certify that
 every possible secret or personal datum is absent.
