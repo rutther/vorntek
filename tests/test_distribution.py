@@ -116,8 +116,9 @@ class DistributionTests(unittest.TestCase):
     def test_readiness_and_init_failures_gate_startup(self):
         services = self.compose['services']
         self.assertEqual(services['initialize']['depends_on']['db']['condition'], 'service_healthy')
-        for name in ('crm', 'exports', 'scheduler'):
+        for name in ('crm', 'exports'):
             self.assertEqual(services[name]['depends_on']['initialize']['condition'], 'service_completed_successfully')
+        self.assertEqual(services['scheduler']['depends_on']['crm']['condition'], 'service_healthy')
         self.assertEqual(services['website']['depends_on']['crm']['condition'], 'service_healthy')
 
     def test_postgres_18_data_mount_and_private_volumes(self):
