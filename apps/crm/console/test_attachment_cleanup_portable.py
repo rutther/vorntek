@@ -2,10 +2,10 @@
 from django.apps import apps
 from django.db import connection
 
-from .test_attachment_cleanup_http import AttachmentCleanupHttpTests
+from . import test_attachment_cleanup_http as native_cases
 
 
-class AttachmentCleanupPortableTests(AttachmentCleanupHttpTests):
+class AttachmentCleanupPortableTests(native_cases.AttachmentCleanupHttpTests):
     __unittest_skip__ = False
     __unittest_skip_why__ = ''
 

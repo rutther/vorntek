@@ -17,7 +17,7 @@ from leads.models import Company, CrmAttachment
 from sitecore.models import Site
 
 
-class FileLifecycleContractTests(TestCase):
+class FileLifecycleFixture:
     @classmethod
     def setUpClass(cls):
         existing = set(connection.introspection.table_names())
@@ -54,6 +54,8 @@ class FileLifecycleContractTests(TestCase):
             uploaded_file=SimpleUploadedFile('synthetic.txt', b'Synthetic attachment only'),
             title='Synthetic example', uploaded_by=None, target={'company':self.company})
 
+
+class FileLifecycleContractTests(FileLifecycleFixture, TestCase):
     def test_outer_rollback_preserves_owned_recovery_marker_without_a_committed_row(self):
         with self.assertRaisesRegex(ValueError, 'synthetic rollback'):
             with transaction.atomic():

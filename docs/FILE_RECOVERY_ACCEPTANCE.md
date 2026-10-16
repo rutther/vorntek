@@ -36,6 +36,33 @@ deployment, or consistent whole-system restore. Native lock and independent
 recovery acceptance are separate gates. The older observations below remain
 historical and are not a substitute for the current-candidate gates.
 
+Native candidate `6c16b0b` passed all 42 private-attachment cases on ordinary-role
+PostgreSQL, including separate-connection upload and retirement interleavings,
+fault injection and real CSRF/role HTTP checks. The same clean Git image passed
+fresh43, original-prefix27-to43, repeat application, read-only plan, unchanged old
+column values across 69 tables, equal schemas and owned DB/network cleanup. This
+is a candidate check, not a deployment or full DB/files/config/vault restore.
+
+## Journaled public-asset writes
+
+Upload and allowlisted local import share an exclusive, journaled write path.
+Markers cover outer rollback and uncertain commit results; retries check real
+committed references before touching only their own unreferenced files. Equal
+content converges within one site; different sites retain independent files.
+The existing extension allowlist, exact byte limits, MIME derivation and managed
+storage roots remain mandatory. A failed HTTP save keeps entered descriptions
+and offers retry instructions without disclosing SQL or host paths.
+
+```sh
+python manage.py retry_asset_upload_cleanup --site YOUR_SITE --limit 100
+python manage.py retry_asset_upload_cleanup --site YOUR_SITE --limit 100 --execute --confirm "RETRY ASSET CLEANUP"
+```
+
+The default previews only. Use `--after` with the returned `next_cursor` for the
+next bounded page. Busy, unconfirmed, corrupt or outside-root markers do not
+authorize deleting a blob. This preserves an existing safety/recovery contract;
+it is not a media feature expansion or a whole-storage cleanup tool.
+
 2026-09-12. Scope: local synthetic files and the independent development candidate.
 No real assets, customer attachments, server volumes or production data were copied.
 

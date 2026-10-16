@@ -3,13 +3,12 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-import shutil
 import stat
+import uuid
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from django import forms
-from django.db import models, transaction
+from django.db import connection, models, transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -22,6 +21,7 @@ from .storage_security import (
     resolve_storage_asset_path,
 )
 from .taxonomy import category_label_map, ordered_categories
+from . import asset_upload_recovery
 
 
 SLUG_RE = re.compile(r'^[a-z0-9][a-z0-9_-]*$')
@@ -159,9 +159,8 @@ def asset_filename(original_name: str, digest: str, suffix: str) -> str:
     return f'{digest[:16]}-{stem[:72]}{suffix}'
 
 
-def store_uploaded_asset(*, site: Site, uploaded_file, title: str, alt_text: str, caption: str, created_by: str) -> MediaAsset:
-    asset_type, suffix = classify_asset(uploaded_file.name)
-    size = int(getattr(uploaded_file, 'size', 0) or 0)
+def _store_asset_stream(*,site:Site,name:str,size:int,chunks,title:str,alt_text:str,caption:str,created_by:str) -> MediaAsset:
+    asset_type,suffix=classify_asset(name)
     max_bytes = ASSET_MAX_BYTES[asset_type]
     if size <= 0:
         raise forms.ValidationError('文件为空，无法入库。')
@@ -170,149 +169,71 @@ def store_uploaded_asset(*, site: Site, uploaded_file, title: str, alt_text: str
         raise forms.ValidationError(f'文件过大。{asset_type} 当前限制为 {max_mb}MB。')
 
     storage_root = asset_storage_root()
-    digest = hashlib.sha256()
-    temp_path: Path | None = None
+    now=timezone.now()
+    token=uuid.uuid4().hex
+    directory_name=ASSET_DIR_BY_TYPE[asset_type]
+    filename=f'{token[:16]}-upload-{token}{suffix}'
+    target=_managed_asset_target(directory_name=directory_name,year=f'{now:%Y}',month=f'{now:%m}',filename=filename)
+    marker=None
+    keep_file=False
     try:
-        with NamedTemporaryFile(delete=False, dir=storage_root) as temporary:
-            temp_path = Path(temporary.name)
-            for chunk in uploaded_file.chunks():
-                digest.update(chunk)
-                temporary.write(chunk)
-
-        sha256 = digest.hexdigest()
-        existing = MediaAsset.objects.filter(site=site, sha256=sha256).first()
-        if existing:
-            resolve_storage_path(existing.storage_path)
-            changed_fields = []
-            if existing.status != 'active':
-                existing.status = 'active'
-                changed_fields.append('status')
-            if title and not existing.title:
-                existing.title = title
-                changed_fields.append('title')
-            if alt_text and not existing.alt_text:
-                existing.alt_text = alt_text
-                changed_fields.append('alt_text')
-            if caption and not existing.caption:
-                existing.caption = caption
-                changed_fields.append('caption')
-            if changed_fields:
-                changed_fields.append('updated_at')
-                existing.save(update_fields=changed_fields)
-            return existing
-
-        now = timezone.now()
-        directory_name = ASSET_DIR_BY_TYPE[asset_type]
-        filename = asset_filename(uploaded_file.name, sha256, suffix)
-        target = _managed_asset_target(
-            directory_name=directory_name,
-            year=f'{now:%Y}',
-            month=f'{now:%m}',
-            filename=filename,
-        )
-        shutil.move(str(temp_path), target)
-        temp_path = None
-
-        storage_path = (Path('storage') / 'assets' / directory_name / f'{now:%Y}' / f'{now:%m}' / filename).as_posix()
-        public_path = f'/assets/{directory_name}/{now:%Y}/{now:%m}/{filename}'
-        # Never persist the client-declared Content-Type.  asset_file serves
-        # this value on our origin, so the MIME must come from our extension
-        # allowlist and be paired with X-Content-Type-Options: nosniff.
-        mime_type = asset_mime_type(uploaded_file.name)
-
-        return MediaAsset.objects.create(
-            site=site,
-            asset_type=asset_type,
-            original_name=Path(uploaded_file.name).name,
-            title=title or Path(uploaded_file.name).stem,
-            alt_text=alt_text,
-            caption=caption,
-            mime_type=mime_type,
-            file_ext=suffix,
-            file_size_bytes=size,
-            sha256=sha256,
-            storage_path=storage_path,
-            public_path=public_path,
-            status='active',
-            created_by=created_by or 'system',
-        )
+        with transaction.atomic():
+            marker,data=asset_upload_recovery.begin_upload(root=storage_root,target=target,site_id=site.pk,token=token)
+            digest=hashlib.sha256();written=0
+            # Exclusive creation never overwrites a prior path, even on a token collision.
+            with asset_upload_recovery.private_file(target,binary=True) as stream:
+                asset_upload_recovery.confirm_created(marker,data)
+                for chunk in chunks():
+                    written+=len(chunk)
+                    if written>max_bytes: raise forms.ValidationError('文件超过允许大小，未入库。')
+                    digest.update(chunk);stream.write(chunk)
+                stream.flush();os.fsync(stream.fileno())
+            if written!=size: raise forms.ValidationError('文件内容发生变化或不完整，请重新选择文件。')
+            target.chmod(0o644)
+            sha256=digest.hexdigest()
+            if connection.vendor=='postgresql':
+                # Only same-site/same-content requests serialize; different assets remain independent.
+                lock_id=int.from_bytes(hashlib.sha256(f'asset-content:{site.pk}:{sha256}'.encode()).digest()[:8],'big',signed=True)
+                with connection.cursor() as cursor: cursor.execute('SELECT pg_advisory_xact_lock(%s)',[lock_id])
+            existing=MediaAsset.objects.filter(site=site,sha256=sha256).first()
+            if existing:
+                resolve_storage_path(existing.storage_path)
+                changed=[]
+                if existing.status!='active': existing.status='active';changed.append('status')
+                for field,value in (('title',title),('alt_text',alt_text),('caption',caption)):
+                    if value and not getattr(existing,field): setattr(existing,field,value);changed.append(field)
+                if changed: existing.save(update_fields=changed+['updated_at'])
+                return existing
+            relative=target.relative_to(storage_root).as_posix()
+            row=MediaAsset.objects.create(site=site,asset_type=asset_type,original_name=Path(name).name,
+                title=title or Path(name).stem,alt_text=alt_text,caption=caption,mime_type=asset_mime_type(name),
+                file_ext=suffix,file_size_bytes=written,sha256=sha256,storage_path='storage/assets/'+relative,
+                public_path='/assets/'+relative,status='active',created_by=created_by or 'system')
+            keep_file=True
+            transaction.on_commit(lambda selected=marker:asset_upload_recovery.clear_committed_marker(selected),robust=True)
+            return row
     finally:
-        if temp_path and temp_path.exists():
-            temp_path.unlink()
+        if marker is not None and not keep_file and not connection.in_atomic_block:
+            # An uncertain database outcome must keep its durable marker.
+            # Reconciliation queries committed references before deleting our own file.
+            try:
+                asset_upload_recovery.reconcile_marker(root=storage_root,marker=marker,site_id=site.pk,token=token,execute=True)
+            except Exception:
+                asset_upload_recovery.logger.warning('Asset upload recovery remains pending after a failed write.')
+
+
+def store_uploaded_asset(*, site: Site, uploaded_file, title: str, alt_text: str, caption: str, created_by: str) -> MediaAsset:
+    return _store_asset_stream(site=site,name=uploaded_file.name,size=int(getattr(uploaded_file,'size',0) or 0),
+        chunks=uploaded_file.chunks,title=title,alt_text=alt_text,caption=caption,created_by=created_by)
 
 
 def store_local_asset(*, site: Site, source_path: Path, title: str, alt_text: str, caption: str, created_by: str) -> MediaAsset:
     source_path = resolve_import_source_path(source_path)
-    asset_type, suffix = classify_asset(source_path.name)
-
-    size = int(source_path.stat().st_size or 0)
-    max_bytes = ASSET_MAX_BYTES[asset_type]
-    if size <= 0:
-        raise forms.ValidationError('源文件为空，无法入库。')
-    if size > max_bytes:
-        max_mb = max_bytes // (1024 * 1024)
-        raise forms.ValidationError(f'文件过大。{asset_type} 当前限制为 {max_mb}MB。')
-
-    asset_storage_root()
-
-    digest = hashlib.sha256()
-    with source_path.open('rb') as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
-            digest.update(chunk)
-    sha256 = digest.hexdigest()
-
-    existing = MediaAsset.objects.filter(site=site, sha256=sha256).first()
-    if existing:
-        resolve_storage_path(existing.storage_path)
-        changed_fields = []
-        if existing.status != 'active':
-            existing.status = 'active'
-            changed_fields.append('status')
-        if title and not existing.title:
-            existing.title = title
-            changed_fields.append('title')
-        if alt_text and not existing.alt_text:
-            existing.alt_text = alt_text
-            changed_fields.append('alt_text')
-        if caption and not existing.caption:
-            existing.caption = caption
-            changed_fields.append('caption')
-        if changed_fields:
-            changed_fields.append('updated_at')
-            existing.save(update_fields=changed_fields)
-        return existing
-
-    now = timezone.now()
-    directory_name = ASSET_DIR_BY_TYPE[asset_type]
-    filename = asset_filename(source_path.name, sha256, suffix)
-    target = _managed_asset_target(
-        directory_name=directory_name,
-        year=f'{now:%Y}',
-        month=f'{now:%m}',
-        filename=filename,
-    )
-    shutil.copy2(source_path, target)
-
-    storage_path = (Path('storage') / 'assets' / directory_name / f'{now:%Y}' / f'{now:%m}' / filename).as_posix()
-    public_path = f'/assets/{directory_name}/{now:%Y}/{now:%m}/{filename}'
-    mime_type = asset_mime_type(source_path.name)
-
-    return MediaAsset.objects.create(
-        site=site,
-        asset_type=asset_type,
-        original_name=source_path.name,
-        title=title or source_path.stem,
-        alt_text=alt_text,
-        caption=caption,
-        mime_type=mime_type,
-        file_ext=suffix,
-        file_size_bytes=size,
-        sha256=sha256,
-        storage_path=storage_path,
-        public_path=public_path,
-        status='active',
-        created_by=created_by or 'system',
-    )
+    def chunks():
+        with source_path.open('rb') as handle:
+            yield from iter(lambda:handle.read(1024*1024),b'')
+    return _store_asset_stream(site=site,name=source_path.name,size=int(source_path.stat().st_size or 0),
+        chunks=chunks,title=title,alt_text=alt_text,caption=caption,created_by=created_by)
 
 
 class AssetUploadForm(forms.Form):

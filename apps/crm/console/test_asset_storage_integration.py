@@ -8,9 +8,10 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404
-from django.test import RequestFactory, SimpleTestCase, override_settings
+from django.db import connection
+from django.test import RequestFactory, TestCase, override_settings
 
-from sitecore.models import MediaAsset
+from sitecore.models import MediaAsset, Site
 
 from console.content_access import ASSETS_READ
 from console.forms import (
@@ -23,8 +24,25 @@ from console.storage_security import StorageSecurityError, resolve_storage_asset
 from console.views import asset_file
 
 
-class AssetStorageIntegrationTests(SimpleTestCase):
+class AssetStorageIntegrationTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        existing=set(connection.introspection.table_names())
+        cls.created_models=[]
+        with connection.schema_editor() as editor:
+            for model in (Site,MediaAsset):
+                if model._meta.db_table not in existing:
+                    editor.create_model(model);cls.created_models.append(model)
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        with connection.schema_editor() as editor:
+            for model in reversed(cls.created_models): editor.delete_model(model)
+
     def setUp(self):
+        self.site=Site.objects.create(code='asset_unit',name='Synthetic storage integration',default_locale='en')
         # Candidate-local temporary roots avoid reading or mutating production
         # assets and make the required allowlists explicit in every test.
         self.storage_directory = TemporaryDirectory(dir=settings.BASE_DIR)
@@ -88,15 +106,9 @@ class AssetStorageIntegrationTests(SimpleTestCase):
         self.assertEqual(raised.exception.code, 'outside_allowlist')
 
     def test_local_import_copies_from_import_root_into_storage_root(self):
-        created = SimpleNamespace(id=2)
         with self.storage_settings():
-            with (
-                patch.object(MediaAsset.objects, 'filter') as filtered,
-                patch.object(MediaAsset.objects, 'create', return_value=created) as create,
-            ):
-                filtered.return_value.first.return_value = None
-                result = store_local_asset(
-                    site=object(),
+            result = store_local_asset(
+                    site=self.site,
                     source_path=self.import_file,
                     title='Imported synthetic file',
                     alt_text='',
@@ -104,25 +116,19 @@ class AssetStorageIntegrationTests(SimpleTestCase):
                     created_by='test',
                 )
 
-            storage_path = create.call_args.kwargs['storage_path']
+            storage_path = result.storage_path
             stored_file = resolve_storage_asset_path(storage_path)
 
-        self.assertIs(result, created)
-        self.assertEqual(create.call_args.kwargs['mime_type'], 'image/png')
+        self.assertTrue(MediaAsset.objects.filter(pk=result.pk).exists())
+        self.assertEqual(result.mime_type, 'image/png')
         self.assertEqual(stored_file.read_bytes(), b'synthetic-import')
         self.assertEqual(stored_file.parents[3], self.storage_root)
 
     def test_upload_writes_only_to_explicit_storage_root(self):
         uploaded = SimpleUploadedFile('sample.png', b'synthetic-upload', content_type='text/html')
-        created = SimpleNamespace(id=1)
         with self.storage_settings():
-            with (
-                patch.object(MediaAsset.objects, 'filter') as filtered,
-                patch.object(MediaAsset.objects, 'create', return_value=created) as create,
-            ):
-                filtered.return_value.first.return_value = None
-                result = store_uploaded_asset(
-                    site=object(),
+            result = store_uploaded_asset(
+                    site=self.site,
                     uploaded_file=uploaded,
                     title='Synthetic',
                     alt_text='',
@@ -130,11 +136,11 @@ class AssetStorageIntegrationTests(SimpleTestCase):
                     created_by='test',
                 )
 
-            storage_path = create.call_args.kwargs['storage_path']
-            stored_mime_type = create.call_args.kwargs['mime_type']
+            storage_path = result.storage_path
+            stored_mime_type = result.mime_type
             stored_file = resolve_storage_asset_path(storage_path)
 
-        self.assertIs(result, created)
+        self.assertTrue(MediaAsset.objects.filter(pk=result.pk).exists())
         self.assertEqual(stored_mime_type, 'image/png')
         self.assertTrue(stored_file.is_file())
         self.assertEqual(stored_file.read_bytes(), b'synthetic-upload')
@@ -153,7 +159,9 @@ class AssetStorageIntegrationTests(SimpleTestCase):
             ):
                 response = asset_file(request, 1)
                 b''.join(response.streaming_content)
-                response.close()
+                # RequestFactory does not own a request lifecycle. Closing the
+                # stream must not emit request_finished inside TestCase's SQL transaction.
+                response.file_to_stream.close()
 
         self.assertEqual(response['Content-Type'], 'image/png')
         self.assertNotEqual(response['Content-Type'], 'text/html')
@@ -166,7 +174,7 @@ class AssetStorageIntegrationTests(SimpleTestCase):
                 filtered.return_value.first.return_value = existing
                 with self.assertRaises(StorageSecurityError) as raised:
                     store_uploaded_asset(
-                        site=object(),
+                        site=self.site,
                         uploaded_file=uploaded,
                         title='',
                         alt_text='',
@@ -228,7 +236,7 @@ class AssetStorageIntegrationTests(SimpleTestCase):
             ):
                 response = asset_file(request, 1)
                 body = b''.join(response.streaming_content)
-                response.close()
+                response.file_to_stream.close()
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body, b'synthetic-response')

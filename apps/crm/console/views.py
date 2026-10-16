@@ -1343,6 +1343,8 @@ def asset_import_path(request):
                 imported_asset = form.save(site=site, created_by=request.user.get_username() or 'django-console')
             except StorageSecurityError:
                 form.add_error(None, '资产存储未配置或文件已不可用。')
+            except (DatabaseError, OSError, forms.ValidationError):
+                form.add_error(None, '未完成入库，已填写的说明已保留。请使用相同文件重试；若仍失败，请让管理员核对待恢复写入。')
             else:
                 messages.success(request, f'文件已导入资产库：{imported_asset.public_path}')
                 form = AssetImportPathForm()
@@ -3285,6 +3287,8 @@ def asset_upload(request):
                 uploaded_asset = form.save(site=site, created_by=request.user.get_username() or 'django-console')
             except StorageSecurityError:
                 form.add_error(None, '资产存储未配置或不可用。')
+            except (DatabaseError, OSError, forms.ValidationError):
+                form.add_error(None, '未完成入库，已填写的说明已保留。请重新选择相同文件重试；若仍失败，请让管理员核对待恢复写入。')
             else:
                 messages.success(request, f'资产已入库：{uploaded_asset.public_path}')
                 form = AssetUploadForm()
