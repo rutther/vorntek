@@ -15,10 +15,11 @@ categories. See [release scope](docs/RELEASE_SCOPE.md) and
 The public [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1),
 [release CI](https://github.com/rutther/vorntek/actions/runs/34712023363) and
 [earlier delivery evidence](docs/PUBLIC_DELIVERY.md) describe the earlier release,
-not this branch or the current server state. This branch is preparing the next
-source pre-release; its GitHub publication and independent download checks remain pending.
-The current development version is recorded in [`VERSION`](VERSION) and returned
-by `/healthz/`; it is not a release until the acceptance ledger is complete.
+not this source version or any current server state. The current source version is
+recorded in [`VERSION`](VERSION) and returned by `/healthz/`. Immutable downloads,
+checksums and run evidence are published on the matching GitHub Release; the
+[verification status](docs/IMPLEMENTATION_STATUS.md) separates local, CI and
+post-download evidence.
 
 ## Included
 
