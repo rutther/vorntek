@@ -1,58 +1,72 @@
 # Implementation status / 实现状态
 
-## v0.2.0-rc.4 source candidate — 2026-10-17
+## v0.2.0-rc.4 published prerelease — 2026-10-17
 
-This branch contains the complete website/CRM integration and replaceable
-industrial company package. Its earlier demonstration deployment is separate
-from this GitHub source release. This task does not update either running site.
+This publication contains the website/CRM integration and replaceable industrial
+company package. It is separate from every running deployment; this release task
+did not update either production site.
 
 Scope: [RELEASE_SCOPE.md](RELEASE_SCOPE.md). Install via the bilingual root README.
 Industrial content: [INDUSTRIAL_EXAMPLE.md](INDUSTRIAL_EXAMPLE.md). The source
-version is VERSION and is reported by `/healthz/`.
+version is `VERSION` and is reported by `/healthz/`.
 
-## Observed source-candidate checks
+## Observed release checks
 
-- Industrial/content examples:30 tests,1 conditional skip. Actual writers created
+- Industrial/content examples: 30 tests, 1 conditional skip. Actual writers created
   media, drafts and disabled profiles; repeat import retained later edits, conflicts
   were refused and rollback retained durable file recovery records.
-- The immutable rc.3 source at `cd999b5`: complete application1361 tests with140
-  conditional SQLite skips; root distribution112 tests. Guided-loop suite208 passed
-  and Vite build passed. Selected website script
-  contracts:51 passed. Python runtime audit reported no known vulnerabilities;
-  npm audit reported zero findings for the current lock at observation time.
-- Exact-resource guard:8 tests passed; release history accepted10 reviewed paths
-  with zero findings across116 candidate commits. Gitleaks8.30.1 scanned119
-  reachable commits and reported no leaks after exact-fingerprint review of
+- Rc.4 passed 116 root tests, 1361 application tests with 140 conditional SQLite
+  skips, 208 guided-loop tests and 51 root JavaScript checks; the Vite build passed.
+  An anonymous download repeated the same 116/1361/208/51 results without Git
+  metadata. `pip check` passed; after updating the fresh virtual environment's
+  installer from pip 25.0.1 to 26.2.1, `pip-audit` reported no known
+  vulnerabilities. `npm audit` reported zero findings.
+- Exact-resource guard: 8 tests passed; release history accepted 10 reviewed paths
+  with zero findings across 125 commits and 2594 objects. Gitleaks 8.30.1 scanned
+  124 reachable commits and reported no leaks after exact-fingerprint review of
   synthetic test values and public browser storage keys.
-- Isolated PostgreSQL17 lifecycle passed from actual public main (32 SQL entries)
-  to the current43-entry chain. It preserved old rows, password, vault, tasks and
+- Isolated PostgreSQL 17 lifecycle passed from actual public main through the
+  current 43-entry chain. It preserved old rows, password, vault, tasks and
   publication data; paired database/file backup, independent restore, rollback,
   re-entry, local HTTP inquiry/qualification flow and industrial example lifecycle
-  passed. Linux PostgreSQL18 and Compose remain GitHub CI responsibilities.
-- Real local browser acceptance passed the industrial public site and language
-  switch, authenticated workbench, customer-pool selection, two independent guided
-  loops with diagrams/ten-step tasks, content/assets navigation and the 3D workspace.
-  External delivery and scheduled tasks stayed disabled.
+  passed. Linux PostgreSQL 18 and Compose passed in GitHub tag CI.
+- Anonymous rc.4 browser acceptance submitted the fresh-install `general` inquiry,
+  observed the persisted lead, selected and moved it to recoverable trash, restored
+  it to the active queue, and opened tasks and event operations. It created two
+  independent Meta website loop instances, switched between them, and observed the
+  ten-step instructions, step illustration and cross-system flow diagram. Content,
+  assets and the industrial public product were opened; the GLB model rendered in
+  the interactive 3D viewer. External delivery and scheduled tasks stayed disabled.
+- The optional industrial pack's read-only plan reported three articles, six models
+  and fifteen files. Its PostgreSQL write lifecycle passed the tag's GitHub CI.
+  A local SQLite apply was not accepted as installation evidence because canonical
+  business tables are installed by the PostgreSQL SQL chain. Docker was unavailable
+  on the anonymous Windows host, so Compose evidence remains the successful tag CI
+  job rather than a claimed local rerun.
 - GitHub private vulnerability reporting was enabled and read back as enabled.
 
-The immutable `v0.2.0-rc.1` publication completed remote CI and anonymous hash/
-install checks, but its documented root test command produced eight errors because
-Git-only integrity tests did not distinguish an archive from a checkout. The rc.2
-publication fixed that Python verification path. Its anonymous Node check then
-exposed a separate documentation gap: the clean-download sequence did not first
-install the locked `flow-ui` modules. Rc.3 documented and tested the complete
-clean Node setup. Anonymous browser review of rc.3 then found that its synthetic
-fixture selected a legacy industrial form category instead of the documented
-fresh-install general contract. Rc.4 aligns that fixture and pins the behavior
-without converting existing legacy forms.
+Rc.1 passed its own CI and anonymous hashes, but archive testing exposed Git-only
+root checks. Rc.2 fixed that path; its clean Node check then exposed missing module
+installation. Rc.3 fixed the documented Node setup; anonymous browser review then
+found its fixture selected a legacy industrial form category. Rc.4 aligns that
+fixture with the documented fresh-install `general` contract without converting
+existing legacy forms.
 
-## Remaining gates
+## Published identities and boundaries
 
-GitHub PR checks, Linux PostgreSQL18/Compose CI, merge, immutable Tag/Release and
-anonymous release download installation are recorded only after their actual
-remote runs. This file never treats a local candidate as a published release or
-as an update to either running website.
+- Pull request: [#5](https://github.com/rutther/vorntek/pull/5).
+- Merge commit and immutable tag: `20946994d1592a2a09e204b886c13e45560e304f`,
+  `v0.2.0-rc.4`.
+- Main CI: [38985116604](https://github.com/rutther/vorntek/actions/runs/38985116604).
+- Tag CI: [38985631768](https://github.com/rutther/vorntek/actions/runs/38985631768).
+- Release: [v0.2.0-rc.4](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.4).
+- Exact public download hashes and anonymous acceptance are recorded in
+  [the rc.4 acceptance record](releases/0.2.0-rc.4-acceptance.md).
 
-本页是当前发行状态入口。旧公网演示交付与本轮GitHub发行分别记账；旧“未上线”或
-“待恢复”仅属于历史时点，不据此重跑服务器维护。本地通过不等于远端CI或公开发行；
+This source publication did not update `vorntek.com`, the Hong Kong installation,
+any external Meta account or any real delivery channel. Publishing source is not
+deployment, and synthetic browser acceptance is not real-provider verification.
+
+本页是当前发行状态入口。旧公网演示交付与本轮 GitHub 发行分别记账；旧“未上线”或
+“待恢复”仅属于历史时点，不据此重跑服务器维护。本地通过不等于远端 CI 或公开发行；
 原检查点保留在[历史状态](IMPLEMENTATION_STATUS_HISTORY.md)。
