@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0-rc.4] — fresh-install browser fixture alignment
+
+- The isolated browser-acceptance fixture now creates the same `general` inquiry
+  contract as a fresh product installation instead of selecting the legacy
+  `industrial` compatibility category.
+- A regression test keeps the synthetic fixture aligned with the documented
+  fresh-install behavior while leaving historical industrial forms compatible.
+- Supersedes `0.2.0-rc.3`; its application and clean-download verification remain
+  valid, but browser review exposed stale legacy fields in the synthetic fixture.
+
 ## [0.2.0-rc.3] — clean Node verification setup
 
 - Bilingual README and development commands now install the locked `flow-ui`

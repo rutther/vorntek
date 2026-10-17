@@ -12,9 +12,9 @@ application supports configurable business fields rather than fixed industry
 categories. See [release scope](docs/RELEASE_SCOPE.md) and
 [current verification status](docs/IMPLEMENTATION_STATUS.md).
 
-The public [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1),
-[release CI](https://github.com/rutther/vorntek/actions/runs/34712023363) and
-[earlier delivery evidence](docs/PUBLIC_DELIVERY.md) describe the earlier release,
+The public [v0.2.0-rc.3](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.3),
+[release CI](https://github.com/rutther/vorntek/actions/runs/38982603782) and
+[earlier delivery evidence](docs/PUBLIC_DELIVERY.md) describe the previous release,
 not this source version or any current server state. The current source version is
 recorded in [`VERSION`](VERSION) and returned by `/healthz/`. Immutable downloads,
 checksums and run evidence are published on the matching GitHub Release; the

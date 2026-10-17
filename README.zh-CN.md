@@ -9,9 +9,9 @@
 底层业务字段和分类可以配置，不把工业示例变成固定行业规则。
 参见[发行范围](docs/RELEASE_SCOPE.md)和[当前验证状态](docs/IMPLEMENTATION_STATUS.md)。
 
-已公开的 [v0.1.0-rc.1](https://github.com/rutther/vorntek/releases/tag/v0.1.0-rc.1)、
-[对应 CI](https://github.com/rutther/vorntek/actions/runs/34712023363)及
-[历史交付证据](docs/PUBLIC_DELIVERY.md)描述的是先前版本，不代表当前源码或任何服务器状态。
+已公开的 [v0.2.0-rc.3](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.3)、
+[对应 CI](https://github.com/rutther/vorntek/actions/runs/38982603782)及
+[历史交付证据](docs/PUBLIC_DELIVERY.md)描述的是上一版本，不代表当前源码或任何服务器状态。
 当前源码版本以 [`VERSION`](VERSION) 为准，并由 `/healthz/` 返回。不可变下载包、校验和及
 运行证据发布在同名 GitHub Release；[验证状态](docs/IMPLEMENTATION_STATUS.md)分别记录本地、
 CI 与公开下载后的证据。

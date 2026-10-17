@@ -194,7 +194,7 @@ def seed_fixture(port: int, password: str) -> None:
     SalesTeamMember.objects.create(team=team, user=sales, membership_role='member')
     LeadFormDefinition.objects.create(
         site=site, locale=None, code='project-inquiry', name='Project inquiry',
-        category='industrial', channel='website', scope_type='site', scope_value='*',
+        category='general', channel='website', scope_type='site', scope_value='*',
         status='active', capi_enabled=False, notify_emails='',
         success_message='Inquiry accepted.', form_schema={},
         config_json={'sales_team_code': 'default'},
