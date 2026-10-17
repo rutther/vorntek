@@ -12,7 +12,7 @@ version is VERSION; private npm components may have independent version numbers.
 4. Build archives and metadata into a new directory outside the clean checkout:
 
 ```sh
-python scripts/package_release.py --ref v0.2.0-rc.3 --output /YOUR_TEMP/vorntek-0.2.0-rc.3
+python scripts/package_release.py --ref v0.2.0-rc.4 --output /YOUR_TEMP/vorntek-0.2.0-rc.4
 ```
 
 The command refuses dirty source, a ref differing from HEAD and reused output.

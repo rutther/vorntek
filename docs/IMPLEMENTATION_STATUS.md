@@ -1,6 +1,6 @@
 # Implementation status / 实现状态
 
-## v0.2.0-rc.3 source candidate — 2026-10-17
+## v0.2.0-rc.4 source candidate — 2026-10-17
 
 This branch contains the complete website/CRM integration and replaceable
 industrial company package. Its earlier demonstration deployment is separate
@@ -15,7 +15,7 @@ version is VERSION and is reported by `/healthz/`.
 - Industrial/content examples:30 tests,1 conditional skip. Actual writers created
   media, drafts and disabled profiles; repeat import retained later edits, conflicts
   were refused and rollback retained durable file recovery records.
-- Final clean source tree `72b7647`: complete application1361 tests with140
+- The immutable rc.3 source at `cd999b5`: complete application1361 tests with140
   conditional SQLite skips; root distribution112 tests. Guided-loop suite208 passed
   and Vite build passed. Selected website script
   contracts:51 passed. Python runtime audit reported no known vulnerabilities;
@@ -40,8 +40,11 @@ install checks, but its documented root test command produced eight errors becau
 Git-only integrity tests did not distinguish an archive from a checkout. The rc.2
 publication fixed that Python verification path. Its anonymous Node check then
 exposed a separate documentation gap: the clean-download sequence did not first
-install the locked `flow-ui` modules. The rc.3 candidate documents and tests the
-complete clean Node setup without changing application behavior.
+install the locked `flow-ui` modules. Rc.3 documented and tested the complete
+clean Node setup. Anonymous browser review of rc.3 then found that its synthetic
+fixture selected a legacy industrial form category instead of the documented
+fresh-install general contract. Rc.4 aligns that fixture and pins the behavior
+without converting existing legacy forms.
 
 ## Remaining gates
 

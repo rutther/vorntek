@@ -35,7 +35,6 @@ class BrowserAcceptanceFixtureTests(unittest.TestCase):
         self.assertIn("make_server(\n            '127.0.0.1'", source)
         self.assertIn("'NEWCROWN_ALLOW_EXTERNAL_IO': '0'", source)
         self.assertIn("'SITEOS_WHATSAPP_ALLOW_LIVE_SEND': '0'", source)
-        self.assertIn("category='industrial'", source)
         self.assertIn('secrets.token_urlsafe(24)', source)
         self.assertIn("credential_path.unlink(missing_ok=True)", source)
         self.assertIn("membership_role='member'", source)
@@ -43,6 +42,12 @@ class BrowserAcceptanceFixtureTests(unittest.TestCase):
         self.assertIn("'not PostgreSQL acceptance'", source)
         self.assertNotIn('BROWSER_PASSWORD', source)
         self.assertNotIn('0.0.0.0', source)
+
+    def test_new_install_fixture_uses_general_inquiry_contract(self):
+        source = (ROOT/'scripts'/'run_browser_acceptance_fixture.py').read_text(encoding='utf-8')
+        self.assertIn("code='project-inquiry'", source)
+        self.assertIn("category='general'", source)
+        self.assertNotIn("category='industrial'", source)
 
     def test_fixture_schema_covers_every_system_workbench_dependency(self):
         source = (ROOT/'scripts'/'run_browser_acceptance_fixture.py').read_text(encoding='utf-8')
