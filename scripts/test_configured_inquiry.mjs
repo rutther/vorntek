@@ -16,7 +16,7 @@ async function setup(){
  const {window}=dom;Object.defineProperty(window,'crypto',{value:webcrypto});
  const requests=[],replies=[];
  window.fetch=async(url,options={})=>{
-  if(url.endsWith('/definition/'))return {ok:true,status:200,json:async()=>({ok:true,form:{code:'project-inquiry',fields:[
+  if(url.includes('/definition/'))return {ok:true,status:200,json:async()=>({ok:true,form:{code:'project-inquiry',schema_version:'a'.repeat(64),fields:[
    {name:'full_name',label:'姓名',type:'text',required:true},
    {name:'email',label:'邮箱',type:'email',required:false},
    {name:'phone',label:'电话',type:'tel',required:false},
@@ -40,6 +40,7 @@ async function setup(){
 test('configured fields submit with consent boundaries and no fixed industry requirement',async()=>{
  const f=await setup();await f.submit();assert.equal(f.requests.length,1);
  const payload=f.requests[0];assert.equal(payload.email,'engineer@example.invalid');
+ assert.equal(payload.schema_version,'a'.repeat(64));
  assert.deepEqual(payload.extra_fields,{});assert.equal(payload.consent.marketing,false);assert.deepEqual(payload.utm,{});
  assert.equal(f.status.dataset.kind,'success');assert.equal(f.form.querySelector('[name=email]').value,'');f.dom.window.close();
 });
