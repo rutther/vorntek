@@ -18,9 +18,10 @@ version is `VERSION` and is reported by `/healthz/`.
   CI each passed the application and PostgreSQL 18/Compose jobs.
 - Public prerelease [`v0.2.0-rc.5`](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.5)
   contains deterministic source archives, a release manifest and checksums. A new
-  anonymous installation verified all checksums before extraction and passed 118
-  root tests, 1379 application tests, 51 root JavaScript tests, 209 guided-loop
-  tests, both dependency audits and the production UI build.
+  anonymous installation verified all checksums before extraction and completed
+  110 root tests with eight Git-only checks skipped, 1379 application tests, 51
+  root JavaScript tests, 209 guided-loop tests, both dependency audits and the
+  production UI build.
 - The exact merge commit was promoted to the authorized Vorntek installation after
   a fresh paired backup, isolated restore and an isolated PostgreSQL gate. Final
   read-only checks observed five healthy containers, 47 migrations, preserved
