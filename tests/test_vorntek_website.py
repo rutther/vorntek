@@ -118,6 +118,12 @@ class VorntekWebsiteTests(unittest.TestCase):
             self.assertNotIn('name="business_line"', source)
             self.assertNotIn('name="capacity"', source)
 
+        runtime = (SITE / 'inquiry-form.js').read_text(encoding='utf-8')
+        self.assertIn('schema_version:schemaVersion', runtime)
+        self.assertIn("'?locale='+encodeURIComponent(locale)", runtime)
+        self.assertIn("base+'definition/'+localeQuery", runtime)
+        self.assertIn("base+'submit/'+localeQuery", runtime)
+
     def test_all_pages_have_one_heading_no_broken_public_links_or_duplicate_ids(self):
         pages = list(SITE.rglob('*.html'))
         manifest=json.loads((SITE/'corporate-build.json').read_text(encoding='utf-8'))

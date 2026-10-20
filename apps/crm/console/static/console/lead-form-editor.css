@@ -125,6 +125,142 @@
     height: auto;
 }
 
+.lead-custom-fields {
+    border-top: 1px solid var(--line-soft);
+    background: #fbfcfe;
+}
+
+.lead-custom-fields-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 13px 14px;
+}
+
+.lead-custom-fields-head > div {
+    display: grid;
+    gap: 3px;
+}
+
+.lead-custom-fields-head strong {
+    color: var(--ink);
+    font-size: 12px;
+}
+
+.lead-custom-fields-head span,
+.lead-custom-field-empty {
+    color: var(--muted);
+    font-size: 10.5px;
+}
+
+.lead-custom-field-list {
+    display: grid;
+}
+
+.lead-custom-field-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(210px, .75fr) minmax(280px, 1.1fr) 108px;
+    align-items: end;
+    gap: 10px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--line-soft);
+    background: #fff;
+}
+
+.lead-custom-field-identity,
+.lead-custom-field-copy {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.lead-custom-field-settings {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: end;
+    gap: 8px;
+}
+
+.lead-custom-control {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.lead-custom-control > span {
+    color: #445268;
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.lead-custom-control input,
+.lead-custom-control select,
+.lead-custom-control textarea {
+    width: 100%;
+    height: 36px;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 11px;
+}
+
+.lead-custom-control input:focus,
+.lead-custom-control select:focus,
+.lead-custom-control textarea:focus {
+    border-color: #8eb1ff;
+    outline: 3px solid rgba(31, 91, 232, 0.1);
+}
+
+.lead-custom-control textarea {
+    height: auto;
+    min-height: 52px;
+    resize: vertical;
+}
+
+.lead-custom-required {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    color: #445268;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.lead-custom-required input {
+    width: 17px;
+    height: 17px;
+}
+
+.lead-custom-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    min-height: 36px;
+}
+
+.lead-custom-remove {
+    color: #a12d2d;
+}
+
+.lead-custom-field-empty {
+    margin: 0;
+    padding: 0 14px 14px;
+}
+
+.lead-custom-field-empty[hidden],
+.lead-custom-control[hidden] {
+    display: none;
+}
+
+.lead-custom-field-error {
+    margin: 0 14px 10px;
+}
+
 .lead-form-editor .field input:focus,
 .lead-form-editor .field select:focus,
 .lead-form-editor .field textarea:focus {

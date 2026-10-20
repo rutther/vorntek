@@ -379,6 +379,46 @@ class LeadViewsV2ContractTests(TestCase):
         self.assertNotContains(detail, 'Omar Farooq')
         self.assertEqual(out_of_scope.status_code, 404)
 
+    def test_queue_ranges_and_persistent_batch_entry_for_full_last_single_and_empty_pages(self):
+        rows = [
+            self._lead(full_name=f'Density acceptance {index:02d}', assignee=self.sales)
+            for index in range(26)
+        ]
+        self.client.force_login(self.manager)
+
+        for index, page, expected in (
+            (0, 1, '第1–25条，共26条'),
+            (25, 2, '第26–26条，共26条'),
+        ):
+            response = self.client.get(
+                reverse('console:lead_workspace_detail_v2', args=[rows[index].pk]),
+                {
+                    'q': 'Density acceptance',
+                    'sort': 'name',
+                    'page_size': '25',
+                    'page': page,
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, expected)
+            self.assertContains(response, 'data-nc-open-assignment')
+            self.assertContains(response, 'data-nc-assignment-dialog')
+            self.assertContains(response, 'data-nc-density="compact"')
+            self.assertContains(response, '未选择线索')
+
+        single = self.client.get(
+            reverse('console:lead_workspace_detail_v2', args=[rows[0].pk]),
+            {'q': 'Density acceptance 00'},
+        )
+        self.assertContains(single, '第1–1条，共1条')
+
+        empty = self.client.get(
+            reverse('console:lead_workspace_v2'),
+            {'q': 'no-density-results'},
+        )
+        self.assertContains(empty, '共0条')
+        self.assertNotContains(empty, 'data-nc-open-assignment')
+
     def test_legacy_get_entry_redirects_only_safe_queue_state_to_v2(self):
         self.client.force_login(self.sales)
 
@@ -1643,6 +1683,7 @@ class LeadViewsV2ContractTests(TestCase):
             '/static/console/vendor/tabler/1.4.0/tabler.min.css',
             '/static/console/v2/vorntek-theme.css',
             '/static/console/v2/vorntek-v2.css',
+            '/static/console/primary-navigation.css',
             '/static/console/v2/lead-workspace.css',
             '/static/console/vorntek-brand.css',
         ]
@@ -1650,6 +1691,7 @@ class LeadViewsV2ContractTests(TestCase):
             '/static/console/vendor/tabler/1.4.0/tabler.min.js',
             '/static/console/lucide.min.js',
             '/static/console/v2/shell.js',
+            '/static/console/primary-navigation.js',
             '/static/console/v2/leads.js',
         ]
 
@@ -1941,7 +1983,10 @@ class LeadViewsV2ContractTests(TestCase):
 
         self.assertIn('const capturedIds = new Set(ids);', source)
         self.assertIn('const assigneeId = String(owner.value);', source)
-        self.assertIn('controls.concat([pageToggle, owner, clear, assign])', source)
+        self.assertIn('[pageToggle, owner, clear, assign, trash, restore, openAssignment, closeAssignment]', source)
+        self.assertIn("bar.setAttribute('aria-hidden', 'false')", source)
+        self.assertIn('if (bulkBusy || !ids.length) return;', source)
+        self.assertIn('assignmentDialog.showModal()', source)
         self.assertIn('.filter((item) => capturedIds.has(String(item.id)))', source)
         self.assertIn("writeSessionJson(retryKey, { ownerId: assigneeId, failures: failures })", source)
         self.assertIn('reloadCanonicalLeadQueue(workspace)', source)

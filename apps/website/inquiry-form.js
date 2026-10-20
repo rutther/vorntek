@@ -41,11 +41,13 @@
     const retry=form.querySelector('[data-form-retry]');
     const consent=form.querySelector('input[name=consent][type=checkbox]');
     if(!fieldsRoot||!status||!submit||!consent)return;
-    let fields=[],ready=false,busy=false,loading=false,started=false;
+    let fields=[],schemaVersion='',ready=false,busy=false,loading=false,started=false;
     let startedAt=new Date().toISOString(),eventId='',fingerprint='';
     const setStatus=(kind,en,cn=en)=>{status.dataset.kind=kind;status.dataset.code='';localized(status,en,cn);};
     const formCodeValid=/^[a-zA-Z0-9_-]{1,100}$/.test(code);
     const base='/admin/api/leads/forms/'+encodeURIComponent(code)+'/';
+    const locale=(document.documentElement.lang||'').trim().toLowerCase();
+    const localeQuery=locale?'?locale='+encodeURIComponent(locale):'';
 
     async function load(){
       if(loading||busy)return;
@@ -54,10 +56,13 @@
       setStatus('pending','Loading form…','正在加载表单…');
       try{
         if(!formCodeValid)throw Error('invalid form');
-        const result=await request(base+'definition/');
+        const result=await request(base+'definition/'+localeQuery);
         const definition=result.form;
         if(definition?.code!==code||!Array.isArray(definition.fields)||!definition.fields.length||definition.fields.length>64)
           throw Error('invalid definition');
+        if(typeof definition.schema_version!=='string'||!/^[a-f0-9]{64}$/.test(definition.schema_version))
+          throw Error('invalid schema version');
+        schemaVersion=definition.schema_version;
         const names=new Set();
         for(const field of definition.fields){
           if(!field||!/[a-z]/.test(field.name)||!/^[a-z][a-z0-9_]{0,79}$/.test(field.name)
@@ -135,7 +140,7 @@
       const marketing=typeof window.ncPrivacyConsentGranted==='function'&&window.ncPrivacyConsentGranted()===true;
       const attribution=marketing&&typeof window.ncAdAttribution==='function'?window.ncAdAttribution():{};
       const identifiers=marketing&&typeof window.ncMetaIdentifiers==='function'?window.ncMetaIdentifiers():{};
-      const payload={...identifiers,extra_fields:{},source_url:location.href,referrer_url:document.referrer,
+      const payload={...identifiers,schema_version:schemaVersion,extra_fields:{},source_url:location.href,referrer_url:document.referrer,
         source_channel:'website',route_path:location.pathname,client_event_id:eventId,form_started_at:startedAt,
         website:form.querySelector('input[name=website]')?.value||'',
         consent:{contact:consent.checked,privacy_notice:consent.checked,marketing,recorded_at:new Date().toISOString()},utm:{}};
@@ -151,7 +156,7 @@
       setStatus('pending','Submitting…','正在提交…');
       try{
         payload.measurement_context=marketing&&typeof window.ncMeasurementContext==='function'?await window.ncMeasurementContext():'';
-        const result=await request(base+'submit/',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});
+        const result=await request(base+'submit/'+localeQuery,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});
         if(result.duplicate)setStatus('success','Already received; no duplicate was created.','此询盘已接收，未重复创建。');
         else setStatus('success','Inquiry received.','询盘已接收。');
         if(result.measurement?.shouldTrack||!result.duplicate)

@@ -197,30 +197,6 @@
         });
     }
 
-    function initSidebar() {
-        const shell = q('.nc-shell');
-        const button = q('[data-nc-sidebar-collapse]');
-        if (!shell || !button) return;
-        let collapsed = false;
-        try { collapsed = window.localStorage.getItem('nc-sidebar-collapsed') === '1'; } catch (_) {}
-        const updateButton = () => {
-            const label = collapsed ? '展开主导航' : '收起主导航';
-            button.setAttribute('aria-pressed', String(collapsed));
-            button.setAttribute('aria-label', label);
-            button.setAttribute('title', label);
-            const copy = q('span', button);
-            if (copy) copy.textContent = collapsed ? '展开菜单' : '收起菜单';
-        };
-        shell.classList.toggle('is-sidebar-collapsed', collapsed);
-        updateButton();
-        button.addEventListener('click', () => {
-            collapsed = !shell.classList.contains('is-sidebar-collapsed');
-            shell.classList.toggle('is-sidebar-collapsed', collapsed);
-            updateButton();
-            try { window.localStorage.setItem('nc-sidebar-collapsed', collapsed ? '1' : '0'); } catch (_) {}
-        });
-    }
-
     function activateTab(name, focus) {
         const tabs = qa('[data-nc-tab]');
         const panels = qa('[data-nc-panel]');
@@ -605,6 +581,25 @@
         return fallback;
     }
 
+    function initListDensity() {
+        const workspace = q('[data-nc-lead-workspace]');
+        const buttons = qa('button[data-nc-density]');
+        if (!workspace || !buttons.length) return;
+        const key = sessionPrefix('density');
+        const apply = (density) => {
+            workspace.dataset.ncDensity = density === 'detailed' ? 'detailed' : 'compact';
+            buttons.forEach((button) => button.setAttribute(
+                'aria-pressed',
+                String(button.dataset.ncDensity === workspace.dataset.ncDensity)
+            ));
+        };
+        apply(readSessionJson(key, 'compact'));
+        buttons.forEach((button) => button.addEventListener('click', () => {
+            apply(button.dataset.ncDensity);
+            writeSessionJson(key, workspace.dataset.ncDensity);
+        }));
+    }
+
     function initBulkSelection() {
         const controls = qa('[data-nc-record-select]');
         const pageToggle = q('[data-nc-select-page]');
@@ -612,6 +607,11 @@
         if (!controls.length || !pageToggle || !bar) return;
         const list = q('.nc-lead-list');
         const count = q('[data-nc-selected-count]', bar);
+        const summary = q('[data-nc-selection-summary]', bar);
+        const openAssignment = q('[data-nc-open-assignment]', bar);
+        const assignmentDialog = q('[data-nc-assignment-dialog]', bar);
+        const closeAssignment = q('[data-nc-close-assignment]', bar);
+        let bulkBusy = false;
         const owner = q('[data-nc-bulk-owner]', bar);
         const assign = q('[data-nc-bulk-assign]', bar);
         const trash = q('[data-nc-bulk-trash]', bar);
@@ -676,16 +676,32 @@
             const ids = selectedIds();
             const visible = ids.length > 0;
             if (count) count.textContent = String(ids.length);
+            if (summary) summary.textContent = visible ? '本页已选' + ids.length + '条' : '未选择线索';
             pageToggle.checked = ids.length === controls.length;
             pageToggle.indeterminate = ids.length > 0 && ids.length < controls.length;
             bar.classList.toggle('is-visible', visible);
-            bar.setAttribute('aria-hidden', String(!visible));
+            bar.setAttribute('aria-hidden', 'false');
             if (list) list.classList.toggle('has-bulk-selection', visible);
-            if (assign) assign.disabled = !visible || !owner || !owner.value;
-            if (trash) trash.disabled = !visible;
-            if (restore) restore.disabled = !visible;
+            if (assign) assign.disabled = bulkBusy || !visible || !owner || !owner.value;
+            if (openAssignment) openAssignment.disabled = bulkBusy || !visible;
+            if (clear) clear.disabled = bulkBusy || !visible;
+            if (trash) trash.disabled = bulkBusy || !visible;
+            if (restore) restore.disabled = bulkBusy || !visible;
             if (allowSelectionPersist) writeSessionJson(selectionKey, ids);
         };
+        if (openAssignment && assignmentDialog) openAssignment.addEventListener('click', () => {
+            if (bulkBusy || !selectedIds().length) return;
+            const assignmentCount = q('[data-nc-assignment-count]', assignmentDialog);
+            if (assignmentCount) assignmentCount.textContent = String(selectedIds().length);
+            assignmentDialog.showModal();
+            if (owner) owner.focus();
+        });
+        if (closeAssignment && assignmentDialog) closeAssignment.addEventListener('click', () => {
+            if (!bulkBusy) assignmentDialog.close();
+        });
+        if (assignmentDialog) assignmentDialog.addEventListener('cancel', (event) => {
+            if (bulkBusy) event.preventDefault();
+        });
         document.addEventListener('nc:logout-start', () => {
             allowSelectionPersist = false;
             try { window.sessionStorage.removeItem(selectionKey); } catch (_) {}
@@ -722,7 +738,7 @@
         });
         if (assign && owner) assign.addEventListener('click', async () => {
             const ids = selectedIds();
-            if (!ids.length) return;
+            if (bulkBusy || !ids.length) return;
             if (!owner.value) {
                 owner.focus();
                 announce('请先选择负责人。', 'error');
@@ -730,8 +746,11 @@
             }
             const assigneeId = String(owner.value);
             const capturedIds = new Set(ids);
-            const busyControls = controls.concat([pageToggle, owner, clear, assign]);
+            const busyControls = controls.concat(
+                [pageToggle, owner, clear, assign, trash, restore, openAssignment, closeAssignment].filter(Boolean)
+            );
             let keepBusyForNavigation = false;
+            bulkBusy = true;
             showFailures([]);
             setAsyncControlsBusy(busyControls, true, assign, '分配中…');
             try {
@@ -747,6 +766,7 @@
                     if (capturedIds.has(id) && !failureIds.has(id)) control.checked = false;
                 });
                 update();
+                if (assignmentDialog && assignmentDialog.open) assignmentDialog.close();
                 if (failures.length) {
                     writeSessionJson(retryKey, { ownerId: assigneeId, failures: failures });
                 } else {
@@ -777,9 +797,11 @@
                     ? '网络连接异常，当前勾选和负责人输入已保留。'
                     : (error.message || '批量分配失败，当前勾选和负责人输入已保留。');
                 announce(assignmentFailureMessage(error.payload, fallback), 'error');
+                if (assignmentDialog && assignmentDialog.open) assignmentDialog.close();
             } finally {
                 if (!keepBusyForNavigation) {
                     setAsyncControlsBusy(busyControls, false, assign);
+                    bulkBusy = false;
                     update();
                 }
             }
@@ -787,14 +809,15 @@
 
         const runTrashTransition = async (restoreMode) => {
             const ids = selectedIds();
-            if (!ids.length) return;
+            if (bulkBusy || !ids.length) return;
             const capturedIds = new Set(ids);
             const actionButton = restoreMode ? restore : confirmTrash;
             const actionLabel = restoreMode ? '恢复中…' : '移入中…';
             const busyControls = controls.concat(
-                [pageToggle, clear, trash, restore, confirmTrash].filter(Boolean)
+                [pageToggle, clear, trash, restore, confirmTrash, owner, assign, openAssignment, closeAssignment].filter(Boolean)
             );
             let keepBusyForNavigation = false;
+            bulkBusy = true;
             showFailures([]);
             setAsyncControlsBusy(busyControls, true, actionButton, actionLabel);
             try {
@@ -842,6 +865,7 @@
             } finally {
                 if (!keepBusyForNavigation) {
                     setAsyncControlsBusy(busyControls, false, actionButton);
+                    bulkBusy = false;
                     update();
                 }
             }
@@ -1833,7 +1857,7 @@
 
         document.addEventListener('keydown', (event) => {
             if (!(event.ctrlKey || event.metaKey)) return;
-            if (event.target && event.target.closest && event.target.closest('.modal')) return;
+            if (event.target && event.target.closest && event.target.closest('.modal, dialog[open]')) return;
             if (form.getAttribute('aria-busy') === 'true' && (event.key.toLowerCase() === 's' || event.key === 'Enter')) {
                 event.preventDefault();
                 return;
@@ -1868,13 +1892,13 @@
         purgeLegacyLeadSessionState();
         initLogoutSessionCleanup();
         renderIcons();
-        initSidebar();
         initQueueRestoration();
         initTabs();
         initQualification();
         initTaskModal();
         initLeadConversion();
         initActivityDefaults();
+        initListDensity();
         initBulkSelection();
         initOwnerAssignment();
         initSavedViews();

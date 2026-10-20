@@ -5,6 +5,7 @@ from django.test import SimpleTestCase
 from django.utils import timezone
 
 from leads.industrial import BUSINESS_LINES
+from leads.form_schema import public_form_fields
 from leads.notifications import _html_body, _text_body
 from leads.services import LeadCaptureError, clean_submission_input
 
@@ -22,8 +23,15 @@ class IndustrialInquiryTests(SimpleTestCase):
                              'application_context': 'Synthetic machine monitoring'},
         }
 
-    def clean(self, payload, category='industrial'):
-        return clean_submission_input(payload, form_definition=SimpleNamespace(site_id=7, id=11, category=category))
+    def clean(self, payload, category='industrial', form_schema=None):
+        return clean_submission_input(payload, form_definition=SimpleNamespace(
+            site_id=7,
+            locale_id=None,
+            code='industrial-inquiry',
+            id=11,
+            category=category,
+            form_schema={} if form_schema is None else form_schema,
+        ))
 
     def test_all_seven_lines_accept_without_beverage_capacity(self):
         self.assertEqual(len(BUSINESS_LINES), 7)
@@ -57,7 +65,15 @@ class IndustrialInquiryTests(SimpleTestCase):
     def test_notification_displays_application_context_and_escapes_html(self):
         payload = self.payload()
         payload['extra_fields']['application_context'] = '<script>example</script>'
-        cleaned = self.clean(payload)
+        legacy_fields = public_form_fields(SimpleNamespace(category='industrial', form_schema={}))
+        legacy_fields.append({
+            'name': 'application_context',
+            'type': 'textarea',
+            'label': '应用背景',
+            'enabled': True,
+            'required': False,
+        })
+        cleaned = self.clean(payload, form_schema={'fields': legacy_fields})
         submission = SimpleNamespace(id=1, submitted_at=timezone.now(),
             form=SimpleNamespace(category='industrial', form_schema={}), **cleaned)
         plain = _text_body(submission, reminder=False)

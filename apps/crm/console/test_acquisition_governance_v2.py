@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -238,6 +239,89 @@ class AcquisitionGovernanceTests(TestCase):
         editor.save()
         unused.refresh_from_db()
         self.assertEqual(unused.code, 'unused-form')
+
+    def test_editor_adds_and_persists_ordered_custom_fields(self):
+        data = self.form_post(version=lead_form_version_token(self.form_definition))
+        data['custom_fields_json'] = json.dumps([
+            {
+                'name': 'project_deadline',
+                'type': 'select',
+                'label': '计划时间',
+                'placeholder': '请选择计划时间',
+                'enabled': True,
+                'required': True,
+                'options': [
+                    {'value': 'q2', 'label': '第二季度'},
+                    {'value': 'q3', 'label': '第三季度'},
+                ],
+            },
+            {
+                'name': 'budget_note',
+                'type': 'textarea',
+                'label': '预算说明',
+                'placeholder': '选填',
+                'enabled': False,
+                'required': False,
+                'options': [],
+            },
+        ], ensure_ascii=False)
+
+        editor = LeadFormEditorForm(
+            data,
+            site=self.site,
+            form_definition=self.form_definition,
+        )
+
+        self.assertIn('custom_fields_json', editor.fields)
+        self.assertTrue(editor.is_valid(), editor.errors)
+        editor.save()
+        self.form_definition.refresh_from_db()
+        custom = [
+            item for item in self.form_definition.form_schema['fields']
+            if item['name'] in {'project_deadline', 'budget_note'}
+        ]
+        self.assertEqual([item['name'] for item in custom], ['project_deadline', 'budget_note'])
+        self.assertEqual(custom[0]['options'][0], {'value': 'q2', 'label': '第二季度'})
+        self.assertFalse(custom[1]['enabled'])
+
+    @patch('console.views.default_site_locale')
+    def test_editor_page_exposes_custom_field_controls_and_assets(self, site_locale):
+        site_locale.return_value = (self.site, self.locale)
+        self.client.force_login(self.marketing)
+
+        response = self.client.get(reverse('console:marketing_form_create'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '添加自定义字段')
+        self.assertContains(response, 'data-lead-custom-fields')
+        self.assertContains(response, '/static/console/lead-form-editor.css')
+        self.assertContains(response, '/static/console/lead-form-editor.js')
+
+    def test_editor_rejects_unsafe_or_ambiguous_custom_fields(self):
+        base = {
+            'name': 'project_deadline', 'type': 'text', 'label': '计划时间',
+            'placeholder': '', 'enabled': True, 'required': False, 'options': [],
+        }
+        cases = [
+            ([{**base, 'name': 'Project-Deadline'}], '字段代码需使用'),
+            ([base, {**base}], '已被占用或重复'),
+            ([{**base, 'name': 'message'}], '已被占用或重复'),
+            ([{**base, 'type': 'html'}], '类型不受支持'),
+            ([{**base, 'type': 'select'}], '至少需要一个选项'),
+            ([{**base, 'name': f'field_{index}'} for index in range(21)], '最多 20 个'),
+        ]
+
+        for fields, expected in cases:
+            with self.subTest(expected=expected):
+                data = self.form_post(version=lead_form_version_token(self.form_definition))
+                data['custom_fields_json'] = json.dumps(fields, ensure_ascii=False)
+                editor = LeadFormEditorForm(
+                    data,
+                    site=self.site,
+                    form_definition=self.form_definition,
+                )
+                self.assertFalse(editor.is_valid())
+                self.assertIn(expected, str(editor.errors['custom_fields_json']))
 
     @patch('console.views.default_site_locale')
     def test_valid_edit_updates_form_and_records_audit(

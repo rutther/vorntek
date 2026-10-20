@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 from types import SimpleNamespace
 
@@ -24,6 +25,7 @@ from .customer_import_services import (
 )
 from .customer_standard21_import import (
     POOL_FIELD_BY_HEADER,
+    ROW_KEY_FIELDS,
     STANDARD21_HEADERS,
     build_standard21_payloads,
     preview_standard21_import,
@@ -128,6 +130,41 @@ class Standard21ParsingTests(TestCase):
         self.assertNotEqual(rows[0].row_key, rows[1].row_key)
         again, _ = read_standard21_csv(csv_bytes([duplicate, dict(duplicate)]))
         self.assertEqual([item.row_key for item in again], [item.row_key for item in rows])
+
+    def test_row_key_does_not_alias_when_identity_values_contain_delimiters(self):
+        first = row(account_id='AUDIT|BRANCH', person_name='Person')
+        second = row(account_id='AUDIT', person_name='BRANCH|Person')
+
+        rows, rejected = read_standard21_csv(csv_bytes([first, second]))
+
+        self.assertEqual(rejected, [])
+        self.assertEqual(len(rows), 2)
+        self.assertNotEqual(rows[0].row_key, rows[1].row_key)
+        legacy_first = hashlib.sha256(
+            '|'.join(first[name] for name in ROW_KEY_FIELDS).encode('utf-8')
+        ).hexdigest()
+        self.assertNotEqual(rows[0].row_key, legacy_first)
+
+    def test_non_finite_value_is_rejected(self):
+        for value in ('NaN', 'Infinity', '-Infinity'):
+            with self.subTest(value=value):
+                rows, rejected = read_standard21_csv(
+                    csv_bytes([row(value=value, account_id=f'NON-FINITE-{value}')])
+                )
+                self.assertEqual(rows, [])
+                self.assertEqual(len(rejected), 1)
+                self.assertIn('有限数字', rejected[0]['message'])
+
+    def test_oversized_field_is_rejected_without_a_parser_500(self):
+        rows, rejected = read_standard21_csv(csv_bytes([row(company='X' * 10_001)]))
+        self.assertEqual(rows, [])
+        self.assertEqual(len(rejected), 1)
+        self.assertIn('字段 company 超过 10000 个字符', rejected[0]['message'])
+
+    def test_csv_parser_field_limit_returns_a_controlled_workflow_error(self):
+        with self.assertRaises(CustomerImportError) as caught:
+            read_standard21_csv(csv_bytes([row(company='X' * 200_000)]))
+        self.assertEqual(caught.exception.workflow_code, 'csv_invalid')
 
     def test_rows_group_into_one_company_per_account(self):
         rows, _ = read_standard21_csv(
@@ -318,6 +355,51 @@ class Standard21ImportTests(TestCase):
         self.assertIsNone(normalize_standard21_columns(['phone', 'phone', 'email']))
         self.assertIsNone(normalize_standard21_columns(['phone']))
         self.assertIsNone(normalize_standard21_columns(['phone', 'email', 'unknown']))
+
+    def test_safe_legacy_row_key_is_migrated_in_place(self):
+        first_payload = csv_bytes(
+            [row(account_id='AF-KE-LEGACY', company='Legacy Key Ltd', value='31.0')]
+        )
+        first = preview_standard21_import(
+            site=self.site,
+            actor=self.admin,
+            file_bytes=first_payload,
+            original_name='legacy.csv',
+        )
+        commit_customer_import(batch_id=first.batch.pk, site=self.site, actor=self.admin)
+        pool_row = CustomerPoolRow.objects.get(site=self.site)
+        legacy_payload = '|'.join(
+            [
+                'AF-KE-LEGACY', 'Test Person', '+254700000001', '',
+                '', '', '', '',
+            ]
+        )
+        legacy_key = hashlib.sha256(legacy_payload.encode('utf-8')).hexdigest()
+        pool_row.row_key = legacy_key
+        pool_row.save(update_fields=['row_key', 'updated_at'])
+
+        changed_payload = csv_bytes(
+            [
+                row(
+                    account_id='AF-KE-LEGACY',
+                    company='Legacy Key Ltd',
+                    country_name='Kenya',
+                    value='31.0',
+                )
+            ]
+        )
+        second = preview_standard21_import(
+            site=self.site,
+            actor=self.admin,
+            file_bytes=changed_payload,
+            original_name='legacy-refresh.csv',
+        )
+        second.batch.rows.update(status='supplement')
+        commit_customer_import(batch_id=second.batch.pk, site=self.site, actor=self.admin)
+
+        self.assertEqual(CustomerPoolRow.objects.filter(site=self.site).count(), 1)
+        pool_row.refresh_from_db()
+        self.assertNotEqual(pool_row.row_key, legacy_key)
 
     def test_export_neutralizes_formulas_but_preserves_international_phone_text(self):
         values = {field: '' for field in POOL_FIELD_BY_HEADER.values()}

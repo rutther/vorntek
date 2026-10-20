@@ -13,7 +13,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from console.access import GROUP_BY_ROLE, ROLE_SALES, ROLE_SALES_MANAGER, ROLE_SYSTEM_ADMIN
+from console.lead_forms import default_form_schema
 from console.models import AuditLog
+from leads.form_schema import configured_submission_fields
 from leads.models import (
     Activity,
     Company,
@@ -205,6 +207,102 @@ class PublicLeadCaptureVerticalTests(TestCase):
             REMOTE_ADDR=remote_addr,
             HTTP_USER_AGENT='NewCrown isolated vertical test',
         )
+
+    @patch('console.views.default_site_locale')
+    def test_public_definition_and_submit_use_exact_locale_then_shared_fallback(self, site_locale):
+        french = SiteLocale.objects.create(
+            site=self.site, locale_code='fr', label='French', direction='ltr',
+            is_default=False, enabled=True, sort_order=20,
+        )
+        localized = LeadFormDefinition.objects.create(
+            site=self.site, locale=french, code=self.form.code,
+            name='Demande de projet', category='general', channel='website',
+            scope_type='site', scope_value='*', status='active', capi_enabled=False,
+            success_message='Merci.', form_schema=default_form_schema(), config_json={'sales_team_code': 'default'},
+        )
+        site_locale.side_effect = [(self.site, french), (self.site, french), (self.site, self.locale)]
+
+        french_definition = self.client.get(
+            reverse('console:public_lead_form_definition', args=[self.form.code]) + '?locale=fr'
+        )
+        self.assertEqual(french_definition.status_code, 200)
+        self.assertEqual(french_definition.json()['form']['id'], localized.id)
+        self.assertEqual(french_definition.json()['form']['definition_locale'], 'fr')
+
+        payload = self.valid_payload(suffix='locale')
+        payload['schema_version'] = french_definition.json()['form']['schema_version']
+        accepted = self.client.post(
+            reverse('console:public_lead_submit', args=[self.form.code]) + '?locale=fr',
+            data=json.dumps(payload), content_type='application/json',
+            REMOTE_ADDR='127.0.0.1', HTTP_USER_AGENT='Synthetic locale test',
+        )
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(LeadSubmission.objects.get().form_id, localized.id)
+
+        fallback = self.client.get(
+            reverse('console:public_lead_form_definition', args=[self.form.code]) + '?locale=en'
+        )
+        self.assertEqual(fallback.status_code, 200)
+        self.assertEqual(fallback.json()['form']['id'], self.form.id)
+        self.assertIsNone(fallback.json()['form']['definition_locale'])
+
+    @patch('console.views.default_site_locale')
+    def test_submission_schema_snapshot_survives_later_form_edits(self, site_locale):
+        schema = default_form_schema()
+        schema['fields'].append({
+            'name': 'project_deadline', 'type': 'select', 'label': '计划时间',
+            'placeholder': '请选择', 'enabled': True, 'required': True,
+            'options': [
+                {'value': 'q2', 'label': '第二季度'},
+                {'value': 'q3', 'label': '第三季度'},
+            ],
+        })
+        self.form.category = 'general'
+        self.form.form_schema = schema
+        self.form.save(update_fields=['category', 'form_schema', 'updated_at'])
+        site_locale.return_value = (self.site, self.locale)
+
+        definition = self.client.get(
+            reverse('console:public_lead_form_definition', args=[self.form.code]) + '?locale=en'
+        ).json()['form']
+        payload = self.valid_payload(suffix='snapshot')
+        payload['schema_version'] = definition['schema_version']
+        payload['extra_fields'] = {'project_deadline': 'q2'}
+        accepted = self.post_payload(payload)
+
+        self.assertEqual(accepted.status_code, 200)
+        submission = LeadSubmission.objects.get()
+        self.assertEqual(submission.config_json['form_schema_version'], definition['schema_version'])
+        self.assertEqual(submission.config_json['form_schema_snapshot']['fields'][-1]['name'], 'project_deadline')
+
+        self.form.form_schema = default_form_schema()
+        self.form.save(update_fields=['form_schema', 'updated_at'])
+        display = configured_submission_fields(submission)
+        self.assertIn(
+            {'name': 'project_deadline', 'label': '计划时间', 'value': '第二季度'},
+            display,
+        )
+
+    @patch('console.views.default_site_locale')
+    def test_stale_public_schema_is_rejected_before_persistence(self, site_locale):
+        self.form.category = 'general'
+        self.form.form_schema = default_form_schema()
+        self.form.save(update_fields=['category', 'form_schema', 'updated_at'])
+        site_locale.return_value = (self.site, self.locale)
+        definition_url = reverse('console:public_lead_form_definition', args=[self.form.code]) + '?locale=en'
+        schema_version = self.client.get(definition_url).json()['form']['schema_version']
+        changed = default_form_schema()
+        changed['fields'][0]['label'] = 'Contact name'
+        self.form.form_schema = changed
+        self.form.save(update_fields=['form_schema', 'updated_at'])
+
+        payload = self.valid_payload(suffix='stale-schema')
+        payload['schema_version'] = schema_version
+        rejected = self.post_payload(payload)
+
+        self.assertEqual(rejected.status_code, 409)
+        self.assertEqual(rejected.json()['code'], 'schema_changed')
+        self.assertFalse(LeadSubmission.objects.exists())
 
     def test_valid_marketing_false_submission_persists_and_is_visible_to_manager(self):
         payload = self.valid_payload(marketing=False)

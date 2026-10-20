@@ -1,27 +1,5 @@
-/* Confirmed image-series layout. Scope to the guided workspace, never Plans. */
-body.nc-guide-workspace {--nc-sidebar:180px;--nc-topbar:59px;background:#f4f6f9}
-body.nc-guide-workspace .nc-shell:not(.is-sidebar-collapsed) {--nc-sidebar:180px}
-body.nc-guide-workspace .nc-main {background:#f4f6f9}
-/* Use the authorised host links, with the flat grouping of the confirmed guide. */
-body.nc-guide-workspace .nc-brand {min-height:92px;border-bottom:0;padding:22px 20px}
-body.nc-guide-workspace .nc-guide-primary-nav {display:block;padding:8px 16px}
-body.nc-guide-workspace .nc-guide-primary-nav .nc-nav-item {min-height:42px;padding:10px 12px;margin:4px 0;gap:11px;border:0;border-radius:6px;color:#526074}
-body.nc-guide-workspace .nc-guide-primary-nav .nc-nav-item strong {font-size:14px;font-weight:400}
-body.nc-guide-workspace .nc-guide-primary-nav .nc-nav-item.is-active {background:#edf3ff;color:#245cca}
-body.nc-guide-workspace .nc-guide-primary-nav .nc-nav-item.is-active strong {font-weight:650}
-body.nc-guide-workspace .nc-guide-primary-nav .nc-guide-nav-heading {display:block;min-height:0;margin:22px 0 8px;padding:0 12px;background:none;color:#68778b}
-body.nc-guide-workspace .nc-guide-nav-heading strong,body.nc-guide-workspace .nc-guide-nav-label {font-size:12px!important;font-weight:400}
-body.nc-guide-workspace .nc-guide-nav-heading>svg {display:none}
-body.nc-guide-workspace .nc-guide-nav-label {margin:25px 12px 8px;color:#68778b}
-body.nc-guide-workspace .is-sidebar-collapsed .nc-guide-primary-nav {padding:8px 10px}
-body.nc-guide-workspace .is-sidebar-collapsed .nc-guide-nav-label {display:none}
-body.nc-guide-workspace .is-sidebar-collapsed .nc-guide-nav-heading {display:flex;min-height:42px;margin:4px 0;padding:10px}
-body.nc-guide-workspace .is-sidebar-collapsed .nc-guide-nav-heading>svg {display:block}
-@media(max-width:1120px){
-  body.nc-guide-workspace .is-resource-nav-open .nc-guide-primary-nav .nc-guide-nav-heading {display:block;min-height:0;margin:22px 0 8px;padding:0 12px}
-  body.nc-guide-workspace .is-resource-nav-open .nc-guide-nav-heading>svg {display:none}
-  body.nc-guide-workspace .is-resource-nav-open .nc-guide-nav-label {display:block}
-}
+/* The guided-loop content keeps its own workbench layout, while the surrounding
+   shell and navigation always reuse the canonical console presentation. */
 .flow-crm-root .guide-mode {--text:#203047;--muted:#627084;background:#f4f6f9;color:#203047;font:15px/1.6 'Segoe UI','Microsoft YaHei',sans-serif}
 .flow-crm-root .guide-mode #flow-content {padding:0 30px 28px;max-width:1600px;margin:auto}
 .flow-crm-root .guide-mode .workflow-page {background:transparent}
@@ -154,6 +132,7 @@ body.nc-guide-workspace .is-sidebar-collapsed .nc-guide-nav-heading>svg {display
 .flow-crm-root .guide-list-table td {padding:21px 18px;border-top:1px solid #eef0f4;vertical-align:middle}
 .flow-crm-root .guide-list-table td:first-child {width:26%}
 .flow-crm-root .guide-list-table td:nth-child(2) {width:19%}
+.flow-crm-root .guide-list-table th:last-child,.flow-crm-root .guide-list-table td:last-child {min-width:172px}
 .flow-crm-root .guide-list-table small {display:block;color:#627084;font-size:12px;margin-top:7px}
 .flow-crm-root .guide-list-name {font:inherit;font-weight:600;background:none;border:0;padding:0;text-align:left;color:#203047;cursor:pointer;overflow-wrap:anywhere}
 .flow-crm-root .guide-list-name:hover {color:#245cca;text-decoration:underline}
@@ -161,6 +140,8 @@ body.nc-guide-workspace .is-sidebar-collapsed .nc-guide-nav-heading>svg {display
 .flow-crm-root .guide-list-count {font-size:12px;color:#245cca;background:#edf3ff;padding:3px 7px;border-radius:4px;white-space:nowrap}
 .flow-crm-root .guide-list-count.all-saved {color:#25795b;background:#eaf5ef}
 .flow-crm-root .guide-list-table .button {white-space:nowrap}
+.flow-crm-root .guide-list-actions {display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.flow-crm-root .guide-list-actions [data-manage] {background:#fff}
 .flow-crm-root .guide-list-footer {display:flex;justify-content:space-between;gap:18px;align-items:center;margin:20px 0 24px;color:#627084;font-size:12px}
 .flow-crm-root .guide-list-footer>div {display:flex;align-items:center;gap:14px}
 .flow-crm-root .guide-list-footer button {background:transparent;border:0;padding:5px 9px;font-size:18px;cursor:pointer}

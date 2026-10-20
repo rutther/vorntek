@@ -1406,6 +1406,7 @@ class CustomerExportJob(models.Model):
         related_name='customer_export_jobs',
     )
     status = models.CharField('状态', max_length=24, default='pending')
+    claim_token = models.CharField('执行代次', max_length=32, blank=True, default='')
     scope_json = models.JSONField('导出范围', default=dict)
     fields_json = models.JSONField('导出字段', default=list)
     format = models.CharField('格式', max_length=16, default='xlsx')

@@ -11,10 +11,14 @@ from console.views import public_lead_form_definition
 class GenericFormDefinitionTests(SimpleTestCase):
     def definition(self, schema):
         form = SimpleNamespace(code="general-inquiry", name="Example consultation", category="general",
-                               locale=None, form_schema=schema, success_message="Received.")
+                               id=7, site_id=1, locale_id=None, locale=None,
+                               form_schema=schema, success_message="Received.")
+        site = SimpleNamespace(pk=1)
         request = RequestFactory().get("/api/leads/forms/general-inquiry/definition/")
-        with patch("console.views.LeadFormDefinition.objects") as manager:
-            manager.select_related.return_value.filter.return_value.first.return_value = form
+        with patch("console.views.default_site_locale", return_value=(site, None)), \
+                patch("console.views.LeadFormDefinition.objects") as manager:
+            queryset = manager.select_related.return_value.filter.return_value
+            queryset.filter.return_value.first.return_value = form
             return public_lead_form_definition(request, form.code)
 
     def test_default_editor_and_public_contract_do_not_require_industry_fields(self):
@@ -55,13 +59,16 @@ class GenericFormDefinitionTests(SimpleTestCase):
             {"name": "request_kind", "type": "select", "enabled": True,
              "label": "咨询类型", "options": choices},
         ]})
-        specs = LeadFormEditorForm._resolved_field_specs(SimpleNamespace(form_definition=record))
-        custom = next((item for item in specs if item["name"] == "request_kind"), None)
+        editor = SimpleNamespace(form_definition=record)
+        specs = LeadFormEditorForm._resolved_field_specs(editor)
+        custom_fields = LeadFormEditorForm._stored_custom_field_specs(editor)
+        custom = next((item for item in custom_fields if item["name"] == "request_kind"), None)
         self.assertIsNotNone(custom)
         values = {}
         for spec in specs:
             values[f"field_{spec['name']}_enabled"] = spec["enabled"]
             values[f"field_{spec['name']}_required"] = spec["required"]
+        values["custom_fields_json"] = custom_fields
         saved = LeadFormEditorForm.cleaned_form_schema(SimpleNamespace(field_specs=specs, cleaned_data=values))
         custom = next(field for field in saved["fields"] if field["name"] == "request_kind")
         self.assertEqual(custom["options"], choices)
