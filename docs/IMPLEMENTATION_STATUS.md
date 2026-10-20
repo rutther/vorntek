@@ -11,38 +11,40 @@ Scope: [RELEASE_SCOPE.md](RELEASE_SCOPE.md). Install via the bilingual root READ
 Industrial content: [INDUSTRIAL_EXAMPLE.md](INDUSTRIAL_EXAMPLE.md). The source
 version is `VERSION` and is reported by `/healthz/`.
 
-## Observed candidate and deployment checks
+## Accepted source, release and deployment evidence
 
-- The frozen source candidate passed 118 root distribution tests, 1379 application
-  tests with 140 documented SQLite conditional skips, 209 guided-loop tests and the
-  production UI build. The changed navigation/customer-pool regression set also
-  passed independently.
-- Isolated PostgreSQL 17.11 passed fresh 0→47 and trusted 43→47 installation and
-  upgrade, repeat apply, read-only plan, schema parity, rollback, original-column
-  data preservation and the six release acceptance groups.
-- The exact source candidate `3e5bad27be2332f1a2005d046049565585aef31b` was
-  promoted to the authorized Vorntek installation. Final read-only checks observed
-  five healthy containers, 47 migrations, unchanged business row counts and all
-  external-I/O, scheduler and WhatsApp live-send flags at `0`.
+- Pull request [#7](https://github.com/rutther/vorntek/pull/7) was squash-merged as
+  `b5a17a50ab88313c13f32112261f9c9d38e5c6a1`. Pull-request, main and immutable-tag
+  CI each passed the application and PostgreSQL 18/Compose jobs.
+- Public prerelease [`v0.2.0-rc.5`](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.5)
+  contains deterministic source archives, a release manifest and checksums. A new
+  anonymous installation verified all checksums before extraction and completed
+  110 root tests with eight Git-only checks skipped, 1379 application tests, 51
+  root JavaScript tests, 209 guided-loop tests, both dependency audits and the
+  production UI build.
+- The exact merge commit was promoted to the authorized Vorntek installation after
+  a fresh paired backup, isolated restore and an isolated PostgreSQL gate. Final
+  read-only checks observed five healthy containers, 47 migrations, preserved
+  business counts and every external-I/O, scheduler and WhatsApp live-send flag at
+  `0`.
 - Real-browser production review covered the English public site and contact form
   without submission, CRM workbench, lead selection/batch controls, customer pool,
-  three independent loop instances, seven-node flow view, task guide, all sixteen
-  operation figures and the verification page. The disposable review operator was
-  deleted; the original eight-user count was restored.
-- GitHub pull-request CI, immutable tag/release assets and anonymous public-download
-  installation are still pending for this candidate and must not inherit rc.4's
-  green checks.
+  three independent loop instances, flow/task views and operation figures. The
+  append-only audit log retained the review actor as an inactive, permission-free,
+  unusable-password tombstone; no review credential remains.
+- The complete identities, asset hashes, test counts, production observations and
+  non-claims are in the [rc.5 acceptance record](releases/0.2.0-rc.5-acceptance.md).
 
 ## Candidate identities and boundaries
 
-- Product candidate: `3e5bad27be2332f1a2005d046049565585aef31b` plus the
-  release-metadata commit prepared on the same branch.
+- Product commit and immutable tag target:
+  `b5a17a50ab88313c13f32112261f9c9d38e5c6a1`.
 - Running Vorntek CRM/worker image:
-  `sha256:db2ef62270fa602c24f397b5bdf093b963546b637ce04b021a34357270bb6607`.
+  `sha256:4a1878514ae988d69b1ecfab0298e379d4868f0bed7962760578ac471eb70b0c`.
 - Running Vorntek website image:
-  `sha256:656c96060f5d0da5e52d665e5282421393178dc03f2131961453d998daba955a`.
-- Target public version: `v0.2.0-rc.5`; PR, CI, tag, release and anonymous-download
-  identities will be recorded only after they exist.
+  `sha256:bfbff73ec124487db352a160cd2e87fa6e83120f24b914ec096a25a60ab28105`.
+- Public version: `v0.2.0-rc.5`; its tag, release assets and public-download evidence
+  are immutable identities recorded in the acceptance record.
 
 The authorized Vorntek deployment did not modify the Hong Kong installation, any
 external Meta account or any real delivery channel. Publishing source is not a
