@@ -1228,7 +1228,14 @@ class CustomerPoolViewTests(TestCase):
         job = CustomerExportJob.objects.get(created_by=self.sales)
         output = StringIO()
 
-        call_command('process_customer_exports', limit=10, stdout=output)
+        # The real worker is a standalone process and deliberately closes its
+        # database connection on exit.  call_command() runs it inside this
+        # TestCase transaction, so preserve the harness connection while still
+        # exercising the real claim, generation and completion path.
+        with patch(
+            'leads.management.commands.process_customer_exports.close_old_connections'
+        ):
+            call_command('process_customer_exports', limit=10, stdout=output)
 
         job.refresh_from_db()
         self.assertEqual(job.status, 'ready')
