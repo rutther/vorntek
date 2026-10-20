@@ -30,6 +30,7 @@ APPENDED_SUFFIXES = (
     "lead_form_locale_contract",
     "customer_export_claim_generation",
     "customer_parent_site_immutable",
+    "customer_pool_final_state_constraints",
 )
 
 
@@ -44,7 +45,7 @@ class CleanProductMigrationTests(unittest.TestCase):
             [item.name for item in pending],
             [f"{index:04d}_{name}.sql" for index, name in enumerate(APPENDED_SUFFIXES, 33)],
         )
-        self.assertEqual(len(pending_migrations(self.chain, {})), 46)
+        self.assertEqual(len(pending_migrations(self.chain, {})), 47)
 
     def test_deployed_legacy_prefix_keeps_its_original_checksums(self):
         prefix_digest = hashlib.sha256(
@@ -55,9 +56,9 @@ class CleanProductMigrationTests(unittest.TestCase):
     def test_actual_twenty_seven_migration_server_gets_the_intermediate_prefix_too(self):
         recorded = {item.name: item.checksum for item in self.chain[:27]}
         pending = pending_migrations(self.chain, recorded)
-        self.assertEqual(len(pending), 19)
+        self.assertEqual(len(pending), 20)
         self.assertEqual(pending[0].name, "0028_customer_pool_standard21.sql")
-        self.assertEqual(pending[-1].name, "0046_customer_parent_site_immutable.sql")
+        self.assertEqual(pending[-1].name, "0047_customer_pool_final_state_constraints.sql")
 
     def test_complete_installation_has_no_pending_replay(self):
         recorded = {item.name: item.checksum for item in self.chain}
