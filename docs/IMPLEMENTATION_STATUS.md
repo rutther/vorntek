@@ -13,7 +13,7 @@ version is `VERSION` and is reported by `/healthz/`.
 
 ## Observed candidate and deployment checks
 
-- The frozen source candidate passed 118 root distribution tests, 1377 application
+- The frozen source candidate passed 118 root distribution tests, 1379 application
   tests with 140 documented SQLite conditional skips, 209 guided-loop tests and the
   production UI build. The changed navigation/customer-pool regression set also
   passed independently.

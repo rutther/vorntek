@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from io import StringIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.management import call_command
 from django.db import DatabaseError, connection
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
@@ -240,6 +242,58 @@ class AcquisitionGovernanceTests(TestCase):
         unused.refresh_from_db()
         self.assertEqual(unused.code, 'unused-form')
 
+    def test_same_form_code_is_unique_within_shared_or_exact_locale_scope(self):
+        LeadFormDefinition.objects.create(
+            site=self.site,
+            locale=None,
+            code='regional_inquiry',
+            name='Shared fallback',
+            category='general',
+        )
+        data = self.form_post(version='')
+        data['code'] = 'regional_inquiry'
+        localized = LeadFormEditorForm(data, site=self.site)
+        self.assertTrue(localized.is_valid(), localized.errors)
+
+        LeadFormDefinition.objects.create(
+            site=self.site,
+            locale=self.locale,
+            code='regional_inquiry',
+            name='English contract',
+            category='general',
+        )
+        duplicate = LeadFormEditorForm(data, site=self.site)
+        self.assertFalse(duplicate.is_valid())
+        self.assertIn('该表单代码已存在', str(duplicate.errors['code']))
+
+    def test_bootstrap_preserves_localized_form_beside_shared_fallback(self):
+        LeadFormDefinition.objects.create(
+            site=self.site,
+            locale=None,
+            code='project-inquiry',
+            name='Shared project inquiry',
+            category='general',
+        )
+
+        call_command('bootstrap_site', stdout=StringIO())
+
+        self.assertEqual(
+            LeadFormDefinition.objects.filter(
+                site=self.site,
+                code='project-inquiry',
+                locale__isnull=True,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            LeadFormDefinition.objects.filter(
+                site=self.site,
+                code='project-inquiry',
+                locale=self.locale,
+            ).count(),
+            1,
+        )
+
     def test_editor_adds_and_persists_ordered_custom_fields(self):
         data = self.form_post(version=lead_form_version_token(self.form_definition))
         data['custom_fields_json'] = json.dumps([
@@ -306,6 +360,7 @@ class AcquisitionGovernanceTests(TestCase):
             ([{**base, 'name': 'Project-Deadline'}], '字段代码需使用'),
             ([base, {**base}], '已被占用或重复'),
             ([{**base, 'name': 'message'}], '已被占用或重复'),
+            ([{**base, 'name': 'form_started_at'}], '已被占用或重复'),
             ([{**base, 'type': 'html'}], '类型不受支持'),
             ([{**base, 'type': 'select'}], '至少需要一个选项'),
             ([{**base, 'name': f'field_{index}'} for index in range(21)], '最多 20 个'),

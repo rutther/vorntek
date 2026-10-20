@@ -84,7 +84,7 @@ RESERVED_CUSTOM_FIELD_NAMES = {
     *(item['name'] for item in FIELD_LIBRARY),
     'name', 'website', 'consent', 'utm', 'extra_fields', 'source_url',
     'referrer_url', 'route_path', 'cta_code', 'client_event_id',
-    'measurement_context', 'buyer_value', 'buyer_currency', 'schema_version',
+    'form_started_at', 'measurement_context', 'buyer_value', 'buyer_currency', 'schema_version',
     'identifiers_json', 'config_json', 'payload_json',
 }
 
@@ -345,11 +345,6 @@ class LeadFormEditorForm(forms.Form):
         code = (self.cleaned_data['code'] or '').strip().lower().replace('-', '_')
         if not code:
             raise forms.ValidationError('表单代码不能为空。')
-        queryset = LeadFormDefinition.objects.filter(site=self.site, code=code)
-        if self.form_definition:
-            queryset = queryset.exclude(id=self.form_definition.id)
-        if queryset.exists():
-            raise forms.ValidationError('该表单代码已存在。')
         return code
 
     def _clean_json_field(self, field_name: str) -> dict:
@@ -369,6 +364,18 @@ class LeadFormEditorForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        code = cleaned.get('code')
+        locale = cleaned.get('locale')
+        if code and 'locale' not in self.errors:
+            queryset = LeadFormDefinition.objects.filter(
+                site=self.site,
+                code=code,
+                locale=locale,
+            )
+            if self.form_definition:
+                queryset = queryset.exclude(id=self.form_definition.id)
+            if queryset.exists():
+                self.add_error('code', '该表单代码已存在。')
         if not self.errors:
             self.cleaned_form_schema()
         return cleaned
