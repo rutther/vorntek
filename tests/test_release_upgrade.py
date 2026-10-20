@@ -68,10 +68,28 @@ class ReleaseUpgradeInputTests(unittest.TestCase):
         with patch('scripts.test_release_upgrade.PUBLIC_BASELINE',baseline_revision):
             self.assertEqual(
                 validate_baseline_checkout(self.old,self.new),
-                (1,1,candidate_revision))
+                (1,1,candidate_revision,baseline_revision))
             (self.new/'uncommitted.txt').write_text('not part of the candidate commit\n')
             with self.assertRaisesRegex(ValueError,'Candidate checkout is dirty'):
                 validate_baseline_checkout(self.old,self.new)
+
+    def test_explicit_trusted_baseline_is_verified_and_reported(self):
+        old_migrations=self.old/'apps/crm/db/migrations'
+        new_migrations=self.new/'apps/crm/db/migrations'
+        old_migrations.mkdir(parents=True)
+        new_migrations.mkdir(parents=True)
+        for source,target in ((self.old,old_migrations),(self.new,new_migrations)):
+            for path in list(source.glob('*.sql'))+[source/'SHA256SUMS']:
+                path.replace(target/path.name)
+        baseline_revision=self.initialize_git_checkout(self.old)
+        candidate_revision=self.initialize_git_checkout(self.new)
+        self.assertEqual(
+            validate_baseline_checkout(
+                self.old,self.new,expected_baseline=baseline_revision),
+            (1,1,candidate_revision,baseline_revision))
+        with self.assertRaisesRegex(ValueError,'expected trusted revision'):
+            validate_baseline_checkout(
+                self.old,self.new,expected_baseline='0'*40)
 
     def test_new_framework_permissions_may_append_but_old_rows_cannot_change(self):
         before={'auth_permission':['old'],'django_content_type':['type'],'lead_submission':['lead']}

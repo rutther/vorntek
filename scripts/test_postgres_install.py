@@ -113,13 +113,19 @@ def main():
     parser.add_argument('--pg-bin', type=Path, required=True)
     parser.add_argument('--baseline-checkout',type=Path,
                         help='Separate clean frozen public main checkout for an actual source upgrade.')
+    parser.add_argument('--expected-baseline',
+                        help='Exact trusted commit expected at --baseline-checkout.')
     parser.add_argument('--http', action='store_true', help='Also exercise website-to-CRM HTTP using synthetic accounts.')
     parser.add_argument('--review-seconds', type=int, default=0, help='Keep the isolated HTTP server available briefly for browser review (max 900s).')
     args = parser.parse_args()
     candidate_commit = None
+    baseline_commit = None
+    baseline_migration_count = None
     if args.baseline_checkout:
-        from test_release_upgrade import validate_baseline_checkout
-        _,_,candidate_commit=validate_baseline_checkout(args.baseline_checkout,ROOT)
+        from test_release_upgrade import PUBLIC_BASELINE,validate_baseline_checkout
+        baseline_migration_count,_,candidate_commit,baseline_commit=validate_baseline_checkout(
+            args.baseline_checkout,ROOT,
+            expected_baseline=args.expected_baseline or PUBLIC_BASELINE)
     if not 0 <= args.review_seconds <= 900 or (args.review_seconds and not args.http):
         parser.error('--review-seconds requires --http and must be between 0 and 900.')
     if (CRM / '.env').exists():
@@ -455,8 +461,9 @@ assert LeadSubmission.objects.get(email='inquiry@example.invalid').message=='Ret
 print('SYNTHETIC_UPGRADE_PRESERVED')
 '''
             manage('shell','-c',verification,db='newcrown_public_upgrade',contains='SYNTHETIC_UPGRADE_PRESERVED')
-            checked('actual_public_main_0032_upgrade_preserves_all_old_columns_password_vault_and_tasks',
-                    {'baseline':'6d3eefe7e5e124c31d175a1bfc971b58dd197082','original_tables':len(old_columns)})
+            checked(
+                f'actual_trusted_{baseline_migration_count:04d}_upgrade_preserves_all_old_columns_password_vault_and_tasks',
+                {'baseline':baseline_commit,'original_tables':len(old_columns)})
 
         failure = '''import os; os.environ['DJANGO_SETTINGS_MODULE']='siteos_admin.settings'
 import django; django.setup()
