@@ -9,15 +9,16 @@ repository permission and no retained checkout credentials.
 | application | Python lock/install/audit, repository tests, history guard with exact asset approvals, release identity, npm lock/audit, selected browser contracts, full flow-ui tests/build and complete synthetic SQLite suite |
 | postgres-and-compose | PostgreSQL18, actual old public-main upgrade, prior RC schema route, fresh install/failed migration/backup restore/HTTP, Compose builds/startup/preflight, Nginx publication/recovery/rollback, restart and worker stop |
 
-The public upgrade baseline is `6d3eefe7e5e124c31d175a1bfc971b58dd197082`
-with32 SQL migrations. The harness initializes that actual code, creates synthetic
+The public upgrade baseline is the immutable `v0.2.0-rc.4` merge commit
+`20946994d1592a2a09e204b886c13e45560e304f` with 43 SQL migrations. The harness
+initializes that actual code, creates synthetic
 business rows and a vault value, upgrades with the candidate, compares every old
 table's original columns and checks password/vault/task access. The older26-SQL
 route and fail-closed installer checks remain.
 
 ```sh
-git worktree add --detach /YOUR_TEMP/vorntek-public-main 6d3eefe7e5e124c31d175a1bfc971b58dd197082
-python scripts/test_release_upgrade.py --baseline-checkout /YOUR_TEMP/vorntek-public-main --candidate-checkout . --pg-bin /YOUR_POSTGRES/bin
+git worktree add --detach /YOUR_TEMP/vorntek-rc4 20946994d1592a2a09e204b886c13e45560e304f
+python scripts/test_release_upgrade.py --baseline-checkout /YOUR_TEMP/vorntek-rc4 --candidate-checkout . --pg-bin /YOUR_POSTGRES/bin
 ```
 
 Use your own temporary path and installed PostgreSQL binaries. Only new local

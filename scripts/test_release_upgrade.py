@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[1]
-PUBLIC_BASELINE='6d3eefe7e5e124c31d175a1bfc971b58dd197082'
+PUBLIC_BASELINE='20946994d1592a2a09e204b886c13e45560e304f'
 
 
 def preserved_original_rows(before: dict, after: dict) -> bool:

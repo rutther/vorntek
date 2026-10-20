@@ -79,8 +79,8 @@ jobs:
           sudo apt-get install -y postgresql-18
       - name: Isolated PostgreSQL lifecycle and website-to-CRM HTTP
         run: |
-          git worktree add --detach "$RUNNER_TEMP/vorntek-public-main" 6d3eefe7e5e124c31d175a1bfc971b58dd197082
-          python scripts/test_release_upgrade.py --baseline-checkout "$RUNNER_TEMP/vorntek-public-main" --candidate-checkout . --pg-bin /usr/lib/postgresql/18/bin
+          git worktree add --detach "$RUNNER_TEMP/vorntek-rc4" 20946994d1592a2a09e204b886c13e45560e304f
+          python scripts/test_release_upgrade.py --baseline-checkout "$RUNNER_TEMP/vorntek-rc4" --candidate-checkout . --pg-bin /usr/lib/postgresql/18/bin
       - name: Generate synthetic installation configuration
         run: python scripts/configure.py
       - name: Validate and build all images without publication
