@@ -48,7 +48,7 @@ class SystemGovernanceShellContractTests(SimpleTestCase):
         self.assertEqual(source.count('<h1'), 1)
         self.assertIn('<h1 class="module-title">{{ page_payload.title }}</h1>', source)
         self.assertIn('class="admin-skip-link" href="#main-content"', source)
-        self.assertIn('<main class="main" id="main-content" tabindex="-1">', source)
+        self.assertIn('<main class="main nc-app" id="main-content" tabindex="-1">', source)
         self.assertIn('admin-shell.css\' %}?v=20260831a', source)
         self.assertIn('{% static stylesheet %}?v=20260831c', source)
 

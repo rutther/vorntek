@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta
 import uuid
+from unittest.mock import patch
 
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
@@ -37,7 +38,8 @@ class SelectFieldEditorTests(FileLifecycleFixture, TestCase):
         record = editor.save(); record.refresh_from_db()
         field = next(f for f in public_form_fields(record) if f['name'] == 'product_category')
         self.assertEqual(field['options'], [{'value': 'advice', 'label': '个人咨询'}, {'value': 'team', 'label': '团队协作'}])
-        response = public_lead_form_definition(RequestFactory().get('/definition/'), record.code)
+        with patch('console.views.default_site_locale', return_value=(self.site, None)):
+            response = public_lead_form_definition(RequestFactory().get('/definition/'), record.code)
         self.assertEqual(response.status_code, 200)
         self.assertIn(field, json.loads(response.content)['form']['fields'])
         locale = SiteLocale.objects.create(site=self.site, locale_code='en', label='English', is_default=True, enabled=True)

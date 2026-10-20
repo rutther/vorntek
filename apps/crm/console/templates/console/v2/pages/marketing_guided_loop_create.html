@@ -46,7 +46,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="id_name">闭环名称 <span class="text-danger" aria-hidden="true">*</span></label>
-                        <input class="form-control {% if form.name.errors %}is-invalid{% endif %}" id="id_name" name="name" maxlength="200" minlength="2" required value="{{ form.name.value|default:'' }}" placeholder="例如：官网项目咨询" aria-describedby="loop-name-help">
+                        <input class="form-control {% if form.name.errors %}is-invalid{% endif %}" id="id_name" name="name" maxlength="200" minlength="2" required value="{{ form.name.value|default:'' }}" placeholder="例如：官网询盘 · 正式业务" aria-describedby="loop-name-help">
                         {% for error in form.name.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
                         <div class="form-hint" id="loop-name-help">用于在目录中识别这条进程，之后可以修改；内部编号不会随名称改变。</div>
                     </div>

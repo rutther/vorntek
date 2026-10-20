@@ -16,6 +16,9 @@ test('creation uses real command payload, rejects concurrent submit, and retains
  try{
   await act(async()=>root.render(React.createElement(out.exports.GuideCreate,{guard,onCancel:()=>{},onCreate:payload=>{calls.push(payload);return new Promise(resolve=>finish=resolve);}})));
   assert.equal(document.querySelectorAll('.guide-type-card').length,4);
+  const placeholder=document.querySelector('input[name="name"]').getAttribute('placeholder');
+  assert.equal(placeholder,'例如：官网询盘 · 正式业务');
+  assert.doesNotMatch(placeholder,/瓶装水|产线|东南亚|灌装/);
   await fill('input[name="name"]','第二个独立实例');await fill('select[name="environment"]','test');await fill('textarea[name="note"]','范围仅用于本地测试');
   assert.equal(guard.current.dirty,true);
   await act(async()=>{document.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));document.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));});

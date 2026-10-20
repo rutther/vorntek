@@ -1,6 +1,8 @@
 """The field contract shared by configurable website inquiry forms."""
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from types import SimpleNamespace
 
@@ -106,13 +108,50 @@ def public_form_fields(form_definition):
     ]
 
 
+def lead_form_schema_version(form_definition) -> str:
+    """Return a deterministic identity for the public contract visitors saw."""
+    payload = {
+        'site_id': getattr(form_definition, 'site_id', None),
+        'locale_id': getattr(form_definition, 'locale_id', None),
+        'code': getattr(form_definition, 'code', ''),
+        'fields': public_form_fields(form_definition),
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(',', ':'),
+    ).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def lead_form_schema_snapshot(form_definition) -> dict:
+    """Freeze labels, option captions, and order used for one submission."""
+    return {
+        'version': lead_form_schema_version(form_definition),
+        'fields': public_form_fields(form_definition),
+    }
+
+
 def configured_submission_fields(submission):
     """Project saved values through the configured field contract, not an industry.
 
     None identifies an explicit pre-schema legacy form. Hidden/historical values
     are not deleted; callers can retain their existing raw-record access.
     """
-    rules = effective_form_fields(submission.form)
+    config = submission.config_json if isinstance(submission.config_json, dict) else {}
+    snapshot = config.get('form_schema_snapshot')
+    snapshot_fields = snapshot.get('fields') if isinstance(snapshot, dict) else None
+    if isinstance(snapshot_fields, list) and snapshot_fields:
+        try:
+            rules = effective_form_fields(SimpleNamespace(
+                category='general',
+                form_schema={'fields': snapshot_fields},
+            ))
+        except FormSchemaError:
+            rules = effective_form_fields(submission.form)
+    else:
+        rules = effective_form_fields(submission.form)
     if rules is None:
         return None
     rows = []

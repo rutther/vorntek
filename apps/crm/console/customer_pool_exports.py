@@ -434,32 +434,33 @@ def _build_private_export(
     return private_path, digest
 
 
-def _fail_processing_job(job_id: int) -> None:
+def _fail_processing_job(job_id: int, claim_token: str) -> None:
     with transaction.atomic():
         job = CustomerExportJob.objects.select_for_update().filter(pk=job_id).first()
-        if job is None or job.status != 'processing':
+        if (
+            job is None
+            or job.status != 'processing'
+            or not claim_token
+            or job.claim_token != claim_token
+        ):
             return
         _remove_private_file(job)
         job.status = 'failed'
+        job.claim_token = ''
         job.storage_path = ''
         job.sha256 = ''
         job.expires_at = None
         job.completed_at = timezone.now()
         job.save(
             update_fields=[
-                'status', 'storage_path', 'sha256', 'expires_at',
+                'status', 'claim_token', 'storage_path', 'sha256', 'expires_at',
                 'completed_at', 'updated_at',
             ]
         )
 
 
-def process_customer_export_job(job_id: int) -> bool:
-    """Claim and render one export outside the web request.
-
-    The final state is committed only after a second permission check. A user
-    cancellation that wins while the workbook is being generated therefore
-    remains authoritative and the temporary file is removed.
-    """
+def _claim_customer_export_job(job_id: int) -> tuple[CustomerExportJob, str] | None:
+    """Claim one execution generation; stale workers keep their old token."""
 
     stale_before = timezone.now() - timedelta(minutes=PROCESSING_STALE_MINUTES)
     with transaction.atomic():
@@ -470,37 +471,58 @@ def process_customer_export_job(job_id: int) -> bool:
             .first()
         )
         if job is None:
-            return False
+            return None
         claimable = job.status == 'pending' or (
             job.status == 'processing' and job.updated_at <= stale_before
         )
         if not claimable:
-            return False
+            return None
         if not job.created_by.is_active or not can_sales(
             job.created_by, SalesCapability.POOL_EXPORT
         ):
             job.status = 'failed'
+            job.claim_token = ''
             job.completed_at = timezone.now()
-            job.save(update_fields=['status', 'completed_at', 'updated_at'])
-            return False
+            job.save(
+                update_fields=['status', 'claim_token', 'completed_at', 'updated_at']
+            )
+            return None
+        claim_token = uuid.uuid4().hex
         job.status = 'processing'
+        job.claim_token = claim_token
         job.completed_at = None
-        job.save(update_fields=['status', 'completed_at', 'updated_at'])
-        actor = job.created_by
+        job.save(
+            update_fields=['status', 'claim_token', 'completed_at', 'updated_at']
+        )
+        return job, claim_token
+
+
+def process_customer_export_job(job_id: int) -> bool:
+    """Claim and render one export outside the web request.
+
+    Completion and failure must match the exact claim generation. Cancellation
+    and a newer stale-job reclaim therefore remain authoritative.
+    """
+
+    claim = _claim_customer_export_job(job_id)
+    if claim is None:
+        return False
+    job, claim_token = claim
+    actor = job.created_by
 
     try:
         job = CustomerExportJob.objects.select_related('site').get(pk=job_id)
         fields = _normalized_fields(job.fields_json)
         if fields is None or job.format not in EXPORT_FORMATS:
-            _fail_processing_job(job_id)
+            _fail_processing_job(job_id, claim_token)
             return False
         companies = _authorized_snapshot(job=job, user=actor)
         if companies is None:
-            _fail_processing_job(job_id)
+            _fail_processing_job(job_id, claim_token)
             return False
         private_path, digest = _build_private_export(companies, fields)
     except Exception:
-        _fail_processing_job(job_id)
+        _fail_processing_job(job_id, claim_token)
         return False
 
     with transaction.atomic():
@@ -509,7 +531,7 @@ def process_customer_export_job(job_id: int) -> bool:
             .select_related('site', 'created_by')
             .get(pk=job_id)
         )
-        if locked.status != 'processing':
+        if locked.status != 'processing' or locked.claim_token != claim_token:
             private_path.unlink(missing_ok=True)
             return False
         if not locked.created_by.is_active or not can_sales(
@@ -517,10 +539,14 @@ def process_customer_export_job(job_id: int) -> bool:
         ) or _authorized_snapshot(job=locked, user=locked.created_by) is None:
             private_path.unlink(missing_ok=True)
             locked.status = 'failed'
+            locked.claim_token = ''
             locked.completed_at = timezone.now()
-            locked.save(update_fields=['status', 'completed_at', 'updated_at'])
+            locked.save(
+                update_fields=['status', 'claim_token', 'completed_at', 'updated_at']
+            )
             return False
         locked.status = 'ready'
+        locked.claim_token = ''
         locked.record_count = len(companies)
         locked.storage_path = private_path.relative_to(_export_root()).as_posix()
         locked.sha256 = digest
@@ -528,7 +554,7 @@ def process_customer_export_job(job_id: int) -> bool:
         locked.completed_at = timezone.now()
         locked.save(
             update_fields=[
-                'status', 'record_count', 'storage_path', 'sha256',
+                'status', 'claim_token', 'record_count', 'storage_path', 'sha256',
                 'expires_at', 'completed_at', 'updated_at',
             ]
         )
@@ -758,12 +784,15 @@ def customer_pool_export_retry(request, job_id: int):
         return redirect('console:customer_pool')
     _remove_private_file(job)
     job.status = 'pending'
+    job.claim_token = ''
     job.storage_path = ''
     job.sha256 = ''
     job.expires_at = None
     job.completed_at = None
     job.save(
-        update_fields=['status', 'storage_path', 'sha256', 'expires_at', 'completed_at']
+        update_fields=[
+            'status', 'claim_token', 'storage_path', 'sha256', 'expires_at', 'completed_at'
+        ]
     )
     messages.success(request, '导出重试已重新进入后台队列。')
     return redirect('console:customer_pool')
@@ -787,7 +816,8 @@ def customer_pool_export_cancel(request, job_id: int):
         return redirect('console:customer_pool')
     _remove_private_file(job)
     job.status = 'canceled'
+    job.claim_token = ''
     job.completed_at = job.completed_at or timezone.now()
-    job.save(update_fields=['status', 'completed_at'])
+    job.save(update_fields=['status', 'claim_token', 'completed_at'])
     messages.success(request, '导出任务已取消，原文件已撤销。')
     return redirect('console:customer_pool')

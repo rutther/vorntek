@@ -109,8 +109,17 @@ from .data_governance_forms import AttachmentCleanupForm, RetentionExecutionForm
 from .crm_files import process_private_attachment_cleanup
 from .forms import ArticleEditorForm, AssetImportPathForm, AssetUploadForm, asset_mime_type
 from .lead_forms import LeadFormEditorForm, LeadSubmissionEditorForm, default_form_schema
-from leads.form_schema import FormSchemaError, public_form_fields
-from .lead_exports import build_leads_csv, build_leads_xlsx, lead_export_queryset
+from leads.form_schema import (
+    FormSchemaError,
+    lead_form_schema_version,
+    public_form_fields,
+)
+from .lead_exports import (
+    LeadExportLimitError,
+    build_leads_csv,
+    build_leads_xlsx,
+    lead_export_queryset,
+)
 from .leads_workspace import build_leads_workspace
 from .locale_admin import create_locale_from_source, disable_locale, enable_locale, set_default_locale
 from .locale_forms import LocaleBootstrapForm
@@ -2282,6 +2291,7 @@ def lead_form_create(request):
         workspace_template='console/_lead_form_editor_workspace.html',
         locale_code=locale.locale_code,
         extra_stylesheets=['console/lead-form-editor.css'],
+        extra_scripts=['console/lead-form-editor.js'],
         extra_context={
             'hide_toolrows': True,
             'hide_topbar_center': True,
@@ -2351,6 +2361,7 @@ def lead_form_edit(request, form_id: int):
         workspace_template='console/_lead_form_editor_workspace.html',
         locale_code=locale.locale_code,
         extra_stylesheets=['console/lead-form-editor.css'],
+        extra_scripts=['console/lead-form-editor.js'],
         extra_context={
             'hide_toolrows': True,
             'hide_topbar_center': True,
@@ -2452,10 +2463,17 @@ def lead_submission_edit(request, submission_id: int):
 @login_required
 def lead_submission_export_csv(request):
     site, _locale = default_site_locale(requested_locale_code(request))
-    body, count = build_leads_csv(lead_export_queryset(request, site))
+    try:
+        body, count = build_leads_csv(lead_export_queryset(request, site))
+    except LeadExportLimitError as exc:
+        return HttpResponse(str(exc), status=413, content_type='text/plain; charset=utf-8')
     filename = f'vorntek-leads-{timezone.now():%Y%m%d-%H%M}.csv'
-    response = HttpResponse(body, content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response = FileResponse(
+        body,
+        as_attachment=True,
+        filename=filename,
+        content_type='text/csv; charset=utf-8',
+    )
     response['X-Export-Count'] = str(count)
     return response
 
@@ -2463,7 +2481,10 @@ def lead_submission_export_csv(request):
 @login_required
 def lead_submission_export_xlsx(request):
     site, _locale = default_site_locale(requested_locale_code(request))
-    workbook, count = build_leads_xlsx(lead_export_queryset(request, site))
+    try:
+        workbook, count = build_leads_xlsx(lead_export_queryset(request, site))
+    except LeadExportLimitError as exc:
+        return HttpResponse(str(exc), status=413, content_type='text/plain; charset=utf-8')
     filename = f'vorntek-leads-{timezone.now():%Y%m%d-%H%M}.xlsx'
     response = FileResponse(
         workbook,
@@ -2982,6 +3003,22 @@ def system_team_edit(request, team_id: int):
     )
 
 
+def _public_lead_form_for_locale(*, site, form_code: str, locale):
+    """Resolve the exact locale contract, then the site-wide fallback."""
+    if not site:
+        return None
+    queryset = LeadFormDefinition.objects.select_related('locale').filter(
+        site=site,
+        code=form_code,
+        status='active',
+    )
+    if locale is not None:
+        localized = queryset.filter(locale=locale).first()
+        if localized:
+            return localized
+    return queryset.filter(locale__isnull=True).first()
+
+
 @csrf_exempt
 def public_lead_form_definition(request, form_code: str):
     if request.method == 'OPTIONS':
@@ -2989,7 +3026,27 @@ def public_lead_form_definition(request, form_code: str):
     if request.method != 'GET':
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Method not allowed.'}, status=405))
 
-    lead_form = LeadFormDefinition.objects.select_related('locale').filter(code=form_code, status='active').first()
+    from marketing.flow_runtime import runtime_enabled
+    from marketing.measurement_context import resolve_measurement_site
+    locale_code = requested_locale_code(request)
+    if runtime_enabled():
+        site = resolve_measurement_site(request)
+        locale = (
+            SiteLocale.objects.filter(
+                site=site,
+                locale_code=locale_code,
+                enabled=True,
+            ).first()
+            if site and locale_code
+            else None
+        )
+    else:
+        site, locale = default_site_locale(locale_code)
+    lead_form = _public_lead_form_for_locale(
+        site=site,
+        form_code=form_code,
+        locale=locale,
+    )
     if not lead_form:
         return apply_cors_headers(request, JsonResponse({'ok': False, 'error': 'Form not found.'}, status=404))
 
@@ -3003,9 +3060,16 @@ def public_lead_form_definition(request, form_code: str):
         {
             'ok': True,
             'form': {
+                'id': lead_form.id,
                 'code': lead_form.code,
                 'name': lead_form.name,
-                'locale': lead_form.locale.locale_code if lead_form.locale else None,
+                'locale': (
+                    lead_form.locale.locale_code
+                    if lead_form.locale
+                    else locale.locale_code if locale else None
+                ),
+                'definition_locale': lead_form.locale.locale_code if lead_form.locale else None,
+                'schema_version': lead_form_schema_version(lead_form),
                 'success_message': lead_form.success_message or '',
                 'fields': fields,
             },
@@ -3431,7 +3495,13 @@ def public_lead_submit(request, form_code: str):
         locale = SiteLocale.objects.filter(site=site, locale_code=requested_locale_code(request), enabled=True).first()
     else:
         site, locale = default_site_locale(requested_locale_code(request))
-    lead_form = get_object_or_404(LeadFormDefinition, site=site, code=form_code, status='active')
+    lead_form = _public_lead_form_for_locale(
+        site=site,
+        form_code=form_code,
+        locale=locale,
+    )
+    if lead_form is None:
+        raise Http404('Form not found.')
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
     except (UnicodeDecodeError, json.JSONDecodeError):

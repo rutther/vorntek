@@ -161,6 +161,14 @@ class CanonicalNavigationTests(SimpleTestCase):
             ['marketing_integrations', 'marketing_plans', 'marketing_guided_loop', 'marketing_events', 'marketing_forms', 'marketing_privacy', 'marketing_attribution'],
         )
         self.assertEqual(
+            [child['description'] for child in marketing_item['children'][:3]],
+            [
+                '连接平台账号、数据集与授权',
+                '定义可长期复用的获客配置',
+                '实施并核对单个闭环实例',
+            ],
+        )
+        self.assertEqual(
             [child['key'] for child in marketing_item['children'] if child['active']],
             ['marketing_forms'],
         )
@@ -197,45 +205,51 @@ class CanonicalNavigationTests(SimpleTestCase):
 
 
 class NavigationResponsiveCssTests(SimpleTestCase):
-    def test_legacy_shell_keeps_the_full_navigation_hierarchy_at_1280(self):
-        css_path = Path(settings.BASE_DIR) / 'console' / 'static' / 'console' / 'admin-shell.css'
-        css = css_path.read_text(encoding='utf-8')
-        desktop_compact_block = css.split('@media (max-width: 1320px) {', 1)[1].split(
-            '@media (max-width: 920px) {',
-            1,
-        )[0]
+    def test_shared_navigation_keeps_pc_hierarchy_until_explicit_collapse(self):
+        static_root = Path(settings.BASE_DIR) / 'console' / 'static' / 'console'
+        css = (static_root / 'primary-navigation.css').read_text(encoding='utf-8')
+        script = (static_root / 'primary-navigation.js').read_text(encoding='utf-8')
 
-        self.assertNotIn('grid-template-columns: 72px minmax(0, 1fr)', desktop_compact_block)
-        self.assertNotIn('.nav-copy', desktop_compact_block)
-        self.assertNotIn('.nav-item', desktop_compact_block)
-        self.assertIn('.editor-layout', desktop_compact_block)
+        self.assertIn('--nc-sidebar: 208px', css)
+        self.assertNotIn('@media (max-width: 1120px)', css)
+        self.assertIn('.nc-shell.is-sidebar-collapsed', css)
+        self.assertIn("localStorage.getItem('nc-sidebar-collapsed')", script)
+        self.assertIn("localStorage.setItem('nc-sidebar-collapsed'", script)
 
-    def test_mobile_drawer_restores_children_after_a_desktop_collapse(self):
-        css_path = Path(settings.BASE_DIR) / 'console' / 'static' / 'console' / 'admin-shell.css'
-        css = css_path.read_text(encoding='utf-8')
-        mobile_block = css.split('@media (max-width: 920px) {', 1)[1]
-        restored_children_rule = mobile_block.split(
-            '.app.is-collapsed .nav-children {',
-            1,
-        )[1].split('}', 1)[0]
-
-        self.assertIn('display: grid', restored_children_rule)
-
-    def test_both_shells_expose_grouped_children_and_a_stateful_legacy_toggle(self):
+    def test_all_shells_share_one_canonical_navigation_implementation(self):
         template_root = Path(settings.BASE_DIR) / 'console' / 'templates' / 'console'
         legacy_shell = (template_root / 'app_shell.html').read_text(encoding='utf-8')
         v2_shell = (template_root / 'v2' / 'base.html').read_text(encoding='utf-8')
-        legacy_script = (
-            Path(settings.BASE_DIR) / 'console' / 'static' / 'console' / 'admin-shell.js'
+        flow_workspace = (template_root / 'v2' / 'pages' / 'flow_workspace.html').read_text(encoding='utf-8')
+        canonical_partial = (template_root / '_primary_navigation.html').read_text(encoding='utf-8')
+        shell_script = (
+            Path(settings.BASE_DIR) / 'console' / 'static' / 'console' / 'v2' / 'shell.js'
         ).read_text(encoding='utf-8')
 
-        self.assertIn('class="nav-children" role="group"', legacy_shell)
-        self.assertIn('class="nc-nav-children" role="group"', v2_shell)
-        self.assertIn('id="toggleNav"', legacy_shell)
-        self.assertIn('aria-pressed="false"', legacy_shell)
-        self.assertIn("navToggle.setAttribute('aria-pressed'", legacy_script)
-        self.assertIn("collapsed ? '展开主导航' : '收起主导航'", legacy_script)
-        self.assertIn("navToggle.setAttribute('aria-label', '关闭主导航')", legacy_script)
+        include = "{% include 'console/_primary_navigation.html' %}"
+        stylesheet = "{% static 'console/primary-navigation.css' %}"
+        script = "{% static 'console/primary-navigation.js' %}"
+        for shell in (legacy_shell, v2_shell):
+            self.assertIn(include, shell)
+            self.assertIn(stylesheet, shell)
+            self.assertIn(script, shell)
+
+        self.assertIn('id="nc-primary-sidebar"', canonical_partial)
+        self.assertIn('class="nc-primary-nav"', canonical_partial)
+        self.assertIn('class="nc-nav-children" role="group"', canonical_partial)
+        self.assertIn('data-nc-sidebar-collapse', canonical_partial)
+        self.assertIn('data-resource-nav-close', canonical_partial)
+        self.assertIn("static 'console/vorntekLogo.png'", canonical_partial)
+        self.assertNotIn('class="sidebar"', legacy_shell)
+        self.assertNotIn('class="nav"', legacy_shell)
+        self.assertNotIn('id="toggleNav"', legacy_shell)
+        self.assertNotIn('block primary_navigation', flow_workspace)
+        self.assertNotIn('guide_navigation.html', flow_workspace)
+        self.assertNotIn('data-nc-sidebar-collapse', shell_script)
+        self.assertNotIn("localStorage.getItem('nc-sidebar-collapsed')", shell_script)
+        self.assertIn("console/v2/shell.js' %}?v=20261020-unified2", v2_shell)
+        self.assertIn('20261020-hk-sync1', flow_workspace)
+        self.assertNotIn('20261011-guided-frontend-r4', flow_workspace)
 
 
 class CanonicalNavigationQueryTests(TestCase):

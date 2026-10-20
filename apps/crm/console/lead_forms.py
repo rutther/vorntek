@@ -70,6 +70,24 @@ FIELD_LIBRARY = [
     for field in DEFAULT_FIELDS
 ]
 
+CUSTOM_FIELD_TYPES = (
+    ('text', '单行文本'),
+    ('textarea', '多行文本'),
+    ('email', '邮箱'),
+    ('tel', '电话'),
+    ('number', '数字'),
+    ('date', '日期'),
+    ('select', '单选下拉'),
+)
+MAX_CUSTOM_FIELDS = 20
+RESERVED_CUSTOM_FIELD_NAMES = {
+    *(item['name'] for item in FIELD_LIBRARY),
+    'name', 'website', 'consent', 'utm', 'extra_fields', 'source_url',
+    'referrer_url', 'route_path', 'cta_code', 'client_event_id',
+    'form_started_at', 'measurement_context', 'buyer_value', 'buyer_currency', 'schema_version',
+    'identifiers_json', 'config_json', 'payload_json',
+}
+
 
 def default_form_schema() -> dict:
     return {
@@ -104,6 +122,7 @@ class LeadFormEditorForm(forms.Form):
     won_event_name = forms.CharField(label='成交事件名', max_length=80, initial='converted')
     notify_emails = forms.CharField(label='通知邮箱', required=False, widget=forms.Textarea(attrs={'rows': 2}))
     success_message = forms.CharField(label='成功提示', required=False, widget=forms.Textarea(attrs={'rows': 3}))
+    custom_fields_json = forms.CharField(required=False, widget=forms.HiddenInput)
     config_json = forms.CharField(
         label='高级配置 JSON',
         required=False,
@@ -126,6 +145,10 @@ class LeadFormEditorForm(forms.Form):
             self.initial['code'] = form_definition.code
         self.field_specs = self._resolved_field_specs()
         self._install_field_editor_fields()
+        if not self.is_bound:
+            self.initial['custom_fields_json'] = json.dumps(
+                self._stored_custom_field_specs(), ensure_ascii=False,
+            )
         if form_definition and not self.is_bound:
             self.initial.update(
                 {
@@ -159,15 +182,7 @@ class LeadFormEditorForm(forms.Form):
             if isinstance(item, dict) and str(item.get('name') or item.get('key') or '').strip()
         }
         specs: list[dict] = []
-        library = list(FIELD_LIBRARY)
-        known_names = {item['name'] for item in library}
-        for name, field in configured.items():
-            if name not in known_names and re.fullmatch(r'[a-z][a-z0-9_]{0,79}', name):
-                library.append({'name': name, 'type': field.get('type', 'text'),
-                                'default_label': str(field.get('label') or name),
-                                'default_placeholder': '', 'default_enabled': True,
-                                'default_required': False})
-        for item in library:
+        for item in FIELD_LIBRARY:
             current = configured.get(item['name'], {})
             specs.append(
                 {
@@ -204,6 +219,105 @@ class LeadFormEditorForm(forms.Form):
                     self.initial[f'field_{name}_options'] = (json.dumps(options, ensure_ascii=False, indent=2)
                         if any(isinstance(item, dict) for item in options) else '\n'.join(options))
 
+    def _stored_custom_field_specs(self) -> list[dict]:
+        schema = (self.form_definition.form_schema if self.form_definition else None) or {}
+        fixed_names = {item['name'] for item in FIELD_LIBRARY}
+        return [
+            item for item in (schema.get('fields') or [])
+            if isinstance(item, dict)
+            and str(item.get('name') or item.get('key') or '').strip() not in fixed_names
+        ]
+
+    @staticmethod
+    def _normalize_custom_field_specs(value, *, validate: bool) -> list[dict]:
+        if value in ('', None):
+            return []
+        if not isinstance(value, list):
+            if validate:
+                raise forms.ValidationError('自定义字段格式无效。')
+            return []
+        if len(value) > MAX_CUSTOM_FIELDS:
+            if validate:
+                raise forms.ValidationError(f'自定义字段最多 {MAX_CUSTOM_FIELDS} 个。')
+            value = value[:MAX_CUSTOM_FIELDS]
+
+        allowed_types = {key for key, _label in CUSTOM_FIELD_TYPES}
+        seen: set[str] = set()
+        normalized: list[dict] = []
+        for index, item in enumerate(value, start=1):
+            if not isinstance(item, dict):
+                if validate:
+                    raise forms.ValidationError(f'第 {index} 个自定义字段格式无效。')
+                continue
+            name = str(item.get('name') or item.get('key') or '').strip().lower()
+            label = str(item.get('label') or '').strip()
+            field_type = str(item.get('type') or 'text').strip().lower()
+            placeholder = str(item.get('placeholder') or '').strip()
+            if validate and not re.fullmatch(r'[a-z][a-z0-9_]{1,63}', name):
+                raise forms.ValidationError(
+                    f'第 {index} 个字段代码需使用 2–64 位小写字母、数字或下划线，并以字母开头。'
+                )
+            if validate and (name in RESERVED_CUSTOM_FIELD_NAMES or name in seen):
+                raise forms.ValidationError(f'字段代码“{name}”已被占用或重复。')
+            if validate and not label:
+                raise forms.ValidationError(f'第 {index} 个自定义字段需要显示名称。')
+            if validate and field_type not in allowed_types:
+                raise forms.ValidationError(f'第 {index} 个自定义字段类型不受支持。')
+            if not name or not label or field_type not in allowed_types:
+                continue
+
+            raw_options = item.get('options') or []
+            if isinstance(raw_options, str):
+                raw_options = re.split(r'[\n,]+', raw_options)
+            options: list[dict[str, str]] = []
+            option_values: set[str] = set()
+            if isinstance(raw_options, list):
+                for option in raw_options[:200]:
+                    if isinstance(option, dict):
+                        option_value = str(option.get('value') or option.get('label') or '').strip()[:120]
+                        option_label = str(option.get('label') or option.get('value') or '').strip()[:120]
+                    else:
+                        option_value = str(option).strip()[:120]
+                        option_label = option_value
+                    if option_value and option_label and option_value not in option_values:
+                        option_values.add(option_value)
+                        options.append({'value': option_value, 'label': option_label})
+            if validate and field_type == 'select' and not options:
+                raise forms.ValidationError(f'下拉字段“{label}”至少需要一个选项。')
+            seen.add(name)
+            normalized.append({
+                'name': name,
+                'type': field_type,
+                'label': label[:120],
+                'placeholder': placeholder[:200],
+                'enabled': bool(item.get('enabled', True)),
+                'required': bool(item.get('enabled', True)) and bool(item.get('required')),
+                'options': options,
+            })
+        return normalized
+
+    def custom_field_specs(self) -> list[dict]:
+        if self.is_bound:
+            raw = self.data.get('custom_fields_json', '')
+            try:
+                value = json.loads(raw) if raw else []
+            except json.JSONDecodeError:
+                return []
+            return self._normalize_custom_field_specs(value, validate=False)
+        return self._normalize_custom_field_specs(
+            self._stored_custom_field_specs(), validate=False,
+        )
+
+    def clean_custom_fields_json(self) -> list[dict]:
+        raw = (self.cleaned_data.get('custom_fields_json') or '').strip()
+        if not raw:
+            return []
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError('自定义字段格式无效，请重新添加。') from exc
+        return self._normalize_custom_field_specs(value, validate=True)
+
     def field_rows(self) -> list[dict]:
         rows = []
         for spec in self.field_specs:
@@ -231,11 +345,6 @@ class LeadFormEditorForm(forms.Form):
         code = (self.cleaned_data['code'] or '').strip().lower().replace('-', '_')
         if not code:
             raise forms.ValidationError('表单代码不能为空。')
-        queryset = LeadFormDefinition.objects.filter(site=self.site, code=code)
-        if self.form_definition:
-            queryset = queryset.exclude(id=self.form_definition.id)
-        if queryset.exists():
-            raise forms.ValidationError('该表单代码已存在。')
         return code
 
     def _clean_json_field(self, field_name: str) -> dict:
@@ -255,6 +364,18 @@ class LeadFormEditorForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        code = cleaned.get('code')
+        locale = cleaned.get('locale')
+        if code and 'locale' not in self.errors:
+            queryset = LeadFormDefinition.objects.filter(
+                site=self.site,
+                code=code,
+                locale=locale,
+            )
+            if self.form_definition:
+                queryset = queryset.exclude(id=self.form_definition.id)
+            if queryset.exists():
+                self.add_error('code', '该表单代码已存在。')
         if not self.errors:
             self.cleaned_form_schema()
         return cleaned
@@ -295,6 +416,8 @@ class LeadFormEditorForm(forms.Form):
                     'options': options,
                 }
             )
+
+        fields.extend(self.cleaned_data.get('custom_fields_json') or [])
 
         if 'email' not in enabled_names and 'phone' not in enabled_names:
             raise forms.ValidationError('邮箱和电话至少要启用一个。')

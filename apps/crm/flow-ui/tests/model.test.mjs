@@ -109,7 +109,7 @@ test("list filters combine name, environment and state and preserve all source r
   const loops = m.seedLoops();
   assert.equal(
     m.filterLoops(loops, {
-      search: "个人咨询",
+      search: "官网询盘",
       state: "all",
       environment: "production",
     }).length,

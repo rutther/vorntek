@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import re
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
@@ -33,8 +34,9 @@ from .customer_import_services import (
 from .customer_value_engine import ValueReconciliationError, reconcile_file_value
 from .models import Company, Contact, CustomerPoolRow
 
-ADAPTER_VERSION = 'customer-pool-standard21-v1'
+ADAPTER_VERSION = 'customer-pool-standard21-v2'
 NAMESPACE = 'standard21'
+MAX_STANDARD21_FIELD_CHARS = 10_000
 
 STANDARD21_HEADERS = (
     'phone',
@@ -149,6 +151,7 @@ class Standard21Row:
     row_number: int
     values: dict[str, str]
     row_key: str
+    legacy_row_key: str
     value: Decimal
     project_signal: bool
     restricted: bool
@@ -191,6 +194,10 @@ def read_standard21_csv(file_bytes: bytes) -> tuple[list[Standard21Row], list[di
         header = [cell.strip() for cell in next(reader)]
     except StopIteration as error:
         raise CustomerImportError('文件为空。', code='file_empty') from error
+    except csv.Error as error:
+        raise CustomerImportError(
+            'CSV 表头无法解析，请检查字段长度和引号。', code='csv_invalid'
+        ) from error
     if tuple(header) != STANDARD21_HEADERS:
         raise CustomerImportError(
             '表头必须恰好是标准 21 列且顺序一致；应为：' + '、'.join(STANDARD21_HEADERS) + '。',
@@ -198,15 +205,40 @@ def read_standard21_csv(file_bytes: bytes) -> tuple[list[Standard21Row], list[di
         )
     entries: list[tuple[int, dict[str, str]]] = []
     rejected: list[dict] = []
-    for row_number, cells in enumerate(reader, start=2):
-        if not any(_text(cell) for cell in cells):
-            continue
-        if len(cells) != len(STANDARD21_HEADERS):
-            rejected.append(_rejected(row_number, {}, f'该行有 {len(cells)} 列，标准格式要求 21 列。'))
-            continue
-        entries.append(
-            (row_number, {name: _text(cell) for name, cell in zip(STANDARD21_HEADERS, cells)})
-        )
+    try:
+        for row_number, cells in enumerate(reader, start=2):
+            if not any(_text(cell) for cell in cells):
+                continue
+            if len(cells) != len(STANDARD21_HEADERS):
+                rejected.append(
+                    _rejected(row_number, {}, f'该行有 {len(cells)} 列，标准格式要求 21 列。')
+                )
+                continue
+            oversized_field = next(
+                (
+                    name
+                    for name, cell in zip(STANDARD21_HEADERS, cells)
+                    if len(cell) > MAX_STANDARD21_FIELD_CHARS
+                ),
+                None,
+            )
+            if oversized_field:
+                rejected.append(
+                    _rejected(
+                        row_number,
+                        {},
+                        f'第 {row_number} 行字段 {oversized_field} 超过 '
+                        f'{MAX_STANDARD21_FIELD_CHARS} 个字符。',
+                    )
+                )
+                continue
+            entries.append(
+                (row_number, {name: _text(cell) for name, cell in zip(STANDARD21_HEADERS, cells)})
+            )
+    except csv.Error as error:
+        raise CustomerImportError(
+            'CSV 内容无法解析，请检查字段长度和引号。', code='csv_invalid'
+        ) from error
     if not entries and not rejected:
         raise CustomerImportError('文件里没有数据行。', code='file_empty')
     if len(entries) + len(rejected) > MAX_SOURCE_ROWS:
@@ -233,7 +265,7 @@ def _rejected(row_number: int, values: dict[str, str], message: str) -> dict:
 def _build_rows(entries: list[tuple[int, dict[str, str]]]) -> tuple[list[Standard21Row], list[dict]]:
     rows: list[Standard21Row] = []
     rejected: list[dict] = []
-    occurrences: Counter[str] = Counter()
+    occurrences: Counter[tuple[str, ...]] = Counter()
     for row_number, values in entries:
         problem = _row_problem(values)
         if problem:
@@ -243,6 +275,11 @@ def _build_rows(entries: list[tuple[int, dict[str, str]]]) -> tuple[list[Standar
             file_value = Decimal(values['value'])
         except (InvalidOperation, ValueError):
             rejected.append(_rejected(row_number, values, f'第 {row_number} 行的 value 不是数字。'))
+            continue
+        if not file_value.is_finite():
+            rejected.append(
+                _rejected(row_number, values, f'第 {row_number} 行的 value 必须是有限数字。')
+            )
             continue
         note = values['restriction_note']
         try:
@@ -259,19 +296,17 @@ def _build_rows(entries: list[tuple[int, dict[str, str]]]) -> tuple[list[Standar
         except ValueReconciliationError as error:
             rejected.append(_rejected(row_number, values, f'第 {row_number} 行 value 复算不符：{error}'))
             continue
-        key_payload = '|'.join(values[name] for name in ROW_KEY_FIELDS)
-        digest = hashlib.sha256(key_payload.encode('utf-8')).hexdigest()
-        occurrences[digest] += 1
-        if occurrences[digest] > 1:
-            # 同一文件内身份字段完全相同的重复行：按出现顺序加序号，重导仍幂等。
-            digest = hashlib.sha256(
-                f'{key_payload}|#{occurrences[digest]}'.encode('utf-8')
-            ).hexdigest()
+        identity = tuple(values[name] for name in ROW_KEY_FIELDS)
+        occurrences[identity] += 1
+        occurrence = occurrences[identity]
+        digest = _row_key_v2(identity, occurrence)
+        legacy_digest = _legacy_row_key(identity, occurrence)
         rows.append(
             Standard21Row(
                 row_number=row_number,
                 values=values,
                 row_key=digest,
+                legacy_row_key=legacy_digest,
                 value=value,
                 project_signal=project_signal,
                 restricted=has_hard_restriction(note),
@@ -282,6 +317,24 @@ def _build_rows(entries: list[tuple[int, dict[str, str]]]) -> tuple[list[Standar
             )
         )
     return rows, rejected
+
+
+def _row_key_v2(identity: tuple[str, ...], occurrence: int) -> str:
+    """Canonical JSON identity cannot alias embedded delimiter characters."""
+
+    payload = json.dumps(
+        {'version': 2, 'identity': identity, 'occurrence': occurrence},
+        ensure_ascii=False,
+        separators=(',', ':'),
+    )
+    return hashlib.sha256(payload.encode('utf-8')).hexdigest()
+
+
+def _legacy_row_key(identity: tuple[str, ...], occurrence: int) -> str:
+    payload = '|'.join(identity)
+    if occurrence > 1:
+        payload = f'{payload}|#{occurrence}'
+    return hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
 
 def _row_problem(values: dict[str, str]) -> str:
@@ -342,6 +395,7 @@ def _pool_row_entry(row: Standard21Row) -> dict:
     return {
         **row.values,
         'row_key': row.row_key,
+        'legacy_row_key': row.legacy_row_key,
         'row_number': row.row_number,
         'value': str(row.value),
         'project_signal': row.project_signal,
@@ -460,10 +514,16 @@ def commit_standard21_rows(*, row, batch, site, actor, company: Company) -> None
         contact.full_name: contact
         for contact in Contact.objects.filter(site=site, company=company)
     }
+    requested_keys = {
+        key
+        for entry in entries
+        for key in (entry['row_key'], entry.get('legacy_row_key'))
+        if key
+    }
     existing = {
         pool_row.row_key: pool_row
         for pool_row in CustomerPoolRow.objects.filter(
-            site=site, row_key__in=[entry['row_key'] for entry in entries]
+            site=site, row_key__in=requested_keys
         )
     }
     to_create: list[CustomerPoolRow] = []
@@ -472,10 +532,32 @@ def commit_standard21_rows(*, row, batch, site, actor, company: Company) -> None
     for entry in entries:
         values = _pool_row_values(entry)
         pool_row = existing.get(entry['row_key'])
+        legacy_pool_row = existing.get(entry.get('legacy_row_key'))
+        if pool_row is not None and not _pool_row_matches_entry(pool_row, entry):
+            raise CustomerImportError(
+                '标准 21 列行键已存在但身份字段不一致，已停止写入。',
+                code='standard21_row_key_conflict',
+            )
+        if pool_row is None and legacy_pool_row is not None:
+            if _pool_row_matches_entry(legacy_pool_row, entry):
+                if legacy_pool_row.company_id != company.pk:
+                    raise CustomerImportError(
+                        '旧版行键对应的企业已变化，已停止写入。',
+                        code='standard21_legacy_owner_conflict',
+                    )
+                pool_row = legacy_pool_row
+                pool_row.row_key = entry['row_key']
+            # Delimiter-colliding legacy keys can belong to another identity.
+            # Never reuse or reassign a non-matching source row.
         if pool_row is None:
             pool_row = CustomerPoolRow(site=site, row_key=entry['row_key'])
             to_create.append(pool_row)
         else:
+            if pool_row.company_id != company.pk:
+                raise CustomerImportError(
+                    '标准 21 列行记录属于另一家企业，已停止写入。',
+                    code='standard21_row_owner_conflict',
+                )
             pool_row.updated_at = timezone.now()
             to_update.append(pool_row)
         pool_row.company_id = company.pk
@@ -494,7 +576,7 @@ def commit_standard21_rows(*, row, batch, site, actor, company: Company) -> None
         CustomerPoolRow.objects.bulk_create(to_create, batch_size=500)
     if to_update:
         CustomerPoolRow.objects.bulk_update(
-            to_update, fields=[*POOL_ROW_FIELDS, 'updated_at'], batch_size=500
+            to_update, fields=['row_key', *POOL_ROW_FIELDS, 'updated_at'], batch_size=500
         )
     for contact, phone in whatsapp_targets:
         if not contact.whatsapp_phone:
@@ -504,6 +586,13 @@ def commit_standard21_rows(*, row, batch, site, actor, company: Company) -> None
     if not company.country_code and row.payload_json.get('country'):
         company.country_code = row.payload_json['country'][:2].upper()
         company.save(update_fields=['country_code', 'updated_at'])
+
+
+def _pool_row_matches_entry(pool_row: CustomerPoolRow, entry: dict) -> bool:
+    return all(
+        _text(getattr(pool_row, POOL_FIELD_BY_HEADER[field])) == _text(entry.get(field))
+        for field in ROW_KEY_FIELDS
+    )
 
 
 def _refresh_company_value(*, site, company: Company, fallback) -> None:

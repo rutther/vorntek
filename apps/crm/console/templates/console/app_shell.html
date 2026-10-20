@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ page_payload.title }} - 企业网站控制台</title>
     <link rel="stylesheet" href="{% static 'console/admin-shell.css' %}?v=20260831a">
+    <link rel="stylesheet" href="{% static 'console/primary-navigation.css' %}?v=20261020-unified1">
     {% if extra_stylesheets %}
         {% for stylesheet in extra_stylesheets %}
             <link rel="stylesheet" href="{% static stylesheet %}?v=20260831c">
@@ -19,60 +20,11 @@
         {% csrf_token %}
     </form>
 
-    <div class="app" id="app">
-        <aside class="sidebar">
-            <div class="brand">
-                <a href="{{ console_home_url }}" class="brand-link">
-                    <span class="brand-mark"><img src="{% static 'console/vorntekLogo.png' %}" alt=""></span>
-                    <span class="brand-copy">
-                        <strong>{{ brand_name }}</strong>
-                        <span>获客与销售运营</span>
-                    </span>
-                </a>
-            </div>
+    <div class="nc-shell" id="app">
+        {% include 'console/_primary_navigation.html' %}
 
-            <nav class="nav" aria-label="主导航">
-                {% for item in nav_items %}
-                    <a
-                        href="{{ item.href }}"
-                        class="nav-item{% if item.active %} is-active{% endif %}"
-                        aria-current="{% if item.active %}page{% else %}false{% endif %}"
-                        title="{{ item.label }}"
-                    >
-                        <span class="nav-icon" aria-hidden="true">
-                            <i data-lucide="{{ item.icon }}"></i>
-                        </span>
-                        <span class="nav-copy">
-                            <strong>{{ item.label }}</strong>
-                            <span>{{ item.description }}</span>
-                        </span>
-                    </a>
-                    {% if item.active and item.children %}
-                        <div class="nav-children" role="group" aria-label="{{ item.label }}子导航">
-                            {% for child in item.children %}
-                                <a class="nav-child{% if child.active %} is-active{% endif %}" href="{{ child.href }}" {% if child.active %}aria-current="page"{% endif %}>
-                                    <strong>{{ child.label }}</strong>
-                                    <span>{{ child.description }}</span>
-                                </a>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% endfor %}
-            </nav>
-
-            <div class="sidebar-foot">
-                <button class="icon-button" id="toggleNav" type="button" aria-label="收起主导航" aria-pressed="false" title="收起主导航">
-                    <i data-lucide="panel-left-close"></i>
-                </button>
-            </div>
-        </aside>
-        <button class="mobile-nav-mask" id="mobileNavMask" type="button" aria-label="关闭导航" hidden></button>
-
-        <main class="main" id="main-content" tabindex="-1">
+        <main class="main nc-app" id="main-content" tabindex="-1">
             <header class="topbar">
-                <button class="icon-button mobile-nav-button" id="openMobileNav" type="button" aria-label="打开导航" title="打开导航">
-                    <i data-lucide="menu"></i>
-                </button>
                 <div class="module-head">
                     <h1 class="module-title">{{ page_payload.title }}</h1>
                     {% if page_payload.description %}
@@ -175,6 +127,7 @@
     {% endif %}
     <script src="{% static 'console/lucide.min.js' %}?v=20260829d" defer></script>
     <script src="{% static 'console/admin-shell.js' %}?v=20260830g" defer></script>
+    <script src="{% static 'console/primary-navigation.js' %}?v=20261020-unified1" defer></script>
     {% if extra_scripts %}
         {% for script in extra_scripts %}
             <script src="{% static script %}?v=20260912a" defer></script>

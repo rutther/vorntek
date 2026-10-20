@@ -1153,6 +1153,7 @@ class CustomerPoolViewTests(TestCase):
             generated_paths.append(path)
             CustomerExportJob.objects.filter(pk=job.pk).update(
                 status='canceled',
+                claim_token='',
                 completed_at=timezone.now(),
             )
             return path, digest
@@ -1167,6 +1168,48 @@ class CustomerPoolViewTests(TestCase):
         self.assertEqual(job.status, 'canceled')
         self.assertTrue(generated_paths)
         self.assertFalse(generated_paths[0].exists())
+
+    def test_stale_export_worker_cannot_fail_a_newer_claim(self):
+        from console.customer_pool_exports import (
+            _claim_customer_export_job,
+            _fail_processing_job,
+        )
+
+        owned = create_manual_customer(
+            site=self.site,
+            actor=self.sales,
+            idempotency_token='view-export-claim-generation-0001',
+            company_name='Claim Generation Export Company',
+            email='claim-generation@example.invalid',
+            assignment_mode='self',
+        )
+        self.client.force_login(self.sales)
+        self.client.post(
+            reverse('console:customer_pool_export'),
+            {'mode': 'selected', 'company_ids': [str(owned.company.pk)]},
+        )
+        job = CustomerExportJob.objects.get(created_by=self.sales)
+
+        first = _claim_customer_export_job(job.pk)
+        self.assertIsNotNone(first)
+        first_token = first[1]
+        CustomerExportJob.objects.filter(pk=job.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=20)
+        )
+        second = _claim_customer_export_job(job.pk)
+        self.assertIsNotNone(second)
+        second_token = second[1]
+        self.assertNotEqual(first_token, second_token)
+
+        _fail_processing_job(job.pk, first_token)
+        job.refresh_from_db()
+        self.assertEqual(job.status, 'processing')
+        self.assertEqual(job.claim_token, second_token)
+
+        _fail_processing_job(job.pk, second_token)
+        job.refresh_from_db()
+        self.assertEqual(job.status, 'failed')
+        self.assertEqual(job.claim_token, '')
 
     def test_management_worker_processes_a_pending_export(self):
         owned = create_manual_customer(
@@ -1185,7 +1228,14 @@ class CustomerPoolViewTests(TestCase):
         job = CustomerExportJob.objects.get(created_by=self.sales)
         output = StringIO()
 
-        call_command('process_customer_exports', limit=10, stdout=output)
+        # The real worker is a standalone process and deliberately closes its
+        # database connection on exit.  call_command() runs it inside this
+        # TestCase transaction, so preserve the harness connection while still
+        # exercising the real claim, generation and completion path.
+        with patch(
+            'leads.management.commands.process_customer_exports.close_old_connections'
+        ):
+            call_command('process_customer_exports', limit=10, stdout=output)
 
         job.refresh_from_db()
         self.assertEqual(job.status, 'ready')

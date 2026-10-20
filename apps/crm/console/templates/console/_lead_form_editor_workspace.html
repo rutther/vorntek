@@ -2,6 +2,7 @@
     <form method="post" class="editor-layout" data-acquisition-form>
         {% csrf_token %}
         {{ lead_form_editor.version }}
+        {{ lead_form_editor.custom_fields_json }}
 
         <div class="editor-main">
             {% if lead_form_editor.non_field_errors %}
@@ -77,7 +78,7 @@
                         <span class="editor-eyebrow">前台字段</span>
                         <h2>客户需要填写什么</h2>
                     </div>
-                    <span class="editor-count-chip">{{ lead_field_rows|length }} 个字段</span>
+                    <span class="editor-count-chip" data-lead-field-count data-base-count="{{ lead_field_rows|length }}">{{ lead_field_rows|length }} 个字段</span>
                 </header>
 
                 <div class="lead-field-table" role="table" aria-label="表单字段配置">
@@ -115,6 +116,21 @@
                         </div>
                     {% endfor %}
                 </div>
+
+                <section class="lead-custom-fields" data-lead-custom-fields>
+                    <div class="lead-custom-fields-head">
+                        <div>
+                            <strong>自定义字段</strong>
+                            <span>需要收集额外信息时在这里添加。字段代码会关联历史数据，保存后应保持稳定。</span>
+                        </div>
+                        <button type="button" class="button neutral button-with-icon" data-add-custom-field>
+                            <i data-lucide="plus" aria-hidden="true"></i><span>添加自定义字段</span>
+                        </button>
+                    </div>
+                    {% for error in lead_form_editor.custom_fields_json.errors %}<div class="field-error lead-custom-field-error">{{ error }}</div>{% endfor %}
+                    <div class="lead-custom-field-list" data-custom-field-list></div>
+                    <p class="lead-custom-field-empty" data-custom-field-empty>尚未添加自定义字段。</p>
+                </section>
             </section>
 
             <details class="editor-card lead-form-card editor-disclosure" open>

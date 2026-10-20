@@ -39,6 +39,18 @@ test('same-type instances have separate next-step links and closed/archived tabs
   assert.equal(document.querySelector('tbody tr').dataset.flow,'D');
  }finally{await act(async()=>root.unmount());}
 });
+test('active instances expose a dedicated manage action that opens the flow overview',async()=>{
+ const calls=[];const root=createRoot(document.getElementById('root'));
+ const configs=Object.fromEntries(['dataset','website','pixel','form','crm','server','ad'].map(key=>[key,{}]));
+ try{
+  await act(async()=>root.render(React.createElement(GuideList,{loops:[fixture('A',{configs,runtime:{state:'applied'}})],navigate:path=>calls.push(path),onAction:()=>{}})));
+  const row=document.querySelector('[data-flow="A"]');
+  assert.equal(row.querySelector('[data-manage]').textContent.trim(),'管理');
+  await act(async()=>row.querySelector('[data-manage]').click());
+  assert.deepEqual(calls,['/flow/A?view=design']);
+  assert.match(row.querySelector('[data-continue]').textContent,/继续核对/);
+ }finally{await act(async()=>root.unmount());}
+});
 test('load failures hide stale runtime status while preserving instance links and retry',async()=>{
  let retried=0;const root=createRoot(document.getElementById('root'));
  try{

@@ -13,11 +13,10 @@ categories. See [release scope](docs/RELEASE_SCOPE.md) and
 [current verification status](docs/IMPLEMENTATION_STATUS.md).
 
 The current public prerelease is
-[v0.2.0-rc.4](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.4).
-Its immutable tag passed [release CI](https://github.com/rutther/vorntek/actions/runs/38985631768),
-and independent anonymous downloads matched the published checksums. See the
-[rc.4 acceptance record](docs/releases/0.2.0-rc.4-acceptance.md) for the exact
-source, CI, download, test and browser boundaries. The source version is recorded
+[v0.2.0-rc.5](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.5).
+See the [rc.5 release notes](docs/releases/0.2.0-rc.5.md) and
+[current verification status](docs/IMPLEMENTATION_STATUS.md) for the exact source,
+CI, download, upgrade, deployment and browser boundaries. The source version is recorded
 in [`VERSION`](VERSION) and returned by `/healthz/`; the
 [verification status](docs/IMPLEMENTATION_STATUS.md) separates local, CI and
 post-download evidence from any running deployment.

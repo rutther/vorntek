@@ -1,0 +1,229 @@
+:root {
+    --nc-sidebar: 220px;
+    --nc-topbar: 64px;
+    --nc-border: #dce3ec;
+    --nc-text: #14213d;
+    --nc-text-secondary: #4d5d73;
+    --nc-text-muted: #637288;
+    --nc-blue-strong: #0e56c7;
+}
+
+.nc-shell {
+    display: grid;
+    grid-template-columns: var(--nc-sidebar) minmax(0, 1fr);
+    min-height: 100vh;
+}
+
+.nc-sidebar {
+    position: fixed;
+    z-index: 30;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: var(--nc-sidebar);
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--nc-border);
+    background: #fff;
+    color: var(--nc-text);
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.45;
+    font-feature-settings: "cv03", "cv04", "cv11", "liga" 0;
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nc-sidebar,
+.nc-sidebar *,
+.nc-sidebar *::before,
+.nc-sidebar *::after {
+    box-sizing: border-box;
+}
+
+.nc-brand {
+    display: flex;
+    min-height: var(--nc-topbar);
+    align-items: center;
+    gap: 11px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--nc-border);
+    color: inherit;
+    text-decoration: none;
+}
+
+.nc-brand img {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}
+
+.nc-brand span,
+.nc-nav-item span {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.nc-brand strong {
+    color: #0b1831;
+    font-size: 16px;
+    font-weight: 750;
+    letter-spacing: -.01em;
+}
+
+.nc-brand small {
+    color: var(--nc-text-secondary);
+    font-size: 12px;
+}
+
+.nc-primary-nav {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    padding: 18px 12px;
+}
+
+.nc-sidebar .nc-nav-item {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-height: 54px;
+    padding: 9px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--nc-text);
+    text-decoration: none;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.nc-sidebar .nc-nav-item:hover {
+    color: var(--nc-text);
+    background: #f5f7fb;
+}
+
+.nc-sidebar .nc-nav-item.is-active {
+    color: var(--nc-blue-strong);
+    border-color: #dbe8fb;
+    background: linear-gradient(90deg, #edf4ff, #f5f8ff);
+}
+
+.nc-nav-item > svg {
+    width: 19px;
+    height: 19px;
+    stroke-width: 1.8;
+}
+
+.nc-nav-item strong {
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 730;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nc-nav-item small {
+    overflow: hidden;
+    margin-top: 2px;
+    color: var(--nc-text-muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nc-nav-children {
+    display: grid;
+    gap: 2px;
+    margin: -1px 4px 8px 32px;
+    padding: 3px 0 3px 11px;
+    border-left: 1px solid var(--nc-border);
+}
+
+.nc-sidebar .nc-nav-child {
+    display: grid;
+    gap: 1px;
+    padding: 7px 9px;
+    border-radius: 7px;
+    color: var(--nc-text);
+    text-decoration: none;
+}
+
+.nc-sidebar .nc-nav-child:hover {
+    color: var(--nc-text);
+    background: #f5f7fb;
+}
+
+.nc-sidebar .nc-nav-child.is-active {
+    color: var(--nc-blue-strong);
+    background: #edf4ff;
+}
+
+.nc-nav-child strong {
+    font-size: 12px;
+    font-weight: 720;
+}
+
+.nc-nav-child small {
+    overflow: hidden;
+    color: var(--nc-text-muted);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nc-sidebar-footer {
+    padding: 10px 14px 14px;
+}
+
+.nc-sidebar-collapse {
+    appearance: button;
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 8px;
+    border: 0;
+    color: var(--nc-text-secondary);
+    background: transparent;
+    cursor: pointer;
+}
+
+.nc-sidebar-collapse svg {
+    width: 18px;
+}
+
+.nc-shell.is-sidebar-collapsed {
+    --nc-sidebar: 72px;
+}
+
+.nc-shell.is-sidebar-collapsed .nc-brand span,
+.nc-shell.is-sidebar-collapsed .nc-nav-item span,
+.nc-shell.is-sidebar-collapsed .nc-nav-children,
+.nc-shell.is-sidebar-collapsed .nc-sidebar-collapse span {
+    display: none;
+}
+
+.nc-shell.is-sidebar-collapsed .nc-brand {
+    justify-content: center;
+    padding: 0;
+}
+
+.nc-shell.is-sidebar-collapsed .nc-nav-item {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+}
+
+.nc-app {
+    grid-column: 2;
+    min-width: 0;
+}
+
+@media (max-width: 1399px) {
+    :root {
+        --nc-sidebar: 208px;
+    }
+}

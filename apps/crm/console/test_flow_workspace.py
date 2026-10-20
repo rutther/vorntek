@@ -318,5 +318,6 @@ class FlowWorkspaceTests(TestCase):
         for href in ('/admin/marketing/plans/', '/admin/marketing/guided-loop/',
                      '/admin/marketing/events/', '/admin/marketing/forms/'):
             self.assertContains(response, 'href="' + href + '"')
-        self.assertContains(response, 'nc-guide-primary-nav')
+        self.assertContains(response, 'nc-primary-nav')
+        self.assertContains(response, 'class="nc-nav-child is-active" href="/admin/marketing/guided-loop/"')
         self.assertNotContains(response, 'New Crown')

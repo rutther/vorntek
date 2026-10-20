@@ -37,9 +37,14 @@ class Command(BaseCommand):
         SalesTeam.objects.get_or_create(site=site, code='default', defaults={'name': 'Sales'})
         for group_name in GROUP_BY_ROLE.values():
             Group.objects.get_or_create(name=group_name)
-        LeadFormDefinition.objects.get_or_create(site=site, code='project-inquiry', defaults={
-            'name': 'General inquiry', 'category': 'general', 'capi_enabled': False,
-            'notify_emails': '', 'success_message': 'Inquiry received. Our team will contact you.',
-            'form_schema': {'fields': [dict(field) for field in DEFAULT_FIELDS]},
-        })
+        LeadFormDefinition.objects.get_or_create(
+            site=site,
+            code='project-inquiry',
+            locale=None,
+            defaults={
+                'name': 'General inquiry', 'category': 'general', 'capi_enabled': False,
+                'notify_emails': '', 'success_message': 'Inquiry received. Our team will contact you.',
+                'form_schema': {'fields': [dict(field) for field in DEFAULT_FIELDS]},
+            },
+        )
         self.stdout.write('Site initialized.' if created else 'Existing site preserved; required missing configuration ensured.')

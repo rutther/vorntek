@@ -11,6 +11,7 @@ const defaults=[{name:'full_name',type:'text',label:'姓名',required:true},
  {name:'email',type:'email',label:'邮箱',required:false},
  {name:'phone',type:'tel',label:'电话',required:false},
  {name:'message',type:'textarea',label:'咨询内容',required:false}];
+const schemaVersion='a'.repeat(64);
 const html=code=>`<form data-configured-form data-form-code="${code}" novalidate>
  <div data-inquiry-fields></div><input name="website"><input name="consent" type="checkbox" required>
  <button class="button" type="submit" disabled>Send</button><button class="button" type="button" data-form-retry hidden>Retry</button>
@@ -23,7 +24,7 @@ async function fixture({fields=defaults,definitionError=false,second=false}={}){
  let fail=definitionError;
  window.fetch=async(url,options={})=>{
   requests.push({url,options,payload:options.body?JSON.parse(options.body):null});
-  if(!options.body){if(fail)throw Error('Synthetic unavailable');return {ok:true,json:async()=>({ok:true,form:{code:url.includes('service-inquiry')?'service-inquiry':'general-inquiry',fields}})};}
+  if(!options.body){if(fail)throw Error('Synthetic unavailable');return {ok:true,json:async()=>({ok:true,form:{code:url.includes('service-inquiry')?'service-inquiry':'general-inquiry',fields,schema_version:schemaVersion}})};}
   const result=replies.shift();if(result instanceof Error)throw result;
   if(typeof result==='function')return result();
   return result||{ok:true,status:200,json:async()=>({ok:true,measurement:{shouldTrack:false}})};
@@ -46,7 +47,8 @@ test('configured general form removes industry, company and country requirements
   ui.form.elements.full_name.value='Example visitor';ui.form.elements.email.value='visitor@example.test';
   ui.form.elements.consent.checked=true;await ui.submit();
   const writes=ui.requests.filter(r=>r.payload);assert.equal(writes.length,1);
-  assert.equal(writes[0].url,'/admin/api/leads/forms/general-inquiry/submit/');
+  assert.equal(writes[0].url,'/admin/api/leads/forms/general-inquiry/submit/?locale=en');
+  assert.equal(writes[0].payload.schema_version,schemaVersion);
   assert.deepEqual(writes[0].payload.extra_fields,{});
   assert.equal(writes[0].payload.company,undefined);assert.equal(ui.status.dataset.kind,'success');
  }finally{ui.close();}
@@ -130,7 +132,7 @@ test('multiple same-page forms retain independent schema, endpoint and pending s
   assert.equal(ui.requests.filter(r=>r.payload).length,1);
   forms[1].dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await flush();await flush();
   const writes=ui.requests.filter(r=>r.payload);assert.equal(writes.length,2);
-  assert.equal(writes[1].url,'/admin/api/leads/forms/service-inquiry/submit/');
+  assert.equal(writes[1].url,'/admin/api/leads/forms/service-inquiry/submit/?locale=en');
   release({ok:true,json:async()=>({ok:true})});await flush();await flush();
   assert.equal(ui.form.querySelector('[type=submit]').disabled,false);
  }finally{ui.close();}

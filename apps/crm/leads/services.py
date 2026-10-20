@@ -22,7 +22,13 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from leads.form_schema import CORE_FIELDS, FormSchemaError, effective_form_fields
+from leads.form_schema import (
+    CORE_FIELDS,
+    FormSchemaError,
+    effective_form_fields,
+    lead_form_schema_snapshot,
+    lead_form_schema_version,
+)
 
 from leads.models import ConsentRecord, LeadEventOutbox, LeadFormDefinition, LeadSubmission, SalesTeam
 from leads.google_data_manager import (
@@ -433,6 +439,14 @@ def clean_submission_input(payload: dict[str, Any], *, form_definition: LeadForm
         field_rules = effective_form_fields(form_definition)
     except FormSchemaError as exc:
         raise LeadCaptureError(str(exc)) from exc
+    schema_version = lead_form_schema_version(form_definition)
+    submitted_schema_version = str(payload.get('schema_version') or '').strip()
+    if submitted_schema_version and submitted_schema_version != schema_version:
+        raise LeadCaptureError(
+            '表单配置已更新，请刷新字段后重新提交。',
+            code='schema_changed',
+            status=409,
+        )
 
     def input_field(name, limit, *, fallback=''):
         if field_rules is not None and not field_rules.get(name, {}).get('enabled'):
@@ -623,7 +637,11 @@ def clean_submission_input(payload: dict[str, Any], *, form_definition: LeadForm
         'dedupe_key': sha256_text(dedupe_material),
         'route_path': _bounded_text(payload, 'route_path', 500),
         'cta_code': _bounded_text(payload, 'cta_code', 120),
-        'config_json': {'form_started_at': form_started_at} if form_started_at else {},
+        'config_json': {
+            **({'form_started_at': form_started_at} if form_started_at else {}),
+            'form_schema_version': schema_version,
+            'form_schema_snapshot': lead_form_schema_snapshot(form_definition),
+        },
     }
 
 

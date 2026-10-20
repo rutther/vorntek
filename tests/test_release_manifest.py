@@ -24,10 +24,10 @@ class ReleaseManifestTests(unittest.TestCase):
         self.assertEqual(manifest['format'], 'vorntek-source-release-v1')
         self.assertEqual(manifest['version'], (ROOT / 'VERSION').read_text().strip())
         self.assertRegex(manifest['git_commit'], r'^[a-f0-9]{40}$')
-        self.assertEqual(manifest['migrations']['count'], 43)
+        self.assertEqual(manifest['migrations']['count'], 47)
         self.assertEqual(
             manifest['migrations']['tip'],
-            '0043_site_example_bundle.sql',
+            '0047_customer_pool_final_state_constraints.sql',
         )
         # Bind the actual committed company package, not the retired24-file demo.
         # Read names independently of the manifest's mode/blob-hash tree parser.

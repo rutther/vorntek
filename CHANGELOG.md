@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0-rc.5] — configurable acquisition and operations sync
+
+- Public inquiry definitions now support locale-aware configurable fields,
+  submission-time schema snapshots and backend validation that remains stable
+  when an operator later edits the form.
+- The CRM uses one persistent PC navigation shell and adds denser lead paging,
+  selection and batch controls without silently carrying a selection to another
+  page.
+- Customer-pool and lead exports are bounded, permission-checked and formula-safe;
+  customer imports retain immutable parent-site ownership and enforce final-state
+  constraints through additive migrations 0044–0047.
+- Guided marketing keeps multiple independent instances of the same workflow,
+  restores consistent manage/guide routing and includes the complete illustrated
+  task and flow views.
+- The replaceable industrial site uses the configured public inquiry schema and
+  does not require a fixed industry form contract.
+- Supersedes `0.2.0-rc.4`. External Meta, email, WhatsApp and scheduled delivery
+  remain disabled by default; software tests do not claim provider reception or
+  advertising deduplication.
+
 ## [0.2.0-rc.4] — fresh-install browser fixture alignment
 
 - The isolated browser-acceptance fixture now creates the same `general` inquiry

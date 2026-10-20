@@ -1,0 +1,38 @@
+{% load static %}
+<aside class="nc-sidebar" aria-label="后台主导航" id="nc-primary-sidebar">
+    {% if resource_navigation %}
+        <button class="nc-resource-close" type="button" data-resource-nav-close aria-label="关闭主导航">
+            <i data-lucide="x" aria-hidden="true"></i>
+        </button>
+    {% endif %}
+    <a class="nc-brand" href="{{ console_home_url|default:'/admin/workbench/' }}" aria-label="{{ brand_name }} 后台首页">
+        <img src="{% static 'console/vorntekLogo.png' %}" alt="" width="34" height="34">
+        <span><strong>{{ brand_name }}</strong><small>获客与销售运营</small></span>
+    </a>
+
+    <nav class="nc-primary-nav" aria-label="主导航">
+        {% for item in nav_items %}
+            <a class="nc-nav-item {% if item.active %}is-active{% endif %}" href="{{ item.href }}" aria-label="{{ item.label }}：{{ item.description }}" title="{{ item.label }}" {% if item.active %}aria-current="page"{% endif %}>
+                <i data-lucide="{{ item.icon }}" aria-hidden="true"></i>
+                <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+            </a>
+            {% if item.active and item.children %}
+                <div class="nc-nav-children" role="group" aria-label="{{ item.label }}子导航">
+                    {% for child in item.children %}
+                        <a class="nc-nav-child {% if child.active %}is-active{% endif %}" href="{{ child.href }}" {% if child.active %}aria-current="page"{% endif %}>
+                            <strong>{{ child.label }}</strong>
+                            <small>{{ child.description }}</small>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    </nav>
+
+    <div class="nc-sidebar-footer">
+        <button type="button" class="nc-sidebar-collapse" data-nc-sidebar-collapse aria-pressed="false" aria-label="收起主导航" title="收起主导航">
+            <i data-lucide="panel-left-close" aria-hidden="true"></i>
+            <span>收起菜单</span>
+        </button>
+    </div>
+</aside>

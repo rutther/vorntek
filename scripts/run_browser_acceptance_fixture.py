@@ -156,11 +156,14 @@ def create_schema() -> None:
 
 
 def seed_fixture(port: int, password: str) -> None:
+    from datetime import timedelta
     from django.contrib.auth import get_user_model
     from django.contrib.auth.models import Group
+    from django.utils import timezone
     from console.access import GROUP_BY_ROLE, ROLE_SALES, ROLE_SYSTEM_ADMIN
+    from console.flow_workspace_service import create_flow
     from leads.customer_pool_services import create_manual_customer, publish_reviewed_customer
-    from leads.models import LeadFormDefinition, SalesTeam, SalesTeamMember
+    from leads.models import LeadFormDefinition, LeadSubmission, SalesTeam, SalesTeamMember
     from marketing.models import MarketingProvider
     from sitecore.models import Site, SiteLocale
 
@@ -183,22 +186,61 @@ def seed_fixture(port: int, password: str) -> None:
         code='siteos_demo', name='Vorntek', base_url=f'http://127.0.0.1:{port}',
         default_locale='en', enabled=True, config_json={},
     )
-    SiteLocale.objects.create(
+    locale = SiteLocale.objects.create(
         site=site, locale_code='en', label='English', direction='ltr',
         is_default=True, enabled=True, sort_order=10,
     )
-    MarketingProvider.objects.get_or_create(
+    provider, _ = MarketingProvider.objects.get_or_create(
         code='meta', defaults={'name': 'Meta', 'enabled': True},
     )
     team = SalesTeam.objects.create(site=site, code='default', name='Default Sales', enabled=True)
     SalesTeamMember.objects.create(team=team, user=sales, membership_role='member')
-    LeadFormDefinition.objects.create(
+    form = LeadFormDefinition.objects.create(
         site=site, locale=None, code='project-inquiry', name='Project inquiry',
         category='general', channel='website', scope_type='site', scope_value='*',
         status='active', capi_enabled=False, notify_emails='',
         success_message='Inquiry accepted.', form_schema={},
         config_json={'sales_team_code': 'default'},
     )
+    now = timezone.now()
+    stages = ('new', 'new', 'contacted', 'qualified')
+    countries = ('Kenya', 'Ghana', 'Germany', 'Brazil')
+    for index in range(30):
+        submitted_at = now - timedelta(hours=index * 3)
+        LeadSubmission.objects.create(
+            site=site, locale=locale, form=form,
+            stage=stages[index % len(stages)],
+            assignee=sales if index % 3 else None,
+            team=team,
+            full_name=f'Synthetic Buyer {index + 1:02d}',
+            email=f'buyer-{index + 1:02d}@example.invalid',
+            phone=f'+1555000{index + 1:04d}',
+            company=f'Synthetic Industrial Company {index + 1:02d}',
+            country=countries[index % len(countries)],
+            message='Synthetic browser-only inquiry for PC workspace acceptance.',
+            source_url=f'http://127.0.0.1:{port}/contact/',
+            source_channel='website' if index % 2 else 'meta_ads',
+            source_detail='Ephemeral browser acceptance fixture',
+            payload_json={'fixture': True, 'row': index + 1},
+            identifiers_json={}, utm_json={}, consent_json={}, config_json={},
+            next_follow_up_at=(
+                now - timedelta(hours=2) if index % 5 == 0
+                else now + timedelta(hours=index + 1)
+            ),
+            submitted_at=submitted_at,
+            stage_updated_at=submitted_at,
+            notification_status='sent',
+        )
+    create_flow(site=site, actor=admin, data={
+        'requestId': '00000000-0000-4000-8000-000000000001',
+        'name': 'Synthetic website acquisition 1',
+        'environment': 'production', 'note': 'Synthetic browser-only loop.',
+    })
+    create_flow(site=site, actor=admin, data={
+        'requestId': '00000000-0000-4000-8000-000000000002',
+        'name': 'Synthetic website acquisition 2',
+        'environment': 'test', 'note': 'Synthetic browser-only loop.',
+    })
     draft = create_manual_customer(
         site=site, actor=admin,
         idempotency_token='browser-fixture-create-available-0001',

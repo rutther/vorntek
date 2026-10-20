@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[1]
-PUBLIC_BASELINE='6d3eefe7e5e124c31d175a1bfc971b58dd197082'
+PUBLIC_BASELINE='20946994d1592a2a09e204b886c13e45560e304f'
 
 
 def preserved_original_rows(before: dict, after: dict) -> bool:
@@ -63,19 +63,24 @@ def _clean_checkout_revision(checkout: Path, label: str) -> str:
     return revision
 
 
-def validate_baseline_checkout(baseline: Path, candidate: Path) -> tuple[int,int,str]:
+def validate_baseline_checkout(
+    baseline: Path,
+    candidate: Path,
+    *,
+    expected_baseline: str | None = None,
+) -> tuple[int,int,str,str]:
     baseline=baseline.resolve(strict=True);candidate=candidate.resolve(strict=True)
     if baseline == candidate:
         raise ValueError('Separate baseline and candidate checkouts are required.')
     if (baseline/'apps/crm/.env').exists() or (candidate/'apps/crm/.env').exists():
         raise ValueError('Clean checkouts without application .env are required.')
     baseline_revision=_clean_checkout_revision(baseline,'Baseline')
-    if baseline_revision != PUBLIC_BASELINE:
-        raise ValueError('Baseline is not the frozen public main revision.')
+    if baseline_revision != (expected_baseline or PUBLIC_BASELINE):
+        raise ValueError('Baseline is not the expected trusted revision.')
     candidate_revision=_clean_checkout_revision(candidate,'Candidate')
     old_count,pending_count=validate_migration_prefix(
         baseline/'apps/crm/db/migrations',candidate/'apps/crm/db/migrations')
-    return old_count,pending_count,candidate_revision
+    return old_count,pending_count,candidate_revision,baseline_revision
 
 
 def main():
@@ -83,10 +88,16 @@ def main():
     parser.add_argument('--baseline-checkout',type=Path,required=True)
     parser.add_argument('--candidate-checkout',type=Path,default=ROOT)
     parser.add_argument('--pg-bin',type=Path,required=True)
+    parser.add_argument(
+        '--expected-baseline',default=PUBLIC_BASELINE,
+        help='Exact trusted baseline commit expected at --baseline-checkout.')
     args=parser.parse_args()
-    validate_baseline_checkout(args.baseline_checkout,args.candidate_checkout)
+    validate_baseline_checkout(
+        args.baseline_checkout,args.candidate_checkout,
+        expected_baseline=args.expected_baseline)
     return subprocess.call([sys.executable,str(args.candidate_checkout/'scripts/test_postgres_install.py'),
-        '--pg-bin',str(args.pg_bin),'--http','--baseline-checkout',str(args.baseline_checkout)])
+        '--pg-bin',str(args.pg_bin),'--http','--baseline-checkout',str(args.baseline_checkout),
+        '--expected-baseline',args.expected_baseline])
 
 
 if __name__=='__main__':
