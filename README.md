@@ -14,7 +14,8 @@ categories. See [release scope](docs/RELEASE_SCOPE.md) and
 
 The current public prerelease is
 [v0.2.0-rc.5](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.5).
-See the [rc.5 release notes](docs/releases/0.2.0-rc.5.md) and
+See the [rc.5 release notes](docs/releases/0.2.0-rc.5.md),
+[acceptance record](docs/releases/0.2.0-rc.5-acceptance.md) and
 [current verification status](docs/IMPLEMENTATION_STATUS.md) for the exact source,
 CI, download, upgrade, deployment and browser boundaries. The source version is recorded
 in [`VERSION`](VERSION) and returned by `/healthz/`; the
@@ -178,9 +179,10 @@ static site; generation does not delete other destination files. See the current
   [contributing](CONTRIBUTING.md), [CI](docs/CI.md).
 
 `docker compose down -v` destroys persistent volumes; it is **not an upgrade command**.
-The published source and its initial history have been checked; this candidate's
-release checks are tracked separately. Prebuilt container images are not part of
-this source distribution. No real
+The tagged source, public archives, anonymous installation, CI and authorized
+Vorntek deployment have separate evidence in the
+[rc.5 acceptance record](docs/releases/0.2.0-rc.5-acceptance.md). Prebuilt container
+images are not part of this source distribution. No real
 customers, credentials, original-company photos or private backups belong in the
 public project.
 

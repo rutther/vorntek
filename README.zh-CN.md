@@ -12,7 +12,8 @@
 当前公开预发布版是
 [v0.2.0-rc.5](https://github.com/rutther/vorntek/releases/tag/v0.2.0-rc.5)。
 精确源码、CI、下载、升级、部署与浏览器边界见
-[rc.5 发行说明](docs/releases/0.2.0-rc.5.md)和
+[rc.5 发行说明](docs/releases/0.2.0-rc.5.md)、
+[验收记录](docs/releases/0.2.0-rc.5-acceptance.md)和
 [当前验证状态](docs/IMPLEMENTATION_STATUS.md)。当前源码版本以
 [`VERSION`](VERSION) 与 `/healthz/` 为准；[验证状态](docs/IMPLEMENTATION_STATUS.md)
 将本地、远程 CI、公开下载证据与任何运行中的部署分开记录。
@@ -139,7 +140,8 @@ Git 历史/跟踪清单的完整性检查。仓库检出仍会执行这些检查
   [贡献说明](CONTRIBUTING.md)、[CI](docs/CI.md)。
 
 `docker compose down -v` 会销毁持久化卷，**不是升级命令**。
-已发布源码及其初始历史已经检查；容器二进制再分发及最终发布验收仍未完成。
+标签源码、公开压缩包、匿名安装、CI 及获授权的 Vorntek 部署分别记录在
+[rc.5 验收记录](docs/releases/0.2.0-rc.5-acceptance.md)中。公开发行不包含预构建容器镜像。
 公开项目不包含真实客户、凭据、原企业照片或私有备份。
 
 项目代码采用 [MIT](LICENSE)，第三方组件保留自己的许可，见[第三方声明](THIRD_PARTY_NOTICES.md)。
