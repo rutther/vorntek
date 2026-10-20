@@ -220,7 +220,11 @@ class NavigationResponsiveCssTests(SimpleTestCase):
         template_root = Path(settings.BASE_DIR) / 'console' / 'templates' / 'console'
         legacy_shell = (template_root / 'app_shell.html').read_text(encoding='utf-8')
         v2_shell = (template_root / 'v2' / 'base.html').read_text(encoding='utf-8')
+        flow_workspace = (template_root / 'v2' / 'pages' / 'flow_workspace.html').read_text(encoding='utf-8')
         canonical_partial = (template_root / '_primary_navigation.html').read_text(encoding='utf-8')
+        shell_script = (
+            Path(settings.BASE_DIR) / 'console' / 'static' / 'console' / 'v2' / 'shell.js'
+        ).read_text(encoding='utf-8')
 
         include = "{% include 'console/_primary_navigation.html' %}"
         stylesheet = "{% static 'console/primary-navigation.css' %}"
@@ -239,6 +243,13 @@ class NavigationResponsiveCssTests(SimpleTestCase):
         self.assertNotIn('class="sidebar"', legacy_shell)
         self.assertNotIn('class="nav"', legacy_shell)
         self.assertNotIn('id="toggleNav"', legacy_shell)
+        self.assertNotIn('block primary_navigation', flow_workspace)
+        self.assertNotIn('guide_navigation.html', flow_workspace)
+        self.assertNotIn('data-nc-sidebar-collapse', shell_script)
+        self.assertNotIn("localStorage.getItem('nc-sidebar-collapsed')", shell_script)
+        self.assertIn("console/v2/shell.js' %}?v=20261020-unified2", v2_shell)
+        self.assertIn('20261020-hk-sync1', flow_workspace)
+        self.assertNotIn('20261011-guided-frontend-r4', flow_workspace)
 
 
 class CanonicalNavigationQueryTests(TestCase):

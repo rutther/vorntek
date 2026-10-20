@@ -2,12 +2,11 @@
 {% load static %}
 {% block title %}{% if plan_workspace %}获客方案{% else %}引导式闭环{% endif %} · {{ site.name|default:'Vorntek' }}{% endblock %}
 {% block body_class %}nc-flow-workspace{% if not plan_workspace %} nc-guide-workspace{% endif %}{% endblock %}
-{% block primary_navigation %}{% if plan_workspace %}{{ block.super }}{% else %}{% include 'console/v2/partials/guide_navigation.html' %}{% endif %}{% endblock %}
 {% block breadcrumb %}<span>营销</span><i data-lucide="chevron-right" aria-hidden="true"></i><strong>{% if plan_workspace %}获客方案{% else %}引导式闭环{% endif %}</strong>{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'console/flow-workspace/app.css' %}?v=20261011-guided-frontend-r4">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'console/flow-workspace/app.css' %}?v=20261020-hk-sync1">{% endblock %}
 {% block content %}
 {{ flow_bootstrap|json_script:'flow-bootstrap' }}
 <div id="root" class="flow-crm-root"><p class="p-4" role="status">正在读取 CRM 流程…</p></div>
 <noscript><div class="alert alert-warning">此工作区需要启用 JavaScript。已有配置仍保存在 CRM，不会丢失。</div></noscript>
 {% endblock %}
-{% block extra_scripts %}<script type="module" src="{% static 'console/flow-workspace/app.js' %}?v=20261011-guided-frontend-r4"></script>{% endblock %}
+{% block extra_scripts %}<script type="module" src="{% static 'console/flow-workspace/app.js' %}?v=20261020-hk-sync1"></script>{% endblock %}

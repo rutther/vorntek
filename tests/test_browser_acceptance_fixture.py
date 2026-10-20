@@ -49,6 +49,14 @@ class BrowserAcceptanceFixtureTests(unittest.TestCase):
         self.assertIn("category='general'", source)
         self.assertNotIn("category='industrial'", source)
 
+    def test_fixture_seeds_multi_page_leads_and_multiple_loop_instances(self):
+        source = (ROOT/'scripts'/'run_browser_acceptance_fixture.py').read_text(encoding='utf-8')
+        self.assertIn('for index in range(30):', source)
+        self.assertIn("'name': 'Synthetic website acquisition 1'", source)
+        self.assertIn("'name': 'Synthetic website acquisition 2'", source)
+        self.assertIn("source_channel='website' if index % 2 else 'meta_ads'", source)
+        self.assertIn("'lead_submissions': LeadSubmission.objects.count()", source)
+
     def test_fixture_schema_covers_every_system_workbench_dependency(self):
         source = (ROOT/'scripts'/'run_browser_acceptance_fixture.py').read_text(encoding='utf-8')
         tree = ast.parse(source)
