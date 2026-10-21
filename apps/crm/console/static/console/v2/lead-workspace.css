@@ -78,6 +78,20 @@
 .nc-leads-page #lead-sort:focus-visible,
 .nc-leads-page .nc-density-control button:focus-visible { outline: 2px solid var(--nc-blue); outline-offset: 2px; }
 .nc-leads-page .nc-select-page { font-size: 12px; }
+.nc-leads-page .nc-list-count { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.nc-leads-page .nc-select-filtered {
+    border: 0;
+    padding: 2px 4px;
+    background: transparent;
+    color: var(--nc-blue);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.nc-leads-page .nc-select-filtered:hover { text-decoration: underline; }
+.nc-leads-page .nc-select-filtered:focus-visible { outline: 2px solid var(--nc-blue); outline-offset: 2px; }
+.nc-leads-page .nc-select-limit { color: var(--nc-text-secondary); font-size: 11px; line-height: 1.3; }
 .nc-leads-page .nc-density-control { display: inline-flex; flex: 0 0 auto; gap: 2px; }
 .nc-leads-page .nc-density-control button {
     border: 0;
@@ -90,7 +104,11 @@
     cursor: pointer;
 }
 .nc-leads-page .nc-density-control button[aria-pressed="true"] { background: var(--nc-blue-soft); color: var(--nc-blue); font-weight: 650; }
-.nc-leads-page .nc-pagination { display: flex; justify-content: space-between; gap: 4px; min-height: 42px; padding: 5px 10px; }
+.nc-leads-page .nc-pagination { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 42px; padding: 5px 10px; }
+.nc-leads-page .nc-pagination-meta,
+.nc-leads-page .nc-page-size-form { display: flex; align-items: center; gap: 5px; }
+.nc-leads-page .nc-page-size-form { color: var(--nc-text-secondary); font-size: 11px; }
+.nc-leads-page .nc-page-size-form select { height: 26px; border: 1px solid var(--nc-border); border-radius: 4px; background: #fff; color: var(--nc-text); }
 .nc-leads-page .nc-pagination > .nc-page-range { width: auto; height: auto; border: 0; background: transparent; font-size: 12px; color: var(--nc-text-secondary); white-space: nowrap; }
 .nc-leads-page .nc-page-controls { display: flex; align-items: center; gap: 6px; }
 .nc-leads-page .nc-page-controls > a,

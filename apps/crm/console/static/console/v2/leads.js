@@ -98,6 +98,15 @@
         return JSON.stringify(normalized);
     }
 
+    function canonicalFilteredQueueKey() {
+        const state = currentViewState([]);
+        const normalized = Object.keys(state.filters).sort().reduce((result, key) => {
+            result[key] = state.filters[key];
+            return result;
+        }, { sort: state.sort[0] });
+        return JSON.stringify(normalized);
+    }
+
     function sessionIdentity() {
         const workspace = q('[data-nc-lead-workspace]');
         const userId = String(workspace ? workspace.dataset.ncUserId || '' : '');
@@ -115,7 +124,10 @@
 
     function storageKey(kind) {
         const prefix = sessionPrefix(kind);
-        return prefix ? prefix + canonicalQueueKey() : '';
+        const queueKey = ['selection', 'assignment-retry'].includes(kind)
+            ? canonicalFilteredQueueKey()
+            : canonicalQueueKey();
+        return prefix ? prefix + queueKey : '';
     }
 
     function readSessionJson(key, fallback) {
@@ -617,6 +629,7 @@
         const trash = q('[data-nc-bulk-trash]', bar);
         const restore = q('[data-nc-bulk-restore]', bar);
         const clear = q('[data-nc-bulk-clear]', bar);
+        const selectFiltered = q('[data-nc-select-filtered]');
         const failurePanel = q('[data-nc-bulk-failures]', bar);
         const failureDetails = q('[data-nc-bulk-failure-details]', bar);
         const failureCount = q('[data-nc-bulk-failure-count]', bar);
@@ -627,22 +640,34 @@
         const confirmTrash = trashModalElement ? q('[data-nc-confirm-trash]', trashModalElement) : null;
         const trashReason = trashModalElement ? q('[data-nc-trash-reason]', trashModalElement) : null;
         const maxRecords = Number(workspace && workspace.dataset.ncBulkMax) || controls.length;
+        const filteredIdsNode = q('#lead-filtered-record-ids');
+        let allFilteredIds = [];
+        try {
+            const parsed = JSON.parse(filteredIdsNode ? filteredIdsNode.textContent : '[]');
+            allFilteredIds = Array.isArray(parsed)
+                ? parsed.map((id) => String(id)).filter((id) => /^\d+$/.test(id))
+                : [];
+        } catch (_) {
+            allFilteredIds = [];
+        }
         const selectionKey = storageKey('selection');
         const retryKey = storageKey('assignment-retry');
         let allowSelectionPersist = true;
         const currentIds = new Set(controls.map((control) => String(control.value)));
+        const allowedIds = new Set(allFilteredIds.length ? allFilteredIds : currentIds);
         const storedSelection = readSessionJson(selectionKey, []);
         const savedIds = (Array.isArray(storedSelection) ? storedSelection : [])
             .map((id) => String(id))
-            .filter((id) => /^\d+$/.test(id) && currentIds.has(id));
-        controls.forEach((control) => { control.checked = savedIds.includes(String(control.value)); });
+            .filter((id) => /^\d+$/.test(id) && allowedIds.has(id));
+        const selected = new Set(savedIds);
+        controls.forEach((control) => { control.checked = selected.has(String(control.value)); });
         const storedRetry = readSessionJson(retryKey, null);
         if (owner && isPlainObject(storedRetry) && /^\d+$/.test(String(storedRetry.ownerId || ''))) {
             const savedOwner = String(storedRetry.ownerId);
             if (qa('option', owner).some((option) => option.value === savedOwner)) owner.value = savedOwner;
         }
 
-        const selectedIds = () => controls.filter((control) => control.checked).map((control) => String(control.value));
+        const selectedIds = () => Array.from(selected);
         const showFailures = (failures) => {
             const items = Array.isArray(failures) ? failures : [];
             if (!failurePanel || !failureList || !items.length) {
@@ -675,10 +700,16 @@
         const update = () => {
             const ids = selectedIds();
             const visible = ids.length > 0;
+            controls.forEach((control) => { control.checked = selected.has(String(control.value)); });
             if (count) count.textContent = String(ids.length);
-            if (summary) summary.textContent = visible ? '本页已选' + ids.length + '条' : '未选择线索';
-            pageToggle.checked = ids.length === controls.length;
-            pageToggle.indeterminate = ids.length > 0 && ids.length < controls.length;
+            const allSelected = Boolean(allFilteredIds.length) && allFilteredIds.every((id) => selected.has(id));
+            if (summary) summary.textContent = visible
+                ? (allSelected ? '已选择全部筛选结果，共' + ids.length + '条' : '已选择' + ids.length + '条')
+                : '未选择线索';
+            const selectedCurrent = controls.filter((control) => selected.has(String(control.value))).length;
+            pageToggle.checked = selectedCurrent === controls.length;
+            pageToggle.indeterminate = selectedCurrent > 0 && selectedCurrent < controls.length;
+            if (selectFiltered) selectFiltered.disabled = bulkBusy || allSelected;
             bar.classList.toggle('is-visible', visible);
             bar.setAttribute('aria-hidden', 'false');
             if (list) list.classList.toggle('has-bulk-selection', visible);
@@ -709,8 +740,10 @@
         });
 
         controls.forEach((control) => control.addEventListener('change', () => {
-            const ids = selectedIds();
-            if (ids.length > maxRecords) {
+            const id = String(control.value);
+            if (control.checked) selected.add(id); else selected.delete(id);
+            if (selected.size > maxRecords) {
+                selected.delete(id);
                 control.checked = false;
                 announce('单次最多选择 ' + maxRecords + ' 条线索。', 'warning');
             }
@@ -723,12 +756,26 @@
                 update();
                 return;
             }
-            controls.forEach((control) => { control.checked = pageToggle.checked; });
+            controls.forEach((control) => {
+                const id = String(control.value);
+                if (pageToggle.checked) selected.add(id); else selected.delete(id);
+            });
             update();
+        });
+        if (selectFiltered) selectFiltered.addEventListener('click', () => {
+            if (!allFilteredIds.length) return;
+            if (allFilteredIds.length > maxRecords) {
+                announce('当前筛选结果超过单次上限 ' + maxRecords + ' 条，请先缩小筛选范围。', 'warning');
+                return;
+            }
+            selected.clear();
+            allFilteredIds.forEach((id) => selected.add(id));
+            update();
+            announce('已选择全部筛选结果，共 ' + selected.size + ' 条。');
         });
         if (owner) owner.addEventListener('change', update);
         clear.addEventListener('click', () => {
-            controls.forEach((control) => { control.checked = false; });
+            selected.clear();
             pageToggle.checked = false;
             if (owner) owner.value = '';
             showFailures([]);
@@ -747,7 +794,7 @@
             const assigneeId = String(owner.value);
             const capturedIds = new Set(ids);
             const busyControls = controls.concat(
-                [pageToggle, owner, clear, assign, trash, restore, openAssignment, closeAssignment].filter(Boolean)
+                [pageToggle, selectFiltered, owner, clear, assign, trash, restore, openAssignment, closeAssignment].filter(Boolean)
             );
             let keepBusyForNavigation = false;
             bulkBusy = true;
@@ -761,10 +808,7 @@
                     .filter((item) => capturedIds.has(String(item.id)));
                 records.forEach(updateAssignedRecord);
                 const failureIds = new Set(failures.map((item) => String(item.id)));
-                controls.forEach((control) => {
-                    const id = String(control.value);
-                    if (capturedIds.has(id) && !failureIds.has(id)) control.checked = false;
-                });
+                capturedIds.forEach((id) => { if (!failureIds.has(id)) selected.delete(id); });
                 update();
                 if (assignmentDialog && assignmentDialog.open) assignmentDialog.close();
                 if (failures.length) {
@@ -814,7 +858,7 @@
             const actionButton = restoreMode ? restore : confirmTrash;
             const actionLabel = restoreMode ? '恢复中…' : '移入中…';
             const busyControls = controls.concat(
-                [pageToggle, clear, trash, restore, confirmTrash, owner, assign, openAssignment, closeAssignment].filter(Boolean)
+                [pageToggle, selectFiltered, clear, trash, restore, confirmTrash, owner, assign, openAssignment, closeAssignment].filter(Boolean)
             );
             let keepBusyForNavigation = false;
             bulkBusy = true;
@@ -831,10 +875,7 @@
                 const failures = (Array.isArray(result.payload.failures) ? result.payload.failures : [])
                     .filter((item) => capturedIds.has(String(item.id)));
                 const failureIds = new Set(failures.map((item) => String(item.id)));
-                controls.forEach((control) => {
-                    const id = String(control.value);
-                    if (capturedIds.has(id) && !failureIds.has(id)) control.checked = false;
-                });
+                capturedIds.forEach((id) => { if (!failureIds.has(id)) selected.delete(id); });
                 writeSessionJson(selectionKey, failures.map((item) => String(item.id)));
                 if (failures.length) {
                     writeSessionJson(retryKey, { failures: failures });

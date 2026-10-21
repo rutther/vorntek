@@ -76,6 +76,16 @@ docker compose exec crm python manage.py seed_industrial_examples --apply --synt
 商机、任务、闭环实例、内容和文件。默认只生成计划，不写数据：
 `docker compose exec crm python manage.py seed_example_bundle` 及
 `docker compose exec crm python manage.py seed_content_examples`。
+
+只有在通用示例包仍保持原样时，才可按所有权清单将其移除：
+
+```bash
+docker compose exec crm python manage.py seed_example_bundle --apply --synthetic-only \
+  --remove --confirm-pack vorntek-general-v1 --owner YOUR_ADMIN
+```
+
+若示例已修改、被其他业务记录引用、外发已启用或包名确认不一致，命令会拒绝执行；
+未登记在示例包所有权清单中的客户数据不会被删除。
 显式导入需要合成目标及既有管理员；重复导入保留后续修改，限定重置不是清库。
 旧 [200 家客户演示](docs/DEMO_DATA.md)仅为历史可选方案，不是产品默认。不要使用旧清库脚本。
 

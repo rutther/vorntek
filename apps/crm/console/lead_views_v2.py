@@ -210,7 +210,10 @@ def _page_context(request, *, lead_id: int | None = None) -> dict:
                 'can_restore': bool(can_bulk_trash and is_trash_view),
                 'trash_url': reverse('console:lead_bulk_trash_v2'),
                 'restore_url': reverse('console:lead_bulk_restore_v2'),
-                'max_records': 100,
+                'max_records': workspace['bulk_selection']['limit'],
+                'filtered_total': workspace['bulk_selection']['total'],
+                'record_ids': workspace['bulk_selection']['record_ids'],
+                'can_select_all': workspace['bulk_selection']['can_select_all'],
                 'owners': [
                     {'id': owner.id, 'label': owner.get_full_name() or owner.get_username()}
                     for owner in bulk_owner_records

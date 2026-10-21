@@ -128,10 +128,10 @@ def _check_physical_references(by_model, present):
                 params.extend(child_ids)
             cursor.execute(sql+' LIMIT 1', params)
             if cursor.fetchone():
-                raise CommandError(f'Examples are referenced by non-example {table}; reset refused.')
+                raise CommandError(f'Examples are referenced by non-example {table}; operation refused.')
 
 
-def _reset(bundle, actor, *, owned_models=OWNED_MODELS):
+def _validated_owned_resources(bundle, *, owned_models=OWNED_MODELS):
     allowed = {model._meta.label_lower:model for model in owned_models}
     manifest = bundle.manifest_json
     if not isinstance(manifest, dict) or manifest.get('version') != 1:
@@ -143,14 +143,14 @@ def _reset(bundle, actor, *, owned_models=OWNED_MODELS):
             raise CommandError('Unknown example resource; no rows were deleted.')
         obj = model.objects.select_for_update().filter(pk=entry['pk']).first()
         if obj is None or _fingerprint(obj) != entry.get('fingerprint'):
-            raise CommandError(f'Example resource missing or modified: {model._meta.label}; reset refused.')
+            raise CommandError(f'Example resource missing or modified: {model._meta.label}; operation refused.')
         key = (model._meta.label_lower, str(obj.pk))
         if key in resources:
-            raise CommandError('Duplicate ownership entry; reset refused.')
+            raise CommandError('Duplicate ownership entry; operation refused.')
         resources[key] = obj
         by_model.setdefault(type(obj), []).append(obj.pk)
     if not resources:
-        raise CommandError('Empty ownership manifest; reset refused.')
+        raise CommandError('Empty ownership manifest; operation refused.')
 
     # Check all installed FK consumers, not merely the models seeded here.
     # A reset must not modify an example already adopted into later work.
@@ -167,8 +167,17 @@ def _reset(bundle, actor, *, owned_models=OWNED_MODELS):
             if child in by_model:
                 referenced = referenced.exclude(pk__in=by_model[child])
             if referenced.exists():
-                raise CommandError(f'Examples are referenced by non-example {child._meta.label}; reset refused.')
+                raise CommandError(f'Examples are referenced by non-example {child._meta.label}; operation refused.')
     _check_physical_references(by_model, present)
+
+    return manifest, resources, by_model
+
+
+def _reset(bundle, actor, *, owned_models=OWNED_MODELS):
+    manifest, resources, _by_model = _validated_owned_resources(
+        bundle,
+        owned_models=owned_models,
+    )
 
     # CRM timelines are append-only even for synthetic data. Reset is therefore
     # an in-place refresh of pristine scenario dates, not an uninstall/purge.
@@ -197,6 +206,45 @@ def _reset(bundle, actor, *, owned_models=OWNED_MODELS):
         entity_id=bundle.pk, after={'pack':bundle.pack_key, 'relative_dates':len(dates),
                                    'timelines_retained':True, 'reset_count':manifest['reset_count']})
     return {'result':'RESET', 'resources':len(resources), 'timelines_retained':True}
+
+
+def _owned_deletion_order(by_model):
+    """Return child models before the owned parents they reference."""
+
+    remaining = set(by_model)
+    ordered = []
+    while remaining:
+        referenced = set()
+        for child in remaining:
+            for field in child._meta.concrete_fields:
+                target = field.remote_field.model if field.is_relation else None
+                if target in remaining and target is not child:
+                    referenced.add(target)
+        leaves = sorted(
+            remaining - referenced,
+            key=lambda model: model._meta.label_lower,
+        )
+        if not leaves:
+            raise CommandError('Cyclic example ownership graph; removal refused.')
+        ordered.extend(leaves)
+        remaining.difference_update(leaves)
+    return ordered
+
+
+def _remove(bundle, actor):
+    _manifest, resources, by_model = _validated_owned_resources(bundle)
+    resource_count = len(resources)
+    record_audit(
+        actor=actor,
+        action='example_bundle_removed',
+        entity_table=bundle._meta.db_table,
+        entity_id=bundle.pk,
+        before={'pack': bundle.pack_key, 'resources': resource_count},
+    )
+    for model in _owned_deletion_order(by_model):
+        model.objects.filter(pk__in=by_model[model]).delete()
+    bundle.delete()
+    return {'result':'REMOVED', 'resources':resource_count}
 
 
 def _sync_next_steps(resources):
@@ -342,7 +390,7 @@ def _create_examples(data, site, actor):
 
 
 @transaction.atomic
-def apply_bundle(*, site_code, owner_name, reset=False):
+def apply_bundle(*, site_code, owner_name, reset=False, remove=False, confirm_pack=''):
     _silent()
     data, digest = load_bundle()
     site = Site.objects.select_for_update().filter(code=site_code, enabled=True).first()
@@ -357,6 +405,14 @@ def apply_bundle(*, site_code, owner_name, reset=False):
     if MarketingIntegration.objects.filter(site=site, enabled=True).exists():
         raise CommandError('Site integrations must remain disabled for synthetic examples.')
     bundle = ExampleDataBundle.objects.select_for_update().filter(site=site, pack_key=data['pack']).first()
+    if reset and remove:
+        raise CommandError('Choose either reset or remove, not both.')
+    if remove:
+        if confirm_pack != data['pack']:
+            raise CommandError(f'Removal requires --confirm-pack {data["pack"]}.')
+        if bundle is None:
+            return {'result':'ALREADY REMOVED', 'resources':0}
+        return _remove(bundle, actor)
     if reset:
         if bundle is None or bundle.state == 'reset':
             return {'result':'ALREADY RESET', 'resources':0}

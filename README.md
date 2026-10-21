@@ -94,6 +94,16 @@ for coherent inquiries, companies, contacts, opportunities, tasks, workflow
 instances, content and files. The default plan commands do not write data:
 `docker compose exec crm python manage.py seed_example_bundle` and
 `docker compose exec crm python manage.py seed_content_examples`.
+
+Remove an untouched general example bundle with an exact ownership check:
+
+```bash
+docker compose exec crm python manage.py seed_example_bundle --apply --synthetic-only \
+  --remove --confirm-pack vorntek-general-v1 --owner YOUR_ADMIN
+```
+
+The removal refuses modified examples, outside references, enabled delivery or
+an incorrect pack confirmation. It never removes untracked customer records.
 Explicit import requires a synthetic target and an existing administrator. Repeat
 import preserves later edits; bounded reset is not a purge. The older
 [200-customer demo](docs/DEMO_DATA.md) is historical/optional, not a product default.

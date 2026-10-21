@@ -38,6 +38,11 @@ class ExampleBundlePlanTests(SimpleTestCase):
         with self.assertRaisesRegex(CommandError, 'synthetic-only'):
             call_command('seed_example_bundle', apply=True)
 
+    def test_remove_requires_exact_pack_confirmation_before_database_access(self):
+        with self.assertRaisesRegex(CommandError, 'confirm-pack'):
+            call_command('seed_example_bundle', apply=True, synthetic_only=True,
+                         remove=True, owner='operator')
+
     @override_settings(NEWCROWN_ALLOW_EXTERNAL_IO=True, NEWCROWN_RUN_SCHEDULED_TASKS=False)
     def test_live_delivery_is_refused_before_database_access(self):
         with self.assertRaisesRegex(CommandError, 'disabled'):
@@ -155,6 +160,37 @@ class ExampleBundleLifecycleTests(TestCase):
         self.assertEqual(self.business_counts(), before)
         lead.refresh_from_db()
         self.assertEqual(lead.message, 'Later operator work must survive repeat import')
+
+    def test_remove_deletes_only_pristine_owned_examples(self):
+        self.command()
+        before_nonseed = Company.objects.filter(pk=self.nonseed.pk).values().get()
+
+        result = self.command(remove=True, confirm_pack='vorntek-general-v1')
+
+        self.assertEqual(result['result'], 'REMOVED')
+        self.assertGreater(result['resources'], 0)
+        self.assertEqual(LeadSubmission.objects.count(), 0)
+        self.assertEqual(Opportunity.objects.count(), 0)
+        self.assertEqual(Task.objects.count(), 0)
+        self.assertEqual(MarketingLoop.objects.count(), 0)
+        self.assertEqual(Article.objects.count(), 0)
+        self.assertEqual(FreePage.objects.count(), 0)
+        self.assertFalse(ExampleDataBundle.objects.exists())
+        self.assertEqual(Company.objects.filter(pk=self.nonseed.pk).values().get(), before_nonseed)
+        self.assertEqual(list(MarketingIntegration.objects.order_by('pk').values()), self.original_integrations)
+
+    def test_remove_refuses_modified_example_without_partial_deletion(self):
+        self.command()
+        lead = LeadSubmission.objects.first()
+        lead.message = 'Adopted into later operator work'
+        lead.save(update_fields=['message', 'updated_at'])
+        before = self.business_counts()
+
+        with self.assertRaisesRegex(CommandError, 'modified'):
+            self.command(remove=True, confirm_pack='vorntek-general-v1')
+
+        self.assertEqual(self.business_counts(), before)
+        self.assertTrue(ExampleDataBundle.objects.exists())
 
     def test_example_articles_can_use_the_real_bilingual_publishing_contract(self):
         from console.article_delivery import snapshot_cms_articles

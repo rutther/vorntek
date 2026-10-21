@@ -1,6 +1,6 @@
 {
   "scope": "installed locked Python distributions; not license approval or image verification",
-  "requirements_lock_sha256": "f154ccf0ae703a17320ef50c35c70a19d56cbc690a23caaa61175a5a7b97384f",
+  "requirements_lock_sha256": "f69b90c30bfa3768ec2e5121575ff0ea96994959a0bec9437e794336a9fd8439",
   "packages": [
     {
       "name": "asgiref",
@@ -18,7 +18,7 @@
     },
     {
       "name": "certifi",
-      "version": "2026.7.22",
+      "version": "2026.10.19",
       "license_metadata": "MPL-2.0",
       "declared_license_files": [
         "LICENSE"
