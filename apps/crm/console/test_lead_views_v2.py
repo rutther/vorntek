@@ -1878,7 +1878,7 @@ class LeadViewsV2ContractTests(TestCase):
             / 'leads.js'
         ).read_text(encoding='utf-8')
         self.assertIn('Array.isArray(storedSelection)', source)
-        self.assertIn('/^\\d+$/.test(id) && currentIds.has(id)', source)
+        self.assertIn('/^\\d+$/.test(id) && allowedIds.has(id)', source)
 
     def test_v2_disposition_draft_source_contract_guards_user_input(self):
         source = (
@@ -1983,7 +1983,7 @@ class LeadViewsV2ContractTests(TestCase):
 
         self.assertIn('const capturedIds = new Set(ids);', source)
         self.assertIn('const assigneeId = String(owner.value);', source)
-        self.assertIn('[pageToggle, owner, clear, assign, trash, restore, openAssignment, closeAssignment]', source)
+        self.assertIn('[pageToggle, selectFiltered, owner, clear, assign, trash, restore, openAssignment, closeAssignment]', source)
         self.assertIn("bar.setAttribute('aria-hidden', 'false')", source)
         self.assertIn('if (bulkBusy || !ids.length) return;', source)
         self.assertIn('assignmentDialog.showModal()', source)
@@ -3216,6 +3216,9 @@ class LeadViewsV2ContractTests(TestCase):
         )
         self.assertIn('href="/admin/sales/leads/?view=trash&amp;sort=newest"', active_html)
         self.assertIn('data-nc-bulk-trash', active_html)
+        self.assertIn('data-nc-select-filtered', active_html)
+        self.assertIn('选择全部筛选结果', active_html)
+        self.assertIn('id="lead-filtered-record-ids"', active_html)
         self.assertIn('id="lead-trash-confirm-modal"', active_html)
         self.assertEqual(active_html.count('data-nc-select-page'), 1)
 
@@ -3240,6 +3243,8 @@ class LeadViewsV2ContractTests(TestCase):
         self.assertIn('postTrashTransition', script)
         self.assertIn('data-nc-bulk-trash', script)
         self.assertIn('data-nc-bulk-restore', script)
+        self.assertIn('allFilteredIds', script)
+        self.assertIn('data-nc-select-filtered', script)
 
     def test_detail_get_canonicalizes_sla_sort_after_follow_up_deadline_changes(self):
         for index in range(20):

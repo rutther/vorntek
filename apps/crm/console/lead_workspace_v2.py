@@ -69,7 +69,8 @@ ACTIVE_STAGES = ('new', 'contacted', 'qualified')
 ACTIONABLE_TASK_STATUSES = ('open', 'in_progress')
 SLA_FILTERS = ('all', 'overdue', 'due_soon', 'scheduled', 'unplanned')
 PAGE_SIZES = (20, 25, 50, 100)
-DEFAULT_PAGE_SIZE = 25
+DEFAULT_PAGE_SIZE = 50
+BULK_SELECTION_LIMIT = 100
 SORT_KEYS = ('sla', 'newest', 'oldest', 'updated', 'name')
 SAVED_FILTER_KEYS = frozenset({'q', 'stage', 'language', 'source', 'owner', 'sla', 'page_size'})
 SAFE_TOKEN = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
@@ -464,6 +465,12 @@ def build_lead_workspace_v2(
         return {'redirect_url': _detail_url(first_id, filters=filters, page=page_obj.number,
             list_url=list_url, detail_url_name=detail_url_name) if first_id is not None else None}
 
+    bulk_selection_ids = (
+        list(ordered.values_list('pk', flat=True))
+        if paginator.count <= BULK_SELECTION_LIMIT
+        else []
+    )
+
     selected_record = ordered.filter(pk=lead_id).first() if lead_id is not None else None
     navigation = _record_navigation(ordered, selected_record.id, sort_spec) if selected_record is not None else None
     selected_page = (navigation[0] - 1) // filters.page_size + 1 if navigation is not None else None
@@ -682,6 +689,12 @@ def build_lead_workspace_v2(
         'rows': rows,
         'page_obj': page_obj,
         'pagination': pagination,
+        'bulk_selection': {
+            'total': paginator.count,
+            'record_ids': bulk_selection_ids,
+            'can_select_all': bool(bulk_selection_ids),
+            'limit': BULK_SELECTION_LIMIT,
+        },
         'list_url': _url_with_query(list_url, filters.query_params(page=page_obj.number)),
         'clear_filters_url': _url_with_query(
             list_url,

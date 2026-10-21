@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0-rc.6] — clean lead queue and cross-page selection
+
+- The lead queue now defaults to 50 records per page and exposes the page-size
+  control directly beside pagination.
+- Operators can select the current page or every record in the current filtered
+  result, with the exact selection retained across pages and the existing
+  permission checks and 100-record batch limit preserved.
+- The separately owned synthetic example bundle can be removed only with an
+  exact pack confirmation; modified or externally referenced examples fail
+  closed and unrelated business data is left untouched.
+- Supersedes `0.2.0-rc.5`. External Meta, email, WhatsApp and scheduled delivery
+  remain disabled by default.
+
 ## [0.2.0-rc.5] — configurable acquisition and operations sync
 
 - Public inquiry definitions now support locale-aware configurable fields,

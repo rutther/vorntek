@@ -112,6 +112,14 @@ class LeadWorkspaceV2FilterTests(SimpleTestCase):
             filters,
             LeadWorkspaceV2Filters(),
         )
+        self.assertEqual(filters.page_size, 50)
+
+    def test_default_page_size_is_fifty(self):
+        request = self.factory.get('/admin/sales/leads/')
+
+        filters = LeadWorkspaceV2Filters.from_querydict(request.GET)
+
+        self.assertEqual(filters.page_size, 50)
 
     def test_every_sort_has_an_explicit_id_tie_breaker(self):
         for key, spec in SORT_SPECS.items():
@@ -549,6 +557,12 @@ class LeadWorkspaceV2DatabaseTests(TestCase):
             [self.lead_overdue.id, self.lead_due.id, self.lead_scheduled.id],
         )
         self.assertEqual(context['stats']['filtered'], 3)
+        self.assertEqual(context['bulk_selection']['total'], 3)
+        self.assertEqual(
+            context['bulk_selection']['record_ids'],
+            [self.lead_overdue.id, self.lead_due.id, self.lead_scheduled.id],
+        )
+        self.assertTrue(context['bulk_selection']['can_select_all'])
         self.assertEqual(context['stats']['mine'], 2)
         self.assertEqual(context['stats']['overdue'], 1)
         self.assertEqual(context['stats']['due_soon'], 1)

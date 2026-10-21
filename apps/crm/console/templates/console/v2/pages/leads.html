@@ -5,7 +5,7 @@
 {% block body_class %}nc-leads-page {% if workspace.selected and workspace.can_write %}nc-has-actionbar{% endif %}{% endblock %}
 
 {% block extra_head %}
-    <link rel="stylesheet" href="{% static 'console/v2/lead-workspace.css' %}?v=20261020-lead-density-r1">
+    <link rel="stylesheet" href="{% static 'console/v2/lead-workspace.css' %}?v=20261021-cross-page-r1">
 {% endblock %}
 
 {% block breadcrumb %}
@@ -19,11 +19,12 @@
 {% endblock %}
 
 {% block extra_scripts %}
-    <script src="{% static 'console/v2/leads.js' %}?v=20261020-lead-density-r1"></script>
+    <script src="{% static 'console/v2/leads.js' %}?v=20261021-cross-page-r1"></script>
 {% endblock %}
 
 {% block content %}
 <div class="nc-lead-workspace{% if workspace.assignment_readiness.blocked %} has-assignment-readiness{% endif %}" data-nc-lead-workspace data-nc-user-id="{{ request.user.pk }}" data-nc-site-id="{{ workspace.site.pk }}" data-nc-selected-record="{{ workspace.selected.id|default:'' }}" data-nc-list-url="{{ workspace.list_url }}" data-nc-bulk-url="{{ workspace.bulk.url|default:'' }}" data-nc-bulk-trash-url="{{ workspace.bulk.trash_url|default:'' }}" data-nc-bulk-restore-url="{{ workspace.bulk.restore_url|default:'' }}" data-nc-queue-view="{{ workspace.filters.view }}" data-nc-bulk-max="{{ workspace.bulk.max_records|default:0 }}">
+    {{ workspace.bulk.record_ids|json_script:"lead-filtered-record-ids" }}
     {% if workspace.assignment_readiness.blocked %}
         <div class="alert alert-warning m-3 mb-0" role="alert" data-nc-assignment-readiness>
             <strong>负责人配置未就绪。</strong> {{ workspace.assignment_readiness.message }}
@@ -176,6 +177,11 @@
                         <input id="lead-select-page" type="checkbox" data-nc-select-page aria-describedby="lead-select-page-note">
                         <span>选择本页</span>
                     </label>
+                    {% if workspace.bulk.can_select_all %}
+                        <button class="nc-select-filtered" type="button" data-nc-select-filtered>选择全部筛选结果（{{ workspace.bulk.filtered_total }} 条）</button>
+                    {% elif workspace.bulk.filtered_total > workspace.bulk.max_records %}
+                        <span class="nc-select-limit" title="单次批量操作最多 {{ workspace.bulk.max_records }} 条">当前筛选 {{ workspace.bulk.filtered_total }} 条，请缩小范围后批量处理</span>
+                    {% endif %}
                     <small id="lead-select-page-note" class="visually-hidden">仅当前页；翻页不自动选中其他页，返回本页恢复选择</small>
                 {% else %}
                     <span>共 {{ workspace.stats.filtered }} 条</span>
@@ -247,7 +253,13 @@
         </ul>
 
         <nav class="nc-pagination" aria-label="线索分页">
-            <span class="nc-page-range" title="每页 {{ workspace.filters.page_size }} 条">{% if workspace.pagination.total %}第{{ workspace.pagination.start_index }}–{{ workspace.pagination.end_index }}条，共{{ workspace.pagination.total }}条{% else %}共0条{% endif %}</span>
+            <div class="nc-pagination-meta">
+                <span class="nc-page-range" title="每页 {{ workspace.filters.page_size }} 条">{% if workspace.pagination.total %}第{{ workspace.pagination.start_index }}–{{ workspace.pagination.end_index }}条，共{{ workspace.pagination.total }}条{% else %}共0条{% endif %}</span>
+                <form action="{% url 'console:lead_workspace_v2' %}" method="get" class="nc-page-size-form">
+                    <input type="hidden" name="view" value="{{ workspace.filters.view }}"><input type="hidden" name="q" value="{{ workspace.filters.query }}"><input type="hidden" name="stage" value="{{ workspace.filters.stage }}"><input type="hidden" name="language" value="{{ workspace.filters.language }}"><input type="hidden" name="source" value="{{ workspace.filters.source }}"><input type="hidden" name="owner" value="{{ workspace.filters.owner }}"><input type="hidden" name="sla" value="{{ workspace.filters.sla }}"><input type="hidden" name="sort" value="{{ workspace.filters.sort }}"><input type="hidden" name="page" value="1">
+                    <label for="lead-page-size">每页</label><select id="lead-page-size" name="page_size" data-nc-submit-on-change>{% for value in workspace.options.page_sizes %}<option value="{{ value }}" {% if workspace.filters.page_size == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select><span>条</span>
+                </form>
+            </div>
             <div class="nc-page-controls">
                 {% if workspace.pagination.previous_url %}<a href="{{ workspace.pagination.previous_url }}" aria-label="上一页"><i data-lucide="chevron-left" aria-hidden="true"></i></a>{% else %}<span aria-disabled="true"><i data-lucide="chevron-left" aria-hidden="true"></i></span>{% endif %}
                 <strong>{{ workspace.pagination.current_page }} / {{ workspace.pagination.total_pages }}</strong>
@@ -256,7 +268,7 @@
         </nav>
 
         {% if workspace.bulk.can_select and workspace.rows %}
-            <section class="nc-bulk-bar" aria-label="本页线索批量操作" aria-hidden="false" data-nc-bulk-bar>
+            <section class="nc-bulk-bar" aria-label="线索批量操作" aria-hidden="false" data-nc-bulk-bar>
                 <div class="nc-bulk-summary">
                     <strong data-nc-selection-summary aria-live="polite">未选择线索</strong>
                     <button class="btn btn-ghost-secondary btn-sm nc-bulk-clear" type="button" data-nc-bulk-clear disabled>清除选择</button>
@@ -265,7 +277,7 @@
                 <button class="btn btn-outline-primary btn-sm" type="button" data-nc-open-assignment disabled>分配负责人</button>
                 <dialog class="nc-assignment-dialog" data-nc-assignment-dialog aria-labelledby="lead-bulk-assignment-title">
                     <h2 id="lead-bulk-assignment-title">分配负责人</h2>
-                    <p>将本页已勾选的 <strong data-nc-assignment-count>0</strong> 条线索分配给：</p>
+                    <p>将已选择的 <strong data-nc-assignment-count>0</strong> 条线索分配给：</p>
                     <label class="nc-bulk-owner" for="lead-bulk-owner">
                         <span>负责人</span>
                         <select id="lead-bulk-owner" data-nc-bulk-owner>
@@ -281,7 +293,7 @@
                 {% endif %}
                 {% if workspace.bulk.can_trash %}<button class="btn btn-outline-danger btn-sm" type="button" data-nc-bulk-trash disabled>移入回收站</button>{% endif %}
                 {% if workspace.bulk.can_restore %}<button class="btn btn-primary btn-sm" type="button" data-nc-bulk-restore disabled>恢复所选</button>{% endif %}
-                <span class="nc-bulk-scope">{{ workspace.filters.page_size }}条/页 · 仅处理本页勾选</span>
+                <span class="nc-bulk-scope">默认 {{ workspace.filters.page_size }} 条/页 · 可选择本页或全部筛选结果 · 单次最多 {{ workspace.bulk.max_records }} 条</span>
                 <div class="nc-bulk-failures" role="status" aria-live="polite" data-nc-bulk-failures hidden>
                     <details data-nc-bulk-failure-details>
                         <summary><strong><span data-nc-bulk-failure-count>0</span> 条未更新</strong><span>查看逐条原因</span></summary>
@@ -694,7 +706,7 @@
             <div class="modal-header">
                 <div>
                     <h2 class="modal-title" id="lead-trash-confirm-title">将所选线索移入回收站？</h2>
-                    <p id="lead-trash-confirm-description">本次选择 <strong data-nc-trash-count>0</strong> 条，仅处理当前页已勾选的线索。这不是永久删除。线索、活动和任务会保留，之后可以从回收站恢复；已转换的线索不会被移入。</p>
+                    <p id="lead-trash-confirm-description">本次选择 <strong data-nc-trash-count>0</strong> 条线索。这不是永久删除。线索、活动和任务会保留，之后可以从回收站恢复；已转换的线索不会被移入。</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
             </div>
