@@ -52,11 +52,15 @@ test('real HTTP body timeout releases App save lock and retry confirms the same 
  });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const origin=`http://127.0.0.1:${server.address().port}`;
- const api=createApiClient({apiUrl:'/test-api/',csrfToken:'synthetic-test-only',timeoutMs:500},(url,init)=>fetch(origin+url,init));
+ // Keep the deadline short enough to exercise the real timeout path, while
+ // leaving enough headroom for a contended container host to accept and read
+ // the request body before the client aborts it. The assertion below is about
+ // replay/idempotency, not whether the event loop can schedule within 500 ms.
+ const api=createApiClient({apiUrl:'/test-api/',csrfToken:'synthetic-test-only',timeoutMs:2000},(url,init)=>fetch(origin+url,init));
  globalThis.location=window.location;window.scrollTo=()=>{};
  window.history.replaceState(null,'','#/flow/guide-one?view=tasks&node=website');
  const root=createRoot(document.getElementById('root'));
- const eventually=async(predicate)=>{const until=Date.now()+4000;while(!predicate()&&Date.now()<until)await act(async()=>{await new Promise(resolve=>setTimeout(resolve,20));});assert.ok(predicate(),'expected UI state before safety deadline');};
+ const eventually=async(predicate)=>{const until=Date.now()+8000;while(!predicate()&&Date.now()<until)await act(async()=>{await new Promise(resolve=>setTimeout(resolve,20));});assert.ok(predicate(),'expected UI state before safety deadline');};
  try{
   await act(async()=>root.render(React.createElement(appModule.exports.App,{crm:true,initialData:{loops:[stored]},api})));
   const input=document.querySelector('#guide-panel-website input');
